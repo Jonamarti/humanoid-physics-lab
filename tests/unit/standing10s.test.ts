@@ -16,7 +16,7 @@ describe("Experimental 10-second neutral standing (actual MuJoCo WASM)", () => {
     const model = mj.MjModel.from_xml_string(xml);
     const data = new mj.MjData(model);
     const gains = makeNeutralStandingPD(model);
-    const report: { t: number; pelvisZ: number; tiltDeg: number; contacts: number }[] = [];
+    const report: Array<Record<string, unknown>> = [];
     try {
       mj.mj_forward(model, data);
       const initialHeight = data.qpos[2]!;
@@ -32,12 +32,24 @@ describe("Experimental 10-second neutral standing (actual MuJoCo WASM)", () => {
         mj.mj_step(model, data);
         worstTilt = Math.max(worstTilt, rootTiltDegrees(data.qpos));
         lowestPelvis = Math.min(lowestPelvis, data.qpos[2]!);
-        if ((i + 1) % 1000 === 0) {
+        if ([25, 50, 100, 200, 400, 500, 1000, 2000, 3000, 4000, 5000].includes(i + 1)) {
+          const named = (name: string): number => {
+            const id = model.jnt(name).id;
+            return Number(data.qpos[model.jnt_qposadr[id]!]?.toFixed(3) ?? 0);
+          };
+          const q = Array.from(data.qpos.slice(3,7), x => Number(x.toFixed(3)));
+          const v = Array.from(data.qvel.slice(0,6), x => Number(x.toFixed(3)));
+          const com = Array.from((data.subtree_com as Float64Array).slice(3,6), x => Number(x.toFixed(3)));
           report.push({
             t: Number(data.time.toFixed(3)),
             pelvisZ: Number(data.qpos[2]!.toFixed(3)),
             tiltDeg: Number(rootTiltDegrees(data.qpos).toFixed(1)),
             contacts: data.ncon,
+            q, v, com,
+            leftAnklePitch: named("left_ankle_pitch"),
+            leftKnee: named("left_knee"),
+            leftHipPitch: named("left_hip_pitch"),
+            leftHipRoll: named("left_hip_roll"),
           });
         }
       }

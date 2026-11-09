@@ -50,3 +50,53 @@ corresponde con el paso físico anterior (retardo máximo 2 ms).
   izquierdo y derecho) con masas reales y pares limitados, registrando
   los resultados físicos, incluidos fallos.
 - La bipedestación y empujones previos deben conservar sus métricas.
+
+## Resultado observado en CI — revisión de dirección y estabilidad
+
+Registro de la rama experimental:
+[GitHub Actions](https://github.com/Jonamarti/humanoid-physics-lab/actions/workflows/ci.yml)
+(`tests/unit/experimentalStepMujoco.test.ts`,
+`tests/unit/stepTransitionTrace.test.ts`).
+
+Los primeros ensayos *sin comprobar desplazamiento firmado* indicaron
+`COMPLETE` porque hubo elevación, cambio de contacto y aterrizaje. **Era
+un falso positivo de aceptación**: un ensayo solicitado hacia delante
+podía terminar con el pie desplazado hacia atrás.
+
+Ahora se exige progreso firmado sobre la dirección objetivo, aterrizaje
+bajo carga y recuperación sostenida. La versión probada registra
+`ABORT` para ambos ensayos diagonales iniciales, aunque detectó
+despegue real (~3,94 cm), vuelo y al menos un aterrizaje cargado.
+Los barridos de seis direcciones adicionales detectan abortos y algunas
+caídas físicas. **Ninguna de esas seis combinaciones ha superado aún
+el criterio completo de marcha/colocación.**
+
+Trazas representativas con controlador nominal preservado:
+
+- Paso izquierda diagonal: transferencia a pie de apoyo en t≈1,36 s,
+  despegue en t≈1,58 s, contacto en t≈2,14 s, pero el pie pierde
+  el avance firmado antes de recuperar, por lo que se informa `ABORT`.
+- Paso izquierda delante: el pie avanzó 11,7 cm en vuelo, tocó el suelo
+  en t≈1,82 s, y después se deslizó hacia atrás, terminando en
+  `ABORT`, no en «paso conseguido».
+- Prueba de ponderación de pares de tobillo según GRF real: empeoró
+  notablemente la estabilidad y terminó con caídas. Esa modificación
+  ha sido **revertida**: el controlador nominal no cambia.
+
+### Siguientes criterios de aceptación (pendientes)
+
+- Control de posición del pie de vuelo en bucle cerrado (Jacobiano/IK
+  con torques internos acotados), no solo comandos angulares heurísticos.
+- Mantener soporte y la posición de aterrizaje: error al objetivo,
+  deslizamiento de suela de apoyo y objetivo firmado tras 1 s.
+- Realimentación del CoP/GRF y del COM sin alterar de forma brusca los
+  puntos de equilibrio durante apoyos simples/dobles.
+- Dos pies, desplazamientos anteriores/posteriores/laterales;
+  recuperación probada contra perturbaciones independientes.
+- No activar automáticamente esta secuencia para empujones hasta
+  superar pruebas con despegue/contacto y sin caída.
+
+La UI experimental permite iniciar y **observar un intento**, y
+distingue `ABORT` de `FALL`. No se afirma marcha estable. El
+benchmark puede pasar sus tests técnicos aunque la maniobra de
+locomoción todavía falle: los tests registran el resultado real.

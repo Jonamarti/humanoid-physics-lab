@@ -49,3 +49,30 @@ global NO es una fuerza de apoyo ni identifica el pie cargado.
 
 No usar el vídeo de robots comerciales como calibración cuantitativa si no
 se conocen masa, punto de fuerza, perfil de empujón y controlador del robot.
+
+## Primera medición del benchmark (CI, 09-11-2026)
+
+Run con tests físicos MuJoCo WASM (8 × 2 intensidades):
+https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42633730634
+
+| Dirección | 120 N pico (9,17 N·s) | 240 N pico (18,33 N·s) |
+| --- | --- | --- |
+| Adelante | Recupera sin paso | Recupera sin paso |
+| Atrás | Recupera sin paso | **Cae** |
+| Izquierda | Recupera sin paso | Recupera sin paso |
+| Derecha | Recupera sin paso | Recupera sin paso |
+| Adelante-izquierda | Recupera sin paso | Recupera sin paso |
+| Adelante-derecha | Recupera sin paso | Recupera sin paso |
+| Atrás-izquierda | Recupera sin paso | **Cae** |
+| Atrás-derecha | Recupera sin paso | **Cae** |
+
+**13 recuperaciones / 3 caídas** conforme a los umbrales de observación
+mencionados, **sin ningún paso intencionado**. En las tres caídas de
+240 N posteriores/diagonales, la pelvis bajó hasta aproximadamente
+0,124–0,127 m y la inclinación máxima alcanzó ~88–89 grados.
+No existe aún validación de biomecánica real ni se ha demostrado que
+esos valores de fuerza produzcan el mismo resultado en personas.
+
+Este resultado fija una **línea base reproducible**: el controlador de
+pasos deberá intentar recuperar algunos de los casos que ahora caen,
+sin ocultar fallos y sin modificar artificialmente las fuerzas aplicadas.

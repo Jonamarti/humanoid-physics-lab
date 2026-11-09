@@ -6,6 +6,9 @@ import type { FootSide } from "./recoveryPlanner";
 /** EXPERIMENTAL: physical joints only. No root actuation, foot teleportation
  * or fake contact. An aborted attempt is NOT a simulated fall.
  */
+/** Post-touchdown control alternatives, A/B tested with identical physics. */
+export type LandingJointPolicy = "old-target" | "neutral-pd" | "hold-contact-pose";
+
 export type StepPhase =
   "STAND" | "SHIFT_WEIGHT" | "LIFT" | "SWING" | "LAND" | "RECOVER" |
   "COMPLETE" | "ABORT" | "FALL";
@@ -22,6 +25,8 @@ export interface StepFeedback {
   readonly supportSoleWorldM: XYZ;
   readonly supportLoadN: number;
   readonly swingLoadN: number;
+  /** Sampled real joint qpos when needed for optional hold-contact-pose. */
+  readonly swingJointAnglesRad?: Readonly<Record<string, number>>;
 }
 
 export interface StepCommand {
@@ -74,6 +79,7 @@ export class ExperimentalStepSequence {
   private maxSupportLoadFraction = 0;
   private stepContactConfirmed = false;
   private firstLandingSole: XYZ | undefined;
+  private landingJointPoseRad: Readonly<Record<string, number>> | undefined;
   private maxContactSlipM = 0;
   private latestSwingLoadN = 0;
   private settledSinceS: number | undefined;
@@ -83,10 +89,12 @@ export class ExperimentalStepSequence {
     readonly swingSide: FootSide,
     readonly targetDeltaXY: XY,
     readonly startTimeS = 0.8,
+    readonly landingPolicy: LandingJointPolicy = "old-target",
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
-      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS)) {
+      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
+      !["old-target","neutral-pd","hold-contact-pose"].includes(landingPolicy)) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -121,7 +129,8 @@ export class ExperimentalStepSequence {
     if (![info.timeS, ...info.comWorldM, ...info.comVelocityWorldMps,
       info.pelvisHeightM, info.rootTiltDeg,
       ...info.swingSoleWorldM, ...info.supportSoleWorldM,
-      info.supportLoadN, info.swingLoadN].every(Number.isFinite) ||
+      info.supportLoadN, info.swingLoadN,
+      ...Object.values(info.swingJointAnglesRad ?? {})].every(Number.isFinite) ||
       info.supportLoadN < 0 || info.swingLoadN < 0 || info.rootTiltDeg < 0 ||
       typeof info.comProjectionInsideLoadedSupport !== "boolean" ||
       typeof info.capturePointInsideLoadedSupport !== "boolean" ||
@@ -233,6 +242,13 @@ export class ExperimentalStepSequence {
             info.swingLoadN > 40) {
           this.stepContactConfirmed = true;
           this.firstLandingSole = [...info.swingSoleWorldM] as XYZ;
+          if (this.landingPolicy === "hold-contact-pose") {
+            if (!info.swingJointAnglesRad ||
+                Object.keys(info.swingJointAnglesRad).length !== 4) {
+              throw new Error("Faltan las cuatro posiciones articulares medidas al aterrizar");
+            }
+            this.landingJointPoseRad = { ...info.swingJointAnglesRad };
+          }
           this.transition("RECOVER",info.timeS,"Aterrizaje con carga real verificado");
         } else if (elapsed > 0.9) {
           this.transition("ABORT",info.timeS,"Aterrizaje en dirección objetivo no confirmado");
@@ -284,7 +300,12 @@ export class ExperimentalStepSequence {
       ];
     }
     const joints: Record<string,number> = {};
-    if (["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
+    const landed = this.phase === "RECOVER" || this.phase === "COMPLETE";
+    if (landed && this.landingPolicy === "hold-contact-pose" &&
+        this.landingJointPoseRad) {
+      Object.assign(joints,this.landingJointPoseRad);
+    } else if (!(landed && this.landingPolicy === "neutral-pd") &&
+      ["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
       const dx = this.targetDeltaXY[0],dy = this.targetDeltaXY[1];
       const lift = this.phase === "LIFT" || this.phase === "SWING";
       joints[`${this.swingSide}_hip_pitch`] = this.phase === "LIFT"

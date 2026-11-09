@@ -16,6 +16,7 @@ export interface StepFeedback {
   readonly pelvisHeightM: number;
   readonly rootTiltDeg: number;
   readonly swingSoleWorldM: XYZ;
+  readonly supportSoleWorldM: XYZ;
   readonly supportLoadN: number;
   readonly swingLoadN: number;
 }
@@ -41,6 +42,8 @@ export interface StepSnapshot {
   readonly maxSupportLoadFraction: number;
   readonly stepContactConfirmed: boolean;
   readonly maxLandingSlipM: number;
+  readonly maxSupportFootSlipM: number;
+  readonly targetErrorXYM: number;
 }
 
 /** One voluntary step attempt, useful for testing the controller in real
@@ -52,6 +55,9 @@ export class ExperimentalStepSequence {
   private phaseStartedAtS: number;
   private readonly supportSide: FootSide;
   private originalSole: XYZ | undefined;
+  private originalSupportSole: XYZ | undefined;
+  private maxSupportFootSlipM = 0;
+  private targetErrorXYM = Infinity;
   private lastTimeS = -Infinity;
   private reason = "Esperando inicio";
   private maxSoleRiseM = 0;
@@ -91,6 +97,8 @@ export class ExperimentalStepSequence {
       maxSupportLoadFraction: this.maxSupportLoadFraction,
       stepContactConfirmed: this.stepContactConfirmed,
       maxLandingSlipM: this.maxContactSlipM,
+      maxSupportFootSlipM: this.maxSupportFootSlipM,
+      targetErrorXYM: this.targetErrorXYM,
     };
   }
 
@@ -102,16 +110,27 @@ export class ExperimentalStepSequence {
 
   observe(info: StepFeedback): void {
     if (![info.timeS, ...info.comWorldM, info.pelvisHeightM, info.rootTiltDeg,
-      ...info.swingSoleWorldM, info.supportLoadN, info.swingLoadN].every(Number.isFinite) ||
+      ...info.swingSoleWorldM, ...info.supportSoleWorldM,
+      info.supportLoadN, info.swingLoadN].every(Number.isFinite) ||
       info.supportLoadN < 0 || info.swingLoadN < 0 || info.rootTiltDeg < 0 ||
       info.timeS < this.lastTimeS) {
       throw new RangeError("Mediciones de paso inválidas o tiempo no monótono");
     }
     this.lastTimeS = info.timeS;
     if (!this.originalSole) this.originalSole = [...info.swingSoleWorldM] as XYZ;
+    if (!this.originalSupportSole) {
+      this.originalSupportSole = [...info.supportSoleWorldM] as XYZ;
+    }
     this.minPelvisM = Math.min(this.minPelvisM, info.pelvisHeightM);
     this.maxRootTiltDeg = Math.max(this.maxRootTiltDeg, info.rootTiltDeg);
     const [x,y,z] = info.swingSoleWorldM;
+    this.maxSupportFootSlipM = Math.max(this.maxSupportFootSlipM,
+      Math.hypot(info.supportSoleWorldM[0]-this.originalSupportSole[0],
+        info.supportSoleWorldM[1]-this.originalSupportSole[1]));
+    this.targetErrorXYM = Math.hypot(
+      x - (this.originalSole[0] + this.targetDeltaXY[0]),
+      y - (this.originalSole[1] + this.targetDeltaXY[1]),
+    );
     if (this.firstLandingSole && info.swingLoadN > 40) {
       this.maxContactSlipM = Math.max(this.maxContactSlipM,
         Math.hypot(x-this.firstLandingSole[0],y-this.firstLandingSole[1]));
@@ -181,12 +200,14 @@ export class ExperimentalStepSequence {
         }
         break;
       case "RECOVER":
-        if (elapsed > 0.45 && info.pelvisHeightM > 0.82 &&
-            progress > minProgress &&
+        if (elapsed > 0.55 && info.pelvisHeightM > 0.82 &&
+            progress > minProgress && this.targetErrorXYM <= 0.06 &&
+            this.maxSupportFootSlipM <= 0.025 &&
             info.supportLoadN > 40 && info.swingLoadN > 40) {
           this.transition("COMPLETE",info.timeS,"Apoyo bilateral tras paso real");
         } else if (elapsed > 1.0) {
-          this.transition("ABORT",info.timeS,"Sin progreso válido o sin equilibrio tras contacto");
+          this.transition("ABORT",info.timeS,
+            "Sin apoyo estable, pie de apoyo fijo o destino correcto tras contacto");
         }
         break;
     }

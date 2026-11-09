@@ -25,6 +25,15 @@ async function waitTime(page, minTime) {
   }, minTime, { timeout:120000, polling:"raf" });
 }
 
+async function captureShot(page,folder,name) {
+  // An element screenshot scrolls the 3D viewer into view and ensures that
+  // every supplied PNG actually shows the animated humanoid, not just UI.
+  await page.locator("#physics-viewport").screenshot({
+    path:path.join(folder,name+"-visor.png"),
+  });
+  await page.screenshot({path:path.join(folder,name+".png")});
+}
+
 async function scenario({name,type,direction,peak,duration}) {
   const folder = path.join(out,name);
   await mkdir(folder,{recursive:true});
@@ -43,22 +52,24 @@ async function scenario({name,type,direction,peak,duration}) {
       undefined,{timeout:60000});
     if (!await page.locator("#physics-viewport canvas").count())
       throw new Error("No se ha renderizado canvas WebGL: "+await page.locator("#physics-status").innerText());
-    await page.screenshot({path:path.join(folder,"01-inicio.png")});
+    await captureShot(page,folder,"01-inicio");
     if (type==="push") {
       await page.locator("#push-direction").selectOption(direction);
       await page.locator("#push-peak").fill(String(peak));
       await page.locator("#push-duration").fill(String(duration));
       await page.locator("#push-run").click();
+      await page.locator("#physics-viewport").scrollIntoViewIfNeeded();
       await waitTime(page,duration>=500 ? 1.2 : 1.06);
-      await page.screenshot({path:path.join(folder,"02-pulso.png")});
+      await captureShot(page,folder,"02-pulso");
       await waitTime(page,5.95);
-      await page.screenshot({path:path.join(folder,"03-resultado.png")});
+      await captureShot(page,folder,"03-resultado");
     } else {
       await page.locator("#step-foot").selectOption("left");
       await page.locator("#step-direction").selectOption("diagonal");
       await page.locator("#step-run").click();
+      await page.locator("#physics-viewport").scrollIntoViewIfNeeded();
       await waitTime(page,1.66);
-      await page.screenshot({path:path.join(folder,"02-paso.png")});
+      await captureShot(page,folder,"02-paso");
       await waitTime(page,5.17);
       await page.screenshot({path:path.join(folder,"03-resultado.png")});
     }

@@ -1,5 +1,8 @@
 import "./styles.css";
 import { impulseFromConstantForce } from "./physics/impulse";
+import { GRAVITY_DEMO_MJCF } from "./physics/demoModel";
+import { FixedClock } from "./physics/fixedClock";
+import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("No existe el contenedor de la aplicacion");
@@ -18,7 +21,16 @@ app.innerHTML = `
           <div class="silhouette" aria-hidden="true">♟</div>
           <p>Visor 3D — previsto en la issue #5</p>
         </div>
-        <div class="status"><span class="dot"></span> Base web operativa · Simulación no integrada</div>
+        <div class="status"><span class="dot"></span> Motor MuJoCo WASM — ensayo de gravedad sin visualización 3D</div>
+        <div class="controls" aria-label="Control de simulación">
+          <p id="physics-status" role="status" aria-live="polite">Motor sin cargar.</p>
+          <p id="physics-readout" class="result">t = 0.000 s · altura 1.500 m</p>
+          <div class="button-row">
+            <button id="physics-load" type="button">Cargar simulación</button>
+            <button id="physics-toggle" type="button" disabled>Iniciar</button>
+            <button id="physics-reset" type="button" disabled>Reiniciar</button>
+          </div>
+        </div>
       </article>
       <article class="panel controls">
         <h2>Ensayo de impulso</h2>
@@ -28,7 +40,7 @@ app.innerHTML = `
         <label for="duration">Duración (ms)</label>
         <input id="duration" type="number" value="100" min="0" max="5000" step="10" />
         <p class="result" id="impulse" role="status" aria-live="polite">Impulso: 30.0 N·s</p>
-        <p class="muted">Próximos hitos: motor físico WASM (#4), modelo articulado (#7), control postural y prueba de 10 s (#8–#9).</p>
+        <p class="muted">Próximos hitos: visor Three.js (#5), humanoide articulado (#7), control postural y prueba de diez segundos (#8–#9).</p>
       </article>
     </section>
     <footer><a href="https://github.com/Jonamarti/humanoid-physics-lab" rel="noopener noreferrer">Código en GitHub</a> · <a href="https://github.com/Jonamarti/humanoid-physics-lab/issues/1" rel="noopener noreferrer">Hoja de ruta</a></footer>
@@ -51,3 +63,86 @@ const update = (): void => {
 };
 forceInput.addEventListener("input", update);
 durationInput.addEventListener("input", update);
+
+const loadButton = document.querySelector<HTMLButtonElement>("#physics-load");
+const toggleButton = document.querySelector<HTMLButtonElement>("#physics-toggle");
+const resetButton = document.querySelector<HTMLButtonElement>("#physics-reset");
+const physicsStatus = document.querySelector<HTMLElement>("#physics-status");
+const physicsReadout = document.querySelector<HTMLElement>("#physics-readout");
+if (!loadButton || !toggleButton || !resetButton || !physicsStatus || !physicsReadout) {
+  throw new Error("Faltan controles de MuJoCo");
+}
+
+let simulation: MujocoSimulation | undefined;
+let playing = false;
+let lastFrame: number | undefined;
+const clock = new FixedClock(0.002, 50);
+let frameHandle: number | undefined;
+
+function present(state: PhysicsState): void {
+  if (!physicsReadout) return;
+  const z = state.qpos[2];
+  physicsReadout.textContent = `t = ${state.time.toFixed(3)} s · altura ${z?.toFixed(3) ?? "?"} m`;
+}
+
+function animate(timestampMs: number): void {
+  frameHandle = window.requestAnimationFrame(animate);
+  if (!playing || !simulation) {
+    lastFrame = timestampMs;
+    return;
+  }
+  try {
+    const elapsed = lastFrame === undefined ? 0 : Math.min((timestampMs - lastFrame) / 1000, 0.1);
+    lastFrame = timestampMs;
+    const steps = clock.consume(elapsed);
+    if (steps) present(simulation.step(steps));
+  } catch (error) {
+    playing = false;
+    if (toggleButton) toggleButton.textContent = "Iniciar";
+    if (physicsStatus) physicsStatus.textContent =
+      `Error físico: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+loadButton.addEventListener("click", async () => {
+  loadButton.disabled = true;
+  physicsStatus.textContent = "Descargando e iniciando MuJoCo WASM...";
+  try {
+    simulation?.dispose();
+    simulation = await MujocoSimulation.create(GRAVITY_DEMO_MJCF);
+    playing = false;
+    clock.reset();
+    present(simulation.state());
+    physicsStatus.textContent = "Motor físico preparado: esfera libre, gravedad y contacto real con el suelo.";
+    toggleButton.disabled = false;
+    resetButton.disabled = false;
+    toggleButton.textContent = "Iniciar";
+  } catch (error) {
+    physicsStatus.textContent = `No se pudo cargar MuJoCo: ${error instanceof Error ? error.message : String(error)}`;
+    simulation = undefined;
+  } finally {
+    loadButton.disabled = false;
+  }
+});
+toggleButton.addEventListener("click", () => {
+  if (!simulation) return;
+  playing = !playing;
+  lastFrame = undefined;
+  toggleButton.textContent = playing ? "Pausar" : "Iniciar";
+});
+resetButton.addEventListener("click", () => {
+  if (!simulation) return;
+  playing = false;
+  clock.reset();
+  lastFrame = undefined;
+  simulation.reset();
+  present(simulation.state());
+  toggleButton.textContent = "Iniciar";
+});
+frameHandle = window.requestAnimationFrame(animate);
+window.addEventListener("pagehide", () => {
+  playing = false;
+  if (frameHandle !== undefined) window.cancelAnimationFrame(frameHandle);
+  simulation?.dispose();
+  simulation = undefined;
+}, { once: true });

@@ -65,7 +65,7 @@ try {
     throw new Error("La edición no está bloqueada durante la simulación");
   await physicsTime(1.30);
   await snapshot("03-multiple-active");
-  await physicsTime(6.01);
+  await physicsTime(5.98);
   await snapshot("04-final");
   const buttonsUnlocked=!(await page.getByRole("button",{name:"+ Añadir fuerza"}).isDisabled());
   if(!buttonsUnlocked)throw new Error("Editor bloqueado tras terminar");

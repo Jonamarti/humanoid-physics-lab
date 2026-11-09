@@ -101,6 +101,11 @@ export class BallViewer {
           // MuJoCo's capsule axis is local Z; Three's is local Y.
           geometry.rotateX(Math.PI / 2);
           break;
+        case "cylinder":
+          geometry = new THREE.CylinderGeometry(sx, sx, 2 * sy, 32, 1);
+          // MuJoCo cylinders use local Z, Three.js CylinderGeometry uses local Y.
+          geometry.rotateX(Math.PI / 2);
+          break;
         case "box":
           geometry = new THREE.BoxGeometry(2 * sx, 2 * sy, 2 * sz);
           break;

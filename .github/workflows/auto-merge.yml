@@ -1,0 +1,150 @@
+name: Merge approved green PRs
+
+# The decision runs from the trusted default branch; never checkout PR code here.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  pull_request_target:
+    types: [unlabeled, ready_for_review, reopened]
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/auto-merge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+# Serialize merges even when multiple CI workflows complete simultaneously.
+concurrency:
+  group: auto-merge-main
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    name: Merge after trusted CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify green CI and merge eligible pull requests
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const holdLabel = "no-merge";
+
+            // Bootstraps the opt-out label on default branch. The user can also
+            // mark a PR as Draft; neither case is ever merged automatically.
+            try {
+              await github.rest.issues.getLabel({owner, repo, name: holdLabel});
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.issues.createLabel({
+                owner, repo, name: holdLabel, color: "B60205",
+                description: "Bloquear fusion automatica aunque pase el CI",
+              });
+              core.info("Etiqueta " + holdLabel + " creada");
+            }
+
+            let candidateNumbers = [];
+            if (context.eventName === "workflow_run") {
+              const run = context.payload.workflow_run;
+              if (run?.name !== "CI" || run?.event !== "pull_request" || run?.conclusion !== "success") {
+                core.info("No es una ejecución CI de PR satisfactoria");
+                return;
+              }
+              candidateNumbers = (run.pull_requests || []).map((pr) => pr.number);
+            } else if (context.eventName === "pull_request_target") {
+              candidateNumbers = [context.payload.pull_request.number];
+            } else {
+              const open = await github.paginate(github.rest.pulls.list, {
+                owner, repo, state: "open", base: "main", per_page: 100,
+              });
+              candidateNumbers = open.map((pr) => pr.number);
+            }
+
+            candidateNumbers = [...new Set(candidateNumbers)];
+            const isBlocked = (pr) => pr.draft || (pr.labels || []).some(
+              (label) => label.name.toLowerCase() === holdLabel
+            );
+
+            for (const number of candidateNumbers) {
+              const {data: pr} = await github.rest.pulls.get({
+                owner, repo, pull_number: number,
+              });
+              if (pr.state !== "open" || pr.base.ref !== "main" || isBlocked(pr)) {
+                core.info("PR #" + number + ": cerrada, draft o no-merge");
+                continue;
+              }
+              if (pr.head.repo?.full_name !== owner + "/" + repo) {
+                core.info("PR #" + number + ": externa; requiere revisión humana");
+                continue;
+              }
+
+              // High-risk automation changes must always receive human review,
+              // even when CI is green, to prevent self-approving workflow edits.
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner, repo, pull_number: number, per_page: 100,
+              });
+              if (files.some((file) => file.filename.startsWith(".github/workflows/"))) {
+                core.warning("PR #" + number + ": modifica workflows, merge manual");
+                continue;
+              }
+
+              // Evaluate the latest CI run on the EXACT current source commit.
+              // Old successful runs never authorize a new/failed commit.
+              const {data: runs} = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: "ci.yml", event: "pull_request",
+                head_sha: pr.head.sha, per_page: 100,
+              });
+              const matched = runs.workflow_runs
+                .filter((run) =>
+                  run.head_sha === pr.head.sha &&
+                  run.event === "pull_request" &&
+                  (run.pull_requests || []).some((item) => item.number === number)
+                )
+                .sort((a, b) => b.created_at.localeCompare(a.created_at));
+              const latest = matched[0];
+              if (!latest || latest.status !== "completed" || latest.conclusion !== "success") {
+                core.info("PR #" + number + ": esperando CI verde para head " + pr.head.sha);
+                continue;
+              }
+
+              // Avoid accepting an empty/redefined workflow as a passed CI.
+              const {data: jobs} = await github.rest.actions.listJobsForWorkflowRun({
+                owner, repo, run_id: latest.id, per_page: 100,
+              });
+              if (!jobs.jobs.some((job) =>
+                job.name === "Typecheck, lint, tests and build" &&
+                job.conclusion === "success"
+              )) {
+                core.warning("PR #" + number + ": faltan los checks obligatorios");
+                continue;
+              }
+
+              // Re-read close to merge time to honor last-minute labels, drafts
+              // and new commits. REST merge also compares the exact head SHA.
+              const {data: fresh} = await github.rest.pulls.get({
+                owner, repo, pull_number: number,
+              });
+              if (fresh.state !== "open" || fresh.draft || isBlocked(fresh) ||
+                  fresh.head.sha !== pr.head.sha || fresh.base.ref !== "main" ||
+                  fresh.head.repo?.full_name !== owner + "/" + repo ||
+                  fresh.mergeable !== true) {
+                core.info("PR #" + number + ": modificada o aún no fusionable");
+                continue;
+              }
+
+              const result = await github.rest.pulls.merge({
+                owner, repo, pull_number: number, sha: fresh.head.sha,
+                merge_method: "squash",
+                commit_title: fresh.title + " (#" + number + ")",
+              });
+              if (!result.data.merged) throw new Error("GitHub no fusionó PR #" + number);
+              core.notice("PR #" + number + " fusionada tras CI verde");
+            }

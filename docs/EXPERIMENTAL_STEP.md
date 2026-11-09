@@ -150,3 +150,64 @@ trabajo: controlar el pie de apoyo y el centro de presión bajo
 fricción, estabilizar el nuevo soporte durante ≥1 s y luego comparar
 ambas piernas/direcciones con pruebas de aceptación **que exijan
 `COMPLETE` físico**, no simplemente un test sin excepciones.
+
+## Revisión de la PR #45: contacto, fricción y éxito sostenido
+
+La revisión posterior incorporó medidas que faltaban para distinguir
+una simulación que *se ejecuta* de un paso realmente logrado:
+
+- `mj_contactForce` y `mju_decodePyramid` decodificados mediante
+  `efc_force` también para **fuerzas tangenciales**, no solo normales.
+  Se informa fuerza de fricción horizontal, máximo y promedio
+  ponderado de utilización del cono/pirámide por pie. Son **magnitudes
+  del solver**, no mediciones de personas ni demostración automática
+  de deslizamiento. Código fuente MuJoCo:
+  [engine_core_util.c](https://github.com/google-deepmind/mujoco/blob/main/src/engine/engine_core_util.c)
+  y [engine_util_misc.c](https://github.com/google-deepmind/mujoco/blob/main/src/engine/engine_util_misc.c).
+- Mientras el pie está en vuelo, el servo cartesiano puede actuar.
+  **Cuando recibe carga al aterrizar, su fuerza se atenúa;** se
+  desactiva al pasar a `RECOVER`/`COMPLETE` para no seguir empujando
+  horizontalmente un pie que ya apoya.
+- Se exige **un segundo completo, muestreado cada ~20 ms**, con
+  dos pies cargados, COM y capture point dentro del polígono de
+  apoyo *cargado*, deriva de apoyo ≤2 cm, deslizamiento de aterrizaje
+  ≤2 cm, error del destino ≤5 cm y velocidad horizontal de COM
+  <0,12 m/s. Una interrupción o muestra omitida reinicia el intervalo;
+  la postura momentánea no basta. Estos son **criterios de ingeniería
+  experimentales**, no umbrales validados en humanos.
+- Se conservan los registros de `ABORT` y `FALL`; una caída
+  posterior a `ABORT` se reporta como `FALL`.
+
+### Comparación con contacto físico
+
+En `tests/unit/stepFrictionTrace.test.ts`, ambos ensayos de paso
+diagonal izquierdo de 5,2 s siguen siendo `ABORT`:
+
+| Medida | Servo 0 % | Servo 20 % |
+| --- | ---: | ---: |
+| Deslizamiento máximo tras aterrizar | 12,7 cm | 11,1 cm |
+| Desplazamiento máximo del pie de apoyo | 5,1 cm | 0,5 cm |
+| Fricción máxima usada por pie de llegada | 100 % | 100 % |
+| Resultado aceptado | ABORT | ABORT |
+
+Las fuerzas tangenciales alcanzan el límite de la pirámide del solver
+alrededor del impacto. Hay que estudiar velocidad y fuerza normal
+del primer contacto, control de par y apoyo bipodal; todavía no se
+ha demostrado un paso estable.
+
+### Experimento descartado
+
+Se intentó retrasar `LAND` hasta una posición más cercana al destino
+y extender suavemente la rodilla durante 0,55 s. Ambos ensayos diagonales
+(0 % y 20 %) acabaron en **FALL**; antes eran `ABORT` con pelvis
+estable. **Se revirtió** para conservar el comportamiento más seguro
+y la reproducibilidad. No usar este resultado como evidencia de
+mejora y no habilitar el control experimental por defecto.
+
+### Próxima iteración (#49)
+
+Usar el instante de contacto para controlar velocidad tangencial y
+transferencia de cargas, contrastando la demanda de fricción con la
+fricción disponible, en lugar de elevar indiscriminadamente los
+pares o la rigidez de las articulaciones. Comparar con tests
+de aceptación independiente y grabaciones reales del visor.

@@ -47,3 +47,19 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
   background: #283b50; }
 .force-meter-fill { width: 0%; height: 100%; background: #ff596b; }
 #ground-projection-readout { border-left: 3px solid #5df0b3; padding-left: 10px; }
+
+/* Multi-force educational editor. Numeric controls remain usable on touch. */
+.force-editor-toggle { display: flex; align-items: center; gap: 9px; margin: 15px 0; cursor: pointer; }
+.force-editor-toggle input { width: auto; accent-color: #7ddbf4; }
+.advanced-forces { border-top: 1px solid #41607c; padding-top: 10px; }
+.force-editor-rows { display: grid; gap: 13px; margin: 14px 0; }
+.edited-force-row { min-width: 0; padding: 12px; border: 1px solid #41607c; border-radius: 11px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 10px; }
+.edited-force-row legend { padding: 0 7px; font-weight: 750; color: #f8d99c; }
+.edited-force-row label { margin: 6px 0; font-size: 0.77rem; }
+.edited-force-row input, .edited-force-row select { margin-top: 6px; padding: 8px; min-width: 0; }
+.edited-force-row p { grid-column: 1 / -1; margin: 9px 0; }
+.edited-force-row button { grid-column: 1 / -1; border: 1px solid #456981; border-radius: 8px;
+  background: #284b62; color: #fff; padding: 8px; cursor: pointer; }
+.advanced-forces .button-row button { flex: 1 1 130px; }
+@media (max-width: 440px) { .edited-force-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

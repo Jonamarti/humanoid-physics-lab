@@ -3,6 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { PhysicsGeomPose, PhysicsGeomSpec } from "../physics/geometry";
 import { mujocoToThreePosition } from "./coordinates";
 import { forceArrowLengthM } from "./forceArrow";
+import { classifyForceGlyph } from "./forceGlyph";
+import type { ForceVector } from "../physics/forceSequence";
 import { projectBalanceToGround, type ProjectionStatus } from "./balanceProjection";
 import type { XY, XYZ } from "../control/balanceSensors";
 
@@ -20,6 +22,23 @@ export class BallViewer {
   private readonly controls: OrbitControls;
   private readonly sphere: THREE.Mesh;
   private readonly forceArrow: THREE.ArrowHelper;
+  private readonly multiForceArrows = new Map<string, THREE.ArrowHelper>();
+  private readonly editableHeads = new Map<string, THREE.Mesh>();
+  private readonly multiForceHalos = new Map<string, THREE.Mesh>();
+  private readonly glyphState = new Map<string, string>();
+  private selectedForceId: string | undefined;
+  private pickBodyForForceId: string | undefined;
+  private forceInteraction?: {
+    onPicked(id: string, geomId: number, point: ForceVector): void;
+    onDragged(id: string, direction: ForceVector): void;
+  };
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly pointer = new THREE.Vector2();
+  private draggingForceId: string | undefined;
+  private readonly dragPlane = new THREE.Plane();
+  private readonly dragOrigin = new THREE.Vector3();
+  private readonly multiForceGlyphs = new Map<string, { sprite: THREE.Sprite; texture: THREE.CanvasTexture }>();
+  private multiForces: readonly { id: string; point: ForceVector; force: ForceVector; active: boolean }[] = [];
   private readonly forceFlash: THREE.Mesh;
   private readonly forceFlashRing: THREE.Mesh;
   private readonly comMarker: THREE.Mesh;
@@ -131,10 +150,16 @@ export class BallViewer {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(this.container);
     this.resize();
+    this.raycaster.params.Line = { threshold: 0.12 };
+    this.renderer.domElement.addEventListener("pointerdown", this.handleForcePointerDown);
+    this.renderer.domElement.addEventListener("pointermove", this.handleForcePointerMove);
+    this.renderer.domElement.addEventListener("pointerup", this.handleForcePointerUp);
+    this.renderer.domElement.addEventListener("pointercancel", this.handleForcePointerUp);
     this.renderer.setAnimationLoop(() => {
       if (this.disposed) return;
       this.controls.update();
       if (this.forceFlashRing.visible) this.forceFlashRing.quaternion.copy(this.camera.quaternion);
+      if (this.multiForces.length) this.refreshMultiForceVisuals();
       this.renderer.render(this.scene, this.camera);
     });
   }
@@ -146,6 +171,7 @@ export class BallViewer {
 
   showSphere(): void {
     this.clearForceArrow();
+    this.clearMultiForces();
     this.clearBalanceProjection();
     this.clearArticulated();
     this.sphere.visible = true;
@@ -154,6 +180,7 @@ export class BallViewer {
   /** Loads primitive shapes from the actual compiled MJCF model, not a fake pose. */
   showArticulated(specs: readonly PhysicsGeomSpec[]): void {
     this.clearForceArrow();
+    this.clearMultiForces();
     this.clearBalanceProjection();
     this.clearArticulated();
     this.sphere.visible = false;
@@ -246,6 +273,219 @@ export class BallViewer {
     this.forceFlashRing.visible = active;
   }
 
+
+  /** Render view-relative ⊗ (away) and ⊙ (toward camera), or an ordinary arrow.
+   * This is presentation only: MuJoCo forces remain in world coordinates.
+   */
+  setMultiForces(forces: readonly { id: string; point: ForceVector; force: ForceVector; active: boolean }[]): void {
+    this.multiForces = forces.map(f => ({ ...f }));
+    const visible = new Set(forces.map(f => f.id));
+    for (const [id, arrow] of this.multiForceArrows) {
+      if (visible.has(id)) continue;
+      this.scene.remove(arrow);
+      const halo = this.multiForceHalos.get(id);
+      if (halo) {
+        this.scene.remove(halo);
+        halo.geometry.dispose();
+        (halo.material as THREE.Material).dispose();
+        this.multiForceHalos.delete(id);
+      }
+      this.glyphState.delete(id);
+      const head = this.editableHeads.get(id);
+      if (head) {
+        this.scene.remove(head);
+        head.geometry.dispose();
+        (head.material as THREE.Material).dispose();
+        this.editableHeads.delete(id);
+      }
+      arrow.line.geometry.dispose();
+      (arrow.line.material as THREE.Material).dispose();
+      arrow.cone.geometry.dispose();
+      (arrow.cone.material as THREE.Material).dispose();
+      this.multiForceArrows.delete(id);
+    }
+    for (const [id, glyph] of this.multiForceGlyphs) {
+      if (visible.has(id)) continue;
+      this.scene.remove(glyph.sprite);
+      glyph.texture.dispose();
+      glyph.sprite.material.dispose();
+      this.multiForceGlyphs.delete(id);
+    }
+    for (const f of forces) {
+      if (this.multiForceArrows.has(f.id)) continue;
+      const arrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 0.3, 0xffbd59);
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 128;
+      const texture = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      sprite.scale.set(0.3, 0.3, 1);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8),
+        new THREE.MeshBasicMaterial({ color: 0xf9f1ad, transparent: true, opacity: 0.85, depthTest: false }));
+      head.visible = false;
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12),
+        new THREE.MeshBasicMaterial({
+          color: 0xff365a, transparent: true, opacity: 0.48,
+          depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+        }));
+      halo.visible = false;
+      this.scene.add(arrow, sprite, head, halo);
+      this.multiForceHalos.set(f.id, halo);
+      this.editableHeads.set(f.id, head);
+      this.multiForceArrows.set(f.id, arrow);
+      this.multiForceGlyphs.set(f.id, { sprite, texture });
+    }
+    this.refreshMultiForceVisuals();
+  }
+
+  private refreshMultiForceVisuals(): void {
+    for (const f of this.multiForces) {
+      const arrow = this.multiForceArrows.get(f.id);
+      const marker = this.multiForceGlyphs.get(f.id);
+      if (!arrow || !marker) continue;
+      const world = new THREE.Vector3(...mujocoToThreePosition(f.point));
+      const vec = new THREE.Vector3(...mujocoToThreePosition(f.force));
+      const camera = this.camera.position.clone().sub(world).normalize();
+      const glyph = classifyForceGlyph(f.force, [camera.x, -camera.z, camera.y]);
+      arrow.position.copy(world);
+      arrow.visible = glyph === "arrow";
+      const halo = this.multiForceHalos.get(f.id);
+      if (halo) {
+        halo.position.copy(world);
+        halo.visible = f.active;
+      }
+      const head = this.editableHeads.get(f.id);
+      if (head) {
+        head.visible = f.id === this.selectedForceId && !!this.forceInteraction && vec.length() > 0;
+        // Visible even for ⊗/⊙: allows direct dragging of a view-normal force.
+        head.position.copy(world).add(vec.clone().normalize().multiplyScalar(forceArrowLengthM(vec.length())));
+      }
+      if (glyph === "arrow") {
+        arrow.setDirection(vec.normalize());
+        const size = forceArrowLengthM(vec.length());
+        arrow.setLength(size, Math.min(0.18, size*0.25), Math.min(0.09, size*0.13));
+        arrow.setColor(f.active ? 0xff3355 : 0xffbd59);
+      }
+      marker.sprite.position.copy(world);
+      marker.sprite.visible = glyph === "into-screen" || glyph === "out-of-screen";
+      if (marker.sprite.visible) {
+        const state = glyph + ":" + (f.active ? "active" : "reference");
+        if (this.glyphState.get(f.id) === state) continue;
+        this.glyphState.set(f.id, state);
+        const ctx = (marker.texture.image as HTMLCanvasElement).getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0,0,128,128);
+          ctx.strokeStyle = f.active ? "#ff3355" : "#ffbd59";
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.lineWidth = 10;
+          ctx.beginPath(); ctx.arc(64,64,45,0,Math.PI*2); ctx.stroke();
+          if (glyph === "into-screen") {
+            ctx.beginPath(); ctx.moveTo(38,38); ctx.lineTo(90,90);
+            ctx.moveTo(90,38); ctx.lineTo(38,90); ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.arc(64,64,12,0,Math.PI*2); ctx.fill();
+          }
+          marker.texture.needsUpdate = true;
+        }
+      }
+    }
+  }
+
+
+  /** The editor configures interactions. Geometry picks are converted to
+   * physical body-local anchors by MujocoSimulation, never by Three.js.
+   */
+  configureForceEditing(
+    selectedId: string | undefined,
+    onPicked: ((id: string, geomId: number, point: ForceVector) => void) | undefined,
+    onDragged: ((id: string, direction: ForceVector) => void) | undefined,
+  ): void {
+    this.selectedForceId = selectedId;
+    this.forceInteraction = onPicked && onDragged ? { onPicked, onDragged } : undefined;
+    if (!this.forceInteraction) {
+      this.pickBodyForForceId = undefined;
+      this.renderer.domElement.style.cursor = "";
+    }
+  }
+
+  armForcePointPick(id: string): void {
+    if (!this.forceInteraction) return;
+    this.selectedForceId = id;
+    this.pickBodyForForceId = id;
+    this.renderer.domElement.style.cursor = "crosshair";
+  }
+
+  private updateForceRay(event: PointerEvent): void {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.set(
+      ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1,
+      -((event.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+  }
+
+  private readonly handleForcePointerDown = (event: PointerEvent): void => {
+    if (!this.forceInteraction || event.button !== 0) return;
+    this.updateForceRay(event);
+    if (this.pickBodyForForceId) {
+      const meshes = Array.from(this.articulated.values());
+      const picked = this.raycaster.intersectObjects(meshes, false)[0];
+      if (!picked) return;
+      const geomId = Number(picked.object.name.replace("mujoco_geom_", ""));
+      if (!Number.isSafeInteger(geomId)) return;
+      const target = this.pickBodyForForceId;
+      this.pickBodyForForceId = undefined;
+      this.renderer.domElement.style.cursor = "";
+      // The picked point belongs to a *physical* dynamic body, validated in the callback.
+      this.forceInteraction.onPicked(target, geomId,
+        [picked.point.x, -picked.point.z, picked.point.y]);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    const selected = this.selectedForceId;
+    if (!selected) return;
+    const head = this.editableHeads.get(selected);
+    const arrow = this.multiForceArrows.get(selected);
+    if (!head || !arrow) return;
+    const hits = this.raycaster.intersectObjects([head, arrow], true);
+    if (!hits.length) return;
+    const spec = this.multiForces.find(f => f.id === selected);
+    if (!spec) return;
+    this.dragOrigin.set(...mujocoToThreePosition(spec.point));
+    this.dragPlane.setFromNormalAndCoplanarPoint(
+      this.camera.getWorldDirection(new THREE.Vector3()), head.position,
+    );
+    this.draggingForceId = selected;
+    this.controls.enabled = false;
+    this.renderer.domElement.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+
+  private readonly handleForcePointerMove = (event: PointerEvent): void => {
+    if (!this.draggingForceId || !this.forceInteraction) return;
+    this.updateForceRay(event);
+    const point = new THREE.Vector3();
+    if (!this.raycaster.ray.intersectPlane(this.dragPlane, point)) return;
+    const vec = point.sub(this.dragOrigin);
+    if (vec.lengthSq() < 0.001) return;
+    vec.normalize();
+    // Preserve the edited magnitude: dragging the end changes direction, not newtons.
+    this.forceInteraction.onDragged(this.draggingForceId, [vec.x, -vec.z, vec.y]);
+    event.preventDefault();
+  };
+
+  private readonly handleForcePointerUp = (event: PointerEvent): void => {
+    if (!this.draggingForceId) return;
+    this.draggingForceId = undefined;
+    this.controls.enabled = true;
+    if (this.renderer.domElement.hasPointerCapture(event.pointerId)) {
+      this.renderer.domElement.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  clearMultiForces(): void { this.setMultiForces([]); }
+
   clearForceArrow(): void {
     this.forceArrow.visible = false;
     this.forceFlash.visible = false;
@@ -320,8 +560,13 @@ export class BallViewer {
     this.disposed = true;
     this.renderer.setAnimationLoop(null);
     this.observer.disconnect();
+    this.renderer.domElement.removeEventListener("pointerdown", this.handleForcePointerDown);
+    this.renderer.domElement.removeEventListener("pointermove", this.handleForcePointerMove);
+    this.renderer.domElement.removeEventListener("pointerup", this.handleForcePointerUp);
+    this.renderer.domElement.removeEventListener("pointercancel", this.handleForcePointerUp);
     this.controls.dispose();
     this.clearArticulated();
+    this.clearMultiForces();
     this.scene.remove(this.forceFlash, this.forceFlashRing,
       this.comMarker, this.comGroundMarker, this.comVerticalLine, this.supportOutline);
     for (const marker of [this.forceFlash, this.forceFlashRing,

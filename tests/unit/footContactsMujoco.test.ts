@@ -22,6 +22,13 @@ describe("Solved MuJoCo WASM floor-foot contact forces", () => {
       expect(a.right.verticalLoadN).toBeGreaterThan(50);
       expect(a.left.isLoaded).toBe(true);
       expect(a.right.isLoaded).toBe(true);
+      // Tangential forces come from the same solver rows as the normals.
+      for (const foot of [a.left,a.right]) {
+        expect(foot.tangentialReactionXYN.every(Number.isFinite)).toBe(true);
+        expect(foot.frictionUtilizationMean).not.toBeNull();
+        expect(foot.frictionUtilizationMean!).toBeGreaterThanOrEqual(0);
+        expect(foot.frictionUtilizationMean!).toBeLessThanOrEqual(1.05);
+      }
       // The sum should be consistent with, but not forced to equal, weight:
       // acceleration and impact can affect total normal reaction.
       expect(a.totalVerticalLoadN).toBeGreaterThan(weight * 0.5);

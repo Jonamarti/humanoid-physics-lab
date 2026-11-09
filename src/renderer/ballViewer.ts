@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { PhysicsGeomPose, PhysicsGeomSpec } from "../physics/geometry";
 import { mujocoToThreePosition } from "./coordinates";
+import { forceArrowLengthM } from "./forceArrow";
 
 const MUJOCO_TO_THREE = new THREE.Quaternion().setFromAxisAngle(
   new THREE.Vector3(1, 0, 0), -Math.PI / 2,
@@ -16,6 +17,7 @@ export class BallViewer {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly controls: OrbitControls;
   private readonly sphere: THREE.Mesh;
+  private readonly forceArrow: THREE.ArrowHelper;
   private readonly observer: ResizeObserver;
   private readonly articulated = new Map<number, THREE.Mesh>();
   private readonly rotationMatrix = new THREE.Matrix4();
@@ -59,6 +61,9 @@ export class BallViewer {
       new THREE.MeshStandardMaterial({ color: 0x4fc6f1, roughness: 0.4, metalness: 0.08 }),
     );
     this.scene.add(this.sphere);
+    this.forceArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 1, 0xffbd59, 0.18, 0.09);
+    this.forceArrow.visible = false;
+    this.scene.add(this.forceArrow);
     this.setSpherePosition([0, 0, 1.5]);
 
     this.observer = new ResizeObserver(() => this.resize());
@@ -77,12 +82,14 @@ export class BallViewer {
   }
 
   showSphere(): void {
+    this.clearForceArrow();
     this.clearArticulated();
     this.sphere.visible = true;
   }
 
   /** Loads primitive shapes from the actual compiled MJCF model, not a fake pose. */
   showArticulated(specs: readonly PhysicsGeomSpec[]): void {
+    this.clearForceArrow();
     this.clearArticulated();
     this.sphere.visible = false;
     for (const spec of specs) {
@@ -143,6 +150,37 @@ export class BallViewer {
     }
   }
 
+  /** Display the push vector at its physical application site. The longer
+   * arrow is a schematic (nonlinear length); its direction is exact.
+   * Preview stays visible before the pulse; active force is colored red.
+   */
+  setForceArrow(
+    pointWorldM: readonly [number, number, number],
+    forceWorldN: readonly [number, number, number],
+    active: boolean,
+  ): void {
+    if (![...pointWorldM, ...forceWorldN].every(Number.isFinite)) {
+      throw new RangeError("Flecha de fuerza con valores no finitos");
+    }
+    const magnitude = Math.hypot(...forceWorldN);
+    if (magnitude <= 0) {
+      this.clearForceArrow();
+      return;
+    }
+    const [px, py, pz] = mujocoToThreePosition(pointWorldM);
+    const [fx, fy, fz] = mujocoToThreePosition(forceWorldN);
+    this.forceArrow.position.set(px, py, pz);
+    this.forceArrow.setDirection(new THREE.Vector3(fx, fy, fz).normalize());
+    const length = forceArrowLengthM(magnitude);
+    this.forceArrow.setLength(length, Math.min(0.18, length * 0.25), Math.min(0.09, length * 0.13));
+    this.forceArrow.setColor(active ? 0xff5454 : 0xffbd59);
+    this.forceArrow.visible = true;
+  }
+
+  clearForceArrow(): void {
+    this.forceArrow.visible = false;
+  }
+
   private clearArticulated(): void {
     for (const mesh of this.articulated.values()) {
       this.scene.remove(mesh);
@@ -167,6 +205,10 @@ export class BallViewer {
     this.observer.disconnect();
     this.controls.dispose();
     this.clearArticulated();
+    this.forceArrow.line.geometry.dispose();
+    (this.forceArrow.line.material as THREE.Material).dispose();
+    this.forceArrow.cone.geometry.dispose();
+    (this.forceArrow.cone.material as THREE.Material).dispose();
     this.sphere.geometry.dispose();
     (this.sphere.material as THREE.Material).dispose();
     for (const child of this.scene.children) {

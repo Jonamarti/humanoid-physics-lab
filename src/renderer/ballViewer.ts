@@ -3,6 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { PhysicsGeomPose, PhysicsGeomSpec } from "../physics/geometry";
 import { mujocoToThreePosition } from "./coordinates";
 import { forceArrowLengthM } from "./forceArrow";
+import { classifyForceGlyph } from "./forceGlyph";
+import type { ForceVector } from "../physics/forceSequence";
 import { projectBalanceToGround, type ProjectionStatus } from "./balanceProjection";
 import type { XY, XYZ } from "../control/balanceSensors";
 
@@ -20,6 +22,9 @@ export class BallViewer {
   private readonly controls: OrbitControls;
   private readonly sphere: THREE.Mesh;
   private readonly forceArrow: THREE.ArrowHelper;
+  private readonly multiForceArrows = new Map<string, THREE.ArrowHelper>();
+  private readonly multiForceGlyphs = new Map<string, { sprite: THREE.Sprite; texture: THREE.CanvasTexture }>();
+  private multiForces: readonly { id: string; point: ForceVector; force: ForceVector; active: boolean }[] = [];
   private readonly forceFlash: THREE.Mesh;
   private readonly forceFlashRing: THREE.Mesh;
   private readonly comMarker: THREE.Mesh;
@@ -128,6 +133,7 @@ export class BallViewer {
       if (this.disposed) return;
       this.controls.update();
       if (this.forceFlashRing.visible) this.forceFlashRing.quaternion.copy(this.camera.quaternion);
+      if (this.multiForces.length) this.refreshMultiForceVisuals();
       this.renderer.render(this.scene, this.camera);
     });
   }
@@ -139,6 +145,7 @@ export class BallViewer {
 
   showSphere(): void {
     this.clearForceArrow();
+    this.clearMultiForces();
     this.clearBalanceProjection();
     this.clearArticulated();
     this.sphere.visible = true;
@@ -147,6 +154,7 @@ export class BallViewer {
   /** Loads primitive shapes from the actual compiled MJCF model, not a fake pose. */
   showArticulated(specs: readonly PhysicsGeomSpec[]): void {
     this.clearForceArrow();
+    this.clearMultiForces();
     this.clearBalanceProjection();
     this.clearArticulated();
     this.sphere.visible = false;
@@ -239,6 +247,85 @@ export class BallViewer {
     this.forceFlashRing.visible = active;
   }
 
+
+  /** Render view-relative ⊗ (away) and ⊙ (toward camera), or an ordinary arrow.
+   * This is presentation only: MuJoCo forces remain in world coordinates.
+   */
+  setMultiForces(forces: readonly { id: string; point: ForceVector; force: ForceVector; active: boolean }[]): void {
+    this.multiForces = forces.map(f => ({ ...f }));
+    const visible = new Set(forces.map(f => f.id));
+    for (const [id, arrow] of this.multiForceArrows) {
+      if (visible.has(id)) continue;
+      this.scene.remove(arrow);
+      arrow.line.geometry.dispose();
+      (arrow.line.material as THREE.Material).dispose();
+      arrow.cone.geometry.dispose();
+      (arrow.cone.material as THREE.Material).dispose();
+      this.multiForceArrows.delete(id);
+    }
+    for (const [id, glyph] of this.multiForceGlyphs) {
+      if (visible.has(id)) continue;
+      this.scene.remove(glyph.sprite);
+      glyph.texture.dispose();
+      glyph.sprite.material.dispose();
+      this.multiForceGlyphs.delete(id);
+    }
+    for (const f of forces) {
+      if (this.multiForceArrows.has(f.id)) continue;
+      const arrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 0.3, 0xffbd59);
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 128;
+      const texture = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      sprite.scale.set(0.3, 0.3, 1);
+      this.scene.add(arrow, sprite);
+      this.multiForceArrows.set(f.id, arrow);
+      this.multiForceGlyphs.set(f.id, { sprite, texture });
+    }
+    this.refreshMultiForceVisuals();
+  }
+
+  private refreshMultiForceVisuals(): void {
+    for (const f of this.multiForces) {
+      const arrow = this.multiForceArrows.get(f.id);
+      const marker = this.multiForceGlyphs.get(f.id);
+      if (!arrow || !marker) continue;
+      const world = new THREE.Vector3(...mujocoToThreePosition(f.point));
+      const vec = new THREE.Vector3(...mujocoToThreePosition(f.force));
+      const camera = this.camera.position.clone().sub(world).normalize();
+      const glyph = classifyForceGlyph(f.force, [camera.x, -camera.z, camera.y]);
+      arrow.position.copy(world);
+      arrow.visible = glyph === "arrow";
+      if (glyph === "arrow") {
+        arrow.setDirection(vec.normalize());
+        const size = forceArrowLengthM(vec.length());
+        arrow.setLength(size, Math.min(0.18, size*0.25), Math.min(0.09, size*0.13));
+        arrow.setColor(f.active ? 0xff3355 : 0xffbd59);
+      }
+      marker.sprite.position.copy(world);
+      marker.sprite.visible = glyph === "into-screen" || glyph === "out-of-screen";
+      if (marker.sprite.visible) {
+        const ctx = (marker.texture.image as HTMLCanvasElement).getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0,0,128,128);
+          ctx.strokeStyle = f.active ? "#ff3355" : "#ffbd59";
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.lineWidth = 10;
+          ctx.beginPath(); ctx.arc(64,64,45,0,Math.PI*2); ctx.stroke();
+          if (glyph === "into-screen") {
+            ctx.beginPath(); ctx.moveTo(38,38); ctx.lineTo(90,90);
+            ctx.moveTo(90,38); ctx.lineTo(38,90); ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.arc(64,64,12,0,Math.PI*2); ctx.fill();
+          }
+          marker.texture.needsUpdate = true;
+        }
+      }
+    }
+  }
+
+  clearMultiForces(): void { this.setMultiForces([]); }
+
   clearForceArrow(): void {
     this.forceArrow.visible = false;
     this.forceFlash.visible = false;
@@ -315,6 +402,7 @@ export class BallViewer {
     this.observer.disconnect();
     this.controls.dispose();
     this.clearArticulated();
+    this.clearMultiForces();
     this.scene.remove(this.forceFlash, this.forceFlashRing,
       this.comMarker, this.comGroundMarker, this.comVerticalLine, this.supportOutline);
     for (const marker of [this.forceFlash, this.forceFlashRing,

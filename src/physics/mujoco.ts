@@ -3,6 +3,10 @@ import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
+import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
+import { rootTiltDegrees } from "./standingPush";
+import type { FootSide } from "../control/recoveryPlanner";
+import type { XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 
 export type PhysicsState = Readonly<{
@@ -40,6 +44,8 @@ export class MujocoSimulation {
   private model: InstanceType<Module["MjModel"]> | undefined;
   private data: InstanceType<Module["MjData"]> | undefined;
   private standingController: StandingController | undefined;
+  private stepExperiment: ExperimentalStepSequence | undefined;
+  private stepExperimentTicks = 0;
 
   private constructor(module: Module) {
     this.module = module;
@@ -72,6 +78,8 @@ export class MujocoSimulation {
     this.model = nextModel;
     this.data = nextData;
     this.standingController = undefined;
+    this.stepExperiment = undefined;
+    this.stepExperimentTicks = 0;
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -85,6 +93,8 @@ export class MujocoSimulation {
     this.module.mj_resetData(model, data);
     this.module.mj_forward(model, data);
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
+    this.stepExperiment = undefined;
+    this.stepExperimentTicks = 0;
   }
 
   /** Enables bounded internal-joint torque control on the public humanoid.
@@ -94,6 +104,41 @@ export class MujocoSimulation {
     const { model, data } = this.ready();
     this.module.mj_forward(model, data);
     this.standingController = makeStandingController(model, data);
+  }
+
+  /** Opt-in voluntary recovery-step test. Not a validated walking controller.
+   * Foot trajectories and contacts are all determined by real MuJoCo dynamics.
+   */
+  enableExperimentalStepTrial(
+    swingFoot: FootSide,
+    targetDeltaXY: XY = [0.10, 0],
+    startTimeS = 0.8,
+  ): void {
+    if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
+    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
+    this.stepExperimentTicks = 0;
+  }
+
+  experimentalStepStatus(): StepSnapshot | null {
+    return this.stepExperiment?.snapshot() ?? null;
+  }
+
+  private sampleStepExperiment(): void {
+    if (!this.stepExperiment) return;
+    const { data } = this.ready();
+    const side = this.stepExperiment.swingSide;
+    const ground = this.humanoidGroundSupportObservation();
+    const com = data.subtree_com as Float64Array;
+    const pelvis = data.qpos as Float64Array;
+    this.stepExperiment.observe({
+      timeS: data.time,
+      comWorldM: [com[3]!,com[4]!,com[5]!],
+      pelvisHeightM: pelvis[2]!,
+      rootTiltDeg: rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
+      swingSoleWorldM: this.siteWorldPosition(side+"_sole"),
+      swingLoadN: ground[side].verticalLoadN,
+      supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,
+    });
   }
 
   /** Advances count physical steps. Each optional callback runs immediately
@@ -109,10 +154,22 @@ export class MujocoSimulation {
       (data.xfrc_applied as Float64Array).fill(0);
       if (this.standingController) {
         this.module.mj_subtreeVel(model, data);
-        stepActiveStanding(model, data, this.standingController);
+        const command = this.stepExperiment?.command(
+          data.time, this.standingController.referenceComXY);
+        const controller = command ? {
+          ...this.standingController, referenceComXY: command.referenceComXY,
+        } : this.standingController;
+        stepActiveStanding(model, data, controller);
+        if (command) applyStepJointTargets(model,data,
+          this.standingController.gains,command.targetsRad);
       }
       beforeStep?.(data.time);
       this.module.mj_step(model, data);
+      if (this.stepExperiment && ++this.stepExperimentTicks % 10 === 0) {
+        // Read solved loads at 50 Hz, with the prior physical step's
+        // contact solution (a <=2ms lag), not on render frames.
+        this.sampleStepExperiment();
+      }
     }
     return this.state();
   }
@@ -373,6 +430,7 @@ export class MujocoSimulation {
   }
 
   dispose(): void {
+    this.stepExperiment = undefined;
     this.standingController = undefined;
     this.data?.delete();
     this.model?.delete();

@@ -4,7 +4,7 @@
 
 Laboratorio público para desarrollar **control clásico** de equilibrio, pasos y caídas articuladas en un humanoide físico, sin aprendizaje automático.
 
-> **Estado actual:** estructura TypeScript/Vite y experimento de MuJoCo WASM y Three.js (esfera libre bajo gravedad, cámara 3D, pausa y reinicio). **Ya incluye un humanoide MJCF sintético de 75 kg y un visor articulado**, pero **no tiene controlador de equilibrio**: el cuerpo es un ragdoll pasivo, que caerá físicamente. El equilibrio durante 10 s se desarrollará en [las issues #8–#9](https://github.com/Jonamarti/humanoid-physics-lab/issues/9). La calculadora de impulso es solo una demostración de unidades SI y no predice caídas.
+> **Estado actual:** estructura TypeScript/Vite y experimento de MuJoCo WASM y Three.js (esfera libre bajo gravedad, cámara 3D, pausa y reinicio). **Incluye un humanoide MJCF sintético de 75 kg** con dos escenarios: ragdoll pasivo y **primer control activo de tobillos/COM**, cuya postura inicial ha superado una simulación real de **10 segundos sin empujones**. La recuperación ante perturbaciones y los pasos aún están pendientes en [#9](https://github.com/Jonamarti/humanoid-physics-lab/issues/9), [#11](https://github.com/Jonamarti/humanoid-physics-lab/issues/11) y [#13](https://github.com/Jonamarti/humanoid-physics-lab/issues/13). La calculadora de impulso es solo una demostración de unidades SI y no predice caídas.
 
 ## Empezar
 
@@ -33,10 +33,10 @@ La ruta base de Vite `/humanoid-physics-lab/` ya está configurada. El workflow 
 
 ## Principios
 
-- Simulación física con MuJoCo WASM (#4), esfera de prueba y humanoide MJCF sin motores; render Three.js de geometrías físicas y cámara orbital. Sin segundo motor de física.
+- Simulación física con MuJoCo WASM (#4), esfera de prueba, cilindro contra obstáculo, humanoide pasivo y controlador activo experimental. Render Three.js de geometrías físicas y cámara orbital, sin segundo motor de física.
 - Integración de timestep fijo, fuerzas SI, pares articulares limitados; evitar anclajes artificiales a root/pelvis.
 - Models públicos sintéticos. **No subir FBX/BLEND propietarios de AnimSpec**.
-- No declarar equilibrio validado hasta probar 10 s de simulación física (#9).
+- Diez segundos de bipedestación nominal superados en CI con pelvis libre y pares internos limitados; faltan pruebas de perturbaciones, otras masas, condiciones de contacto y pasos (#9/#11/#13).
 - Convenciones en [docs/COORDINATES.md](docs/COORDINATES.md) y pirámide de tests en [docs/TESTING.md](docs/TESTING.md).
 - Contribuciones: [CONTRIBUTING.md](CONTRIBUTING.md); licencias de terceros: [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).
 
@@ -44,8 +44,8 @@ Código original bajo licencia Apache-2.0.
 
 ## Runtime MuJoCo WASM
 
-Escoge **Esfera** o **Humanoide (ragdoll sin equilibrio)** y pulsa **Cargar simulación** y después **Iniciar**. El visor Three.js muestra las transformaciones calculadas por MuJoCo, no una animación prefabricada. Más información técnica en [docs/MUJOCO_RUNTIME.md](docs/MUJOCO_RUNTIME.md). El humanoide es solo una base física pasiva: **no ha aprendido a estar de pie ni a dar pasos**. No se garantiza una tasa de 60 FPS en dispositivos móviles.
+Escoge **Esfera**, **Humanoide pasivo**, **Humanoide — equilibrio activo experimental (10 s)** o **Cilindro + obstáculo**, y pulsa **Cargar simulación** y después **Iniciar**. El visor Three.js muestra las transformaciones calculadas por MuJoCo, no una animación prefabricada. Más información técnica en [docs/MUJOCO_RUNTIME.md](docs/MUJOCO_RUNTIME.md). El humanoide dispone de un modo pasivo y otro de bipedestación física nominal con control clásico; **todavía no reacciona correctamente a empujones ni da pasos**. No se garantiza una tasa de 60 FPS en dispositivos móviles.
 
 ## Visor Three.js
 
-El escenario de gravedad se observa desde una cámara orbital controlable con ratón o gestos táctiles. El objeto visual recibe su posición de MuJoCo; no es una animación prefabricada. Ver [docs/THREE_VIEWER.md](docs/THREE_VIEWER.md). El cuerpo humanoide articulado ya está implementado y se visualiza como ragdoll pasivo; el controlador de equilibrio y la recuperación con pasos continúan pendientes (#8–#9, #12–#13).
+El escenario de gravedad se observa desde una cámara orbital controlable con ratón o gestos táctiles. El objeto visual recibe su posición de MuJoCo; no es una animación prefabricada. Ver [docs/THREE_VIEWER.md](docs/THREE_VIEWER.md). El visor permite contrastar ragdoll pasivo con una bipedestación activa durante diez segundos, documentada en [docs/STANDING_10S.md](docs/STANDING_10S.md). Las perturbaciones y recuperación mediante pasos continúan pendientes (#9, #11–#13).

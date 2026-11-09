@@ -19,12 +19,13 @@ app.innerHTML = `
     <section class="columns" aria-label="Estado del laboratorio">
       <article class="panel preview">
         <div id="physics-viewport" class="viewport" role="group" aria-label="Visor 3D: giro y zoom táctil de cuerpos físicos MuJoCo"></div>
-        <div class="status"><span class="dot"></span> MuJoCo WASM + Three.js — simulación física, sin control de equilibrio</div>
+        <div class="status"><span class="dot"></span> MuJoCo WASM + Three.js — escenario pasivo y primer controlador de equilibrio</div>
         <div class="controls" aria-label="Control de simulación">
           <label for="physics-model">Escenario físico</label>
           <select id="physics-model" aria-label="Escenario físico">
             <option value="ball">Esfera — prueba de gravedad</option>
             <option value="humanoid">Humanoide — ragdoll pasivo, sin equilibrio</option>
+            <option value="standing">Humanoide — equilibrio activo experimental (10 s)</option>
             <option value="cylinder">Cilindro + obstáculo — ensayo anterior al seoi-nage</option>
           </select>
           <p id="physics-status" role="status" aria-live="polite">Motor sin cargar.</p>
@@ -92,9 +93,10 @@ const physicsReadout = required<HTMLElement>("#physics-readout");
 const balanceReadout = required<HTMLElement>("#balance-readout");
 const physicsModel = required<HTMLSelectElement>("#physics-model");
 
-type Scenario = "ball" | "humanoid" | "cylinder";
+type Scenario = "ball" | "humanoid" | "standing" | "cylinder";
 const selectedScenario = (): Scenario => {
   if (physicsModel.value === "humanoid") return "humanoid";
+  if (physicsModel.value === "standing") return "standing";
   if (physicsModel.value === "cylinder") return "cylinder";
   return "ball";
 };
@@ -157,7 +159,7 @@ let frameHandle: number | undefined;
 
 function present(state: PhysicsState): void {
   const z = state.qpos[2];
-  balanceReadout.hidden = mode !== "humanoid";
+  balanceReadout.hidden = mode !== "humanoid" && mode !== "standing";
   if (mode === "cylinder") {
     maxSampledForwardTiltDeg = Math.max(maxSampledForwardTiltDeg, cylinderForwardTiltDeg(state.qpos));
     physicsReadout.textContent = "t = " + state.time.toFixed(3) +
@@ -168,9 +170,9 @@ function present(state: PhysicsState): void {
     return;
   }
   physicsReadout.textContent = "t = " + state.time.toFixed(3) +
-    " s · " + (mode === "humanoid" ? "pelvis" : "altura") +
+    " s · " + ((mode === "humanoid" || mode === "standing") ? "pelvis" : "altura") +
     " " + (z?.toFixed(3) ?? "?") + " m";
-  if (mode === "humanoid") {
+  if (mode === "humanoid" || mode === "standing") {
     if (simulation) {
       viewer?.setArticulatedPoses(simulation.geometryPoses());
       const b = simulation.humanoidBalanceObservation();
@@ -216,6 +218,13 @@ function animate(timestampMs: number): void {
       state = activeSimulation.step(steps);
     }
     present(state);
+    if (mode === "standing" && state.time >= 10) {
+      playing = false;
+      toggleButton.textContent = "Iniciar";
+      physicsStatus.textContent = state.qpos[2]! >= 0.79
+        ? "Diez segundos simulados: pelvis alta y controlador activo. Ensayo nominal sin empujones; la recuperación aún no está validada."
+        : "Diez segundos simulados, pero el humanoide perdió altura: el escenario no superó la evaluación.";
+    }
     if (mode === "cylinder" && state.time >= 3) {
       playing = false;
       toggleButton.textContent = "Iniciar";
@@ -269,7 +278,7 @@ loadButton.addEventListener("click", async () => {
     const nextMode = selectedScenario();
     let xml = GRAVITY_DEMO_MJCF;
     let trial: CylinderTrial | undefined;
-    if (nextMode === "humanoid") {
+    if (nextMode === "humanoid" || nextMode === "standing") {
       const response = await fetch(import.meta.env.BASE_URL + "models/humanoid_v1.xml");
       if (!response.ok) throw new Error("No se puede cargar humanoid_v1.xml: HTTP " + response.status);
       xml = await response.text();
@@ -280,8 +289,9 @@ loadButton.addEventListener("click", async () => {
     simulation = await MujocoSimulation.create(xml);
     mode = nextMode;
     activeTrial = trial;
+    if (mode === "standing") simulation.enableExperimentalStanding();
     clock = new FixedClock(mode === "cylinder" ? CYLINDER.timestepS : 0.002, 60);
-    if (mode === "humanoid" || mode === "cylinder") {
+    if (mode === "humanoid" || mode === "standing" || mode === "cylinder") {
       viewer?.showArticulated(simulation.geometrySpecs());
     } else {
       viewer?.showSphere();
@@ -289,7 +299,9 @@ loadButton.addEventListener("click", async () => {
     present(simulation.state());
     physicsStatus.textContent = mode === "humanoid"
       ? "Humanoide pasivo sin control de equilibrio: cae bajo gravedad."
-      : mode === "cylinder"
+      : mode === "standing"
+        ? "Equilibrio activo experimental: tobillos y articulaciones aplican pares limitados para mantener la postura durante 10 s, sin empujones."
+        : mode === "cylinder"
         ? "Cilindro listo: el tirón comienza a t = 0,30 s, desde una altura de 1,40 m."
         : "Esfera libre: gravedad y contacto real con el suelo.";
     toggleButton.disabled = false;

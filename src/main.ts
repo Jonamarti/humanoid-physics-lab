@@ -70,6 +70,24 @@ app.innerHTML = `
           <button id="push-run" type="button" disabled>Reiniciar y probar empujón (6 s)</button>
           <p class="muted" id="push-readout">La fuerza se aplica entre t=1,00 y 1,12 s. La recuperación se observa durante el resto de la simulación.</p>
           <p class="muted">El diagnóstico visual es aproximado. Las pruebas automatizadas registran resultados cada 0,04 s.</p>
+          <section class="step-experiment" aria-label="Ensayo experimental de un paso físico">
+            <h2>Primer paso físico experimental</h2>
+            <p class="muted">Ensaya un movimiento voluntario con transferencia real de peso, flexión de pierna y contacto. Aún NO es una recuperación automática ante empujones.</p>
+            <label for="step-foot">Pie que se mueve</label>
+            <select id="step-foot">
+              <option value="left">Izquierdo</option>
+              <option value="right">Derecho</option>
+            </select>
+            <label for="step-direction">Dirección del paso</label>
+            <select id="step-direction">
+              <option value="outward">Hacia fuera, lateral</option>
+              <option value="forward">Hacia delante</option>
+              <option value="backward">Hacia atrás</option>
+              <option value="diagonal" selected>Diagonal hacia delante y fuera</option>
+            </select>
+            <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
+            <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
+          </section>
         </div>
         <div id="rigid-force-controls">
         <h2>Ensayo de fuerza y vuelco</h2>
@@ -137,6 +155,10 @@ const forceMeterFill = required<HTMLElement>("#force-meter-fill");
 const pushVectorReadout = required<HTMLElement>("#push-vector-readout");
 const pushRun = required<HTMLButtonElement>("#push-run");
 const pushReadout = required<HTMLElement>("#push-readout");
+const stepFoot = required<HTMLSelectElement>("#step-foot");
+const stepDirection = required<HTMLSelectElement>("#step-direction");
+const stepRun = required<HTMLButtonElement>("#step-run");
+const stepReadout = required<HTMLElement>("#step-readout");
 
 type Scenario = "ball" | "humanoid" | "standing" | "cylinder";
 const selectedScenario = (): Scenario => {
@@ -188,6 +210,7 @@ function updateCalculation(): void {
   pushPanel.hidden = !standingSelected;
   rigidPanel.hidden = standingSelected;
   pushRun.disabled = !simulation || mode !== "standing" || !validPushInputs();
+  stepRun.disabled = !simulation || mode !== "standing";
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -225,6 +248,7 @@ let simulation: MujocoSimulation | undefined;
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
+let activeStepTrial = false;
 let initialPushCom: readonly [number, number] | undefined;
 let initialPushFeet: Map<number, readonly number[]> | undefined;
 let minimumPushPelvisM = Infinity;
@@ -257,21 +281,6 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
   if (mode === "humanoid" || mode === "standing") {
     if (simulation) {
       viewer?.setArticulatedPoses(simulation.geometryPoses());
-      if (mode === "standing" && activePush) {
-        const start = activePush.startS;
-        const end = start + activePush.durationS;
-        // Distinguish a planned direction from the actual force in this step.
-        const active = state.time > start && state.time < end;
-        const force = active
-          ? pushForceAtTime(state.time, activePush)
-          : pushForceAtTime(start + activePush.durationS / 2, activePush);
-        viewer?.setForceArrow(simulation.siteWorldPosition("sternum_impact"), force, active);
-        pushVectorReadout.textContent = (active ? "Fuerza aplicada: " : "Referencia (sin fuerza activa): ") +
-          force.map(v => v.toFixed(1)).join(", ") + " N (X, Y, Z)" +
-          (active ? "" : " · fuerza instantánea real: 0 N");
-      } else {
-        viewer?.clearForceArrow();
-      }
       const b = simulation.humanoidBalanceObservation();
       const ground = simulation.humanoidGroundSupportObservation();
       const projection = projectBalanceToGround(b.comWorldM, ground.loadedSupportPolygonXY);
@@ -284,7 +293,7 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
         " N · pie derecho: " + ground.right.verticalLoadN.toFixed(0) +
         " N. El contorno de apoyo es una aproximación geométrica de los pies cargados, no un CoP medido.";
       let previewTrial: PushTrial | undefined;
-      if (mode === "standing") {
+      if (mode === "standing" && !activeStepTrial) {
         try { previewTrial = activePush ?? selectedPushTrial(); }
         catch { previewTrial = undefined; }
       }
@@ -310,7 +319,19 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
         viewer?.clearForceArrow();
         forceMeterFill.style.width = "0%";
         pushPhase.classList.remove("is-active");
-        pushPhase.textContent = "Fuerza o duración inválida";
+        pushPhase.textContent = activeStepTrial ? "ENSAYO DE PASO (sin empujón)" : "Fuerza o duración inválida";
+      }
+      if (mode === "standing" && activeStepTrial) {
+        const snapshot = simulation.experimentalStepStatus();
+        if (snapshot) {
+          stepReadout.textContent = "Fase: " + snapshot.phase +
+            " · elevación máxima del pie: " + (snapshot.maxSoleRiseM*100).toFixed(1) +
+            " cm · desplazamiento hacia objetivo: " +
+            (snapshot.currentTargetProgressM*100).toFixed(1) +
+            " cm · aterrizaje verificado: " +
+            (snapshot.stepContactConfirmed ? "sí" : "no") +
+            " · " + snapshot.reason;
+        }
       }
       if (mode === "standing" && activePush && initialPushCom) {
         minimumPushPelvisM = Math.min(minimumPushPelvisM, state.qpos[2]!);
@@ -399,7 +420,17 @@ function animate(timestampMs: number): void {
       pushReadout.textContent += " Deriva máxima final de pies: " + (footDrift * 100).toFixed(1) +
         " cm · error final de COM " + (offset * 100).toFixed(1) + " cm.";
     }
-    if (mode === "standing" && !activePush && state.time >= 10) {
+    if (mode === "standing" && activeStepTrial && state.time >= 5.2) {
+      playing = false;
+      toggleButton.textContent = "Iniciar";
+      const status = activeSimulation.experimentalStepStatus();
+      physicsStatus.textContent = status?.phase === "COMPLETE"
+        ? "Paso físico comprobado: despegue, avance hacia objetivo y aterrizaje cargado."
+        : status?.phase === "FALL"
+        ? "El intento de paso terminó en una caída física."
+        : "Paso experimental no completado: " + (status?.reason ?? "sin diagnóstico");
+    }
+    if (mode === "standing" && !activePush && !activeStepTrial && state.time >= 10) {
       playing = false;
       toggleButton.textContent = "Iniciar";
       physicsStatus.textContent = state.qpos[2]! >= 0.79
@@ -427,6 +458,9 @@ function clearLoadedScenario(): void {
   simulation = undefined;
   activeTrial = undefined;
   activePush = undefined;
+  activeStepTrial = false;
+  stepRun.disabled = true;
+  stepReadout.textContent = "El paso todavía no se ha ensayado.";
   initialPushCom = undefined;
   initialPushFeet = undefined;
   minimumPushPelvisM = Infinity;
@@ -502,6 +536,7 @@ loadButton.addEventListener("click", async () => {
     toggleButton.disabled = false;
     resetButton.disabled = false;
     pushRun.disabled = mode !== "standing" || !validPushInputs();
+    stepRun.disabled = mode !== "standing";
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -525,6 +560,8 @@ pushRun.addEventListener("click", () => {
   try {
     const trial = selectedPushTrial();
     playing = false;
+    activeStepTrial = false;
+    stepReadout.textContent = "El paso todavía no se ha ensayado.";
     simulation.reset();
     clock.reset();
     lastFrame = undefined;
@@ -548,6 +585,36 @@ pushRun.addEventListener("click", () => {
   }
 });
 
+stepRun.addEventListener("click", () => {
+  if (!simulation || mode !== "standing") return;
+  try {
+    const side = stepFoot.value === "right" ? "right" : "left";
+    const sign = side === "left" ? 1 : -1;
+    const direction = stepDirection.value;
+    const delta: readonly [number,number] = direction === "outward"
+      ? [0, 0.12*sign] : direction === "forward" ? [0.12,0] :
+        direction === "backward" ? [-0.10,0] : [0.12,0.08*sign];
+    playing = false;
+    simulation.reset();
+    simulation.enableExperimentalStepTrial(side, delta, 0.8);
+    clock.reset();
+    lastFrame = undefined;
+    activePush = undefined;
+    initialPushCom = undefined;
+    initialPushFeet = undefined;
+    activeStepTrial = true;
+    playing = true;
+    toggleButton.textContent = "Pausar";
+    physicsStatus.textContent = "Ensayo voluntario de paso físico en marcha; los fallos se mostrarán como fallos.";
+    present(simulation.state());
+  } catch (error) {
+    playing = false;
+    activeStepTrial = false;
+    physicsStatus.textContent = "No se pudo iniciar el ensayo de paso: " +
+      (error instanceof Error ? error.message : String(error));
+  }
+});
+
 toggleButton.addEventListener("click", () => {
   if (!simulation) return;
   playing = !playing;
@@ -564,6 +631,8 @@ resetButton.addEventListener("click", () => {
   maxSampledForwardTiltDeg = 0;
   horizontalImpulseAppliedNs = 0;
   activePush = undefined;
+  activeStepTrial = false;
+  stepReadout.textContent = "El paso todavía no se ha ensayado.";
   initialPushCom = undefined;
   initialPushFeet = undefined;
   settledAfterPush = true;

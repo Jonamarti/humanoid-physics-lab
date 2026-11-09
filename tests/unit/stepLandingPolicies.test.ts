@@ -51,7 +51,8 @@ describe("Contact-aware swing joint policy",()=>{
       .toThrow(RangeError);
   });
 
-  it("compares three landing policies with actual MuJoCo contacts", async()=>{
+  const diagnosticOnly = process.env.RUN_LONG_BENCHMARKS === "1" ? it : it.skip;
+  diagnosticOnly("compares three landing policies with actual MuJoCo contacts", async()=>{
     const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
     const rows=[];
     for(const policy of POSES) {

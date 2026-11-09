@@ -134,7 +134,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
         input.step = "0.01";
         input.value = String(f[key]);
         input.disabled = !!snapshot;
-        input.addEventListener("change", () => replace(f.id, { [key]: input.valueAsNumber }));
+        input.addEventListener("change", () => replace(f.id, key === "startS" ? { startS: input.valueAsNumber } : { durationS: input.valueAsNumber }));
         field(group, title, input);
       }
       const shape = document.createElement("select");

@@ -36,7 +36,9 @@ jobs:
           cat /tmp/preview.log
           exit 1
       - name: Real Chromium UI test and record
-        run: node scripts/smoke-force-editor.mjs
+        run: |
+          node scripts/smoke-force-editor.mjs
+          node scripts/smoke-force-editor-mobile.mjs
       - name: Upload screenshot, video and results
         if: always()
         uses: actions/upload-artifact@v4

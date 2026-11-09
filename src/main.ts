@@ -72,28 +72,65 @@ app.innerHTML = `
 const forceInput = document.querySelector<HTMLInputElement>("#force");
 const durationInput = document.querySelector<HTMLInputElement>("#duration");
 const impulseOutput = document.querySelector<HTMLElement>("#impulse");
-if (!forceInput || !durationInput || !impulseOutput) throw new Error("Faltan controles del ensayo");
-
-const update = (): void => {
-  const force = forceInput.valueAsNumber;
-  const durationMs = durationInput.valueAsNumber;
-  if (!Number.isFinite(force) || !Number.isFinite(durationMs) || force < 0 || durationMs < 0) {
-    impulseOutput.textContent = "Introduce valores válidos no negativos.";
-    return;
-  }
-  impulseOutput.textContent = `Impulso: ${impulseFromConstantForce(force, durationMs / 1000).toFixed(1)} N·s`;
-};
-forceInput.addEventListener("input", update);
-durationInput.addEventListener("input", update);
-
+const obstacleInput = document.querySelector<HTMLSelectElement>("#obstacle-height");
+const upwardInput = document.querySelector<HTMLSelectElement>("#upward-ratio");
+const cylinderControls = document.querySelector<HTMLElement>("#cylinder-controls");
+const predictionOutput = document.querySelector<HTMLElement>("#pivot-prediction");
+const forceDescription = document.querySelector<HTMLElement>("#force-description");
 const loadButton = document.querySelector<HTMLButtonElement>("#physics-load");
 const toggleButton = document.querySelector<HTMLButtonElement>("#physics-toggle");
 const resetButton = document.querySelector<HTMLButtonElement>("#physics-reset");
 const physicsStatus = document.querySelector<HTMLElement>("#physics-status");
 const physicsReadout = document.querySelector<HTMLElement>("#physics-readout");
 const physicsModel = document.querySelector<HTMLSelectElement>("#physics-model");
-if (!loadButton || !toggleButton || !resetButton || !physicsStatus || !physicsReadout || !physicsModel) {
-  throw new Error("Faltan controles de MuJoCo");
+if (!forceInput || !durationInput || !impulseOutput || !obstacleInput || !upwardInput ||
+    !cylinderControls || !predictionOutput || !forceDescription ||
+    !loadButton || !toggleButton || !resetButton || !physicsStatus || !physicsReadout || !physicsModel) {
+  throw new Error("Faltan controles del laboratorio");
+}
+
+type Scenario = "ball" | "humanoid" | "cylinder";
+const selectedScenario = (): Scenario => {
+  if (physicsModel.value === "humanoid") return "humanoid";
+  if (physicsModel.value === "cylinder") return "cylinder";
+  return "ball";
+};
+
+function selectedTrial(): CylinderTrial {
+  const trial = {
+    obstacleHeightM: obstacleInput.valueAsNumber,
+    horizontalForceN: forceInput.valueAsNumber,
+    upwardRatio: Number(upwardInput.value),
+    durationS: durationInput.valueAsNumber / 1000,
+  };
+  // HTMLSelectElement may not support valueAsNumber consistently; parse manually.
+  trial.obstacleHeightM = Number(obstacleInput.value);
+  validateCylinderTrial(trial);
+  return trial;
+}
+
+function updateCalculation(): void {
+  const cylinderSelected = selectedScenario() === "cylinder";
+  cylinderControls.hidden = !cylinderSelected;
+  forceDescription.textContent = cylinderSelected
+    ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
+    : "La calculadora solo muestra unidades; no aplica fuerzas a la esfera ni al humanoide.";
+  try {
+    const trial = selectedTrial();
+    const impulse = impulseFromConstantForce(trial.horizontalForceN, trial.durationS);
+    impulseOutput.textContent = "Impulso horizontal: " + impulse.toFixed(1) + " N·s";
+    if (cylinderSelected) {
+      const prediction = idealPivotPrediction(trial);
+      predictionOutput.textContent = "Predicción de pivote ideal: " +
+        (prediction.tips ? "vuelca" : "no vuelca") +
+        " · energía inicial " + prediction.initialKineticEnergyJ.toFixed(0) +
+        " J · barrera " + prediction.potentialBarrierJ.toFixed(0) +
+        " J (no equivale al resultado MuJoCo).";
+    }
+  } catch (error) {
+    impulseOutput.textContent = "Parámetros inválidos: comprueba los límites del ensayo.";
+    predictionOutput.textContent = error instanceof Error ? error.message : String(error);
+  }
 }
 
 let viewer: BallViewer | undefined;
@@ -102,22 +139,36 @@ if (viewport) {
   try {
     viewer = new BallViewer(viewport);
   } catch (error) {
-    physicsStatus.textContent = `No se pudo abrir WebGL: ${error instanceof Error ? error.message : String(error)}. La telemetría de física sigue disponible.`;
+    physicsStatus.textContent = "WebGL no disponible: " +
+      (error instanceof Error ? error.message : String(error)) + ". Las métricas físicas siguen disponibles.";
   }
 }
 
 let simulation: MujocoSimulation | undefined;
-let humanoidMode = false;
+let mode: Scenario = "ball";
+let activeTrial: CylinderTrial | undefined;
 let playing = false;
 let lastFrame: number | undefined;
-const clock = new FixedClock(0.002, 50);
+let clock = new FixedClock(0.002, 50);
+let maxSampledForwardTiltDeg = 0;
+let horizontalImpulseAppliedNs = 0;
 let frameHandle: number | undefined;
 
 function present(state: PhysicsState): void {
-  if (!physicsReadout) return;
   const z = state.qpos[2];
-  physicsReadout.textContent = `t = ${state.time.toFixed(3)} s · ${humanoidMode ? "pelvis" : "altura"} ${z?.toFixed(3) ?? "?"} m`;
-  if (humanoidMode) {
+  if (mode === "cylinder") {
+    maxSampledForwardTiltDeg = Math.max(maxSampledForwardTiltDeg, cylinderForwardTiltDeg(state.qpos));
+    physicsReadout.textContent = "t = " + state.time.toFixed(3) +
+      " s · CM z = " + (z?.toFixed(3) ?? "?") +
+      " m · inclinación máxima muestreada = " + maxSampledForwardTiltDeg.toFixed(1) +
+      "° · impulso aplicado = " + horizontalImpulseAppliedNs.toFixed(1) + " N·s";
+    if (simulation) viewer?.setArticulatedPoses(simulation.geometryPoses());
+    return;
+  }
+  physicsReadout.textContent = "t = " + state.time.toFixed(3) +
+    " s · " + (mode === "humanoid" ? "pelvis" : "altura") +
+    " " + (z?.toFixed(3) ?? "?") + " m";
+  if (mode === "humanoid") {
     if (simulation) viewer?.setArticulatedPoses(simulation.geometryPoses());
   } else if (state.qpos.length >= 3) {
     viewer?.setSpherePosition([state.qpos[0]!, state.qpos[1]!, state.qpos[2]!]);
@@ -134,74 +185,133 @@ function animate(timestampMs: number): void {
     const elapsed = lastFrame === undefined ? 0 : Math.min((timestampMs - lastFrame) / 1000, 0.1);
     lastFrame = timestampMs;
     const steps = clock.consume(elapsed);
-    if (steps) present(simulation.step(steps));
+    if (!steps) return;
+    const activeSimulation = simulation;
+    let state: PhysicsState;
+    if (mode === "cylinder" && activeTrial) {
+      const trial = activeTrial;
+      state = activeSimulation.step(steps, (timeS) => {
+        const force = cylinderForceAt(timeS, trial);
+        if (force[0] !== 0 || force[2] !== 0) {
+          // Generated MJCF contains world body (0) and cylinder body (1).
+          activeSimulation.applyForceAtBodyLocalPoint(1, localGripPoint(), force);
+          horizontalImpulseAppliedNs += force[0] * CYLINDER.timestepS;
+        }
+      });
+    } else {
+      state = activeSimulation.step(steps);
+    }
+    present(state);
+    if (mode === "cylinder" && state.time >= 3) {
+      playing = false;
+      toggleButton.textContent = "Iniciar";
+      physicsStatus.textContent = maxSampledForwardTiltDeg > 90
+        ? "Ensayo completado: el cilindro ha volcado hacia delante (>90° muestreados)."
+        : "Ensayo completado: no se observó vuelco hacia delante (>90°).";
+    }
   } catch (error) {
     playing = false;
-    if (toggleButton) toggleButton.textContent = "Iniciar";
-    if (physicsStatus) physicsStatus.textContent =
-      `Error físico: ${error instanceof Error ? error.message : String(error)}`;
+    toggleButton.textContent = "Iniciar";
+    physicsStatus.textContent = "Error físico: " +
+      (error instanceof Error ? error.message : String(error));
   }
 }
 
-physicsModel.addEventListener("change", () => {
+function clearLoadedScenario(): void {
   playing = false;
   simulation?.dispose();
   simulation = undefined;
+  activeTrial = undefined;
   viewer?.showSphere();
   clock.reset();
+  maxSampledForwardTiltDeg = 0;
+  horizontalImpulseAppliedNs = 0;
   toggleButton.disabled = true;
   resetButton.disabled = true;
   toggleButton.textContent = "Iniciar";
+}
+
+physicsModel.addEventListener("change", () => {
+  clearLoadedScenario();
   physicsStatus.textContent = "Escenario seleccionado. Pulsa Cargar simulación.";
+  updateCalculation();
 });
+
+for (const control of [forceInput, durationInput, obstacleInput, upwardInput]) {
+  control.addEventListener("input", () => {
+    updateCalculation();
+    if (simulation && mode === "cylinder") {
+      physicsStatus.textContent = "Parámetros editados; pulsa Cargar simulación para aplicarlos al cilindro.";
+    }
+  });
+}
 
 loadButton.addEventListener("click", async () => {
   loadButton.disabled = true;
+  physicsModel.disabled = true;
   physicsStatus.textContent = "Descargando e iniciando MuJoCo WASM...";
   try {
-    playing = false;
-    simulation?.dispose();
-    simulation = undefined;
-    humanoidMode = physicsModel.value === "humanoid";
+    clearLoadedScenario();
+    const nextMode = selectedScenario();
     let xml = GRAVITY_DEMO_MJCF;
-    if (humanoidMode) {
+    let trial: CylinderTrial | undefined;
+    if (nextMode === "humanoid") {
       const response = await fetch(import.meta.env.BASE_URL + "models/humanoid_v1.xml");
-      if (!response.ok) throw new Error(`No se puede cargar humanoid_v1.xml: HTTP ${response.status}`);
+      if (!response.ok) throw new Error("No se puede cargar humanoid_v1.xml: HTTP " + response.status);
       xml = await response.text();
+    } else if (nextMode === "cylinder") {
+      trial = selectedTrial();
+      xml = cylinderMJCF(trial.obstacleHeightM);
     }
     simulation = await MujocoSimulation.create(xml);
-    clock.reset();
-    if (humanoidMode) viewer?.showArticulated(simulation.geometrySpecs());
-    else viewer?.showSphere();
+    mode = nextMode;
+    activeTrial = trial;
+    clock = new FixedClock(mode === "cylinder" ? CYLINDER.timestepS : 0.002, 60);
+    if (mode === "humanoid" || mode === "cylinder") {
+      viewer?.showArticulated(simulation.geometrySpecs());
+    } else {
+      viewer?.showSphere();
+    }
     present(simulation.state());
-    physicsStatus.textContent = humanoidMode
-      ? "Humanoide articulado sin actuadores: caerá bajo gravedad. El equilibrio activo aún no existe."
-      : "Esfera libre: gravedad y contacto físico real con el suelo.";
+    physicsStatus.textContent = mode === "humanoid"
+      ? "Humanoide pasivo sin control de equilibrio: cae bajo gravedad."
+      : mode === "cylinder"
+        ? "Cilindro listo: el tirón comienza a t = 0,30 s, desde una altura de 1,40 m."
+        : "Esfera libre: gravedad y contacto real con el suelo.";
     toggleButton.disabled = false;
     resetButton.disabled = false;
     toggleButton.textContent = "Iniciar";
   } catch (error) {
-    physicsStatus.textContent = `No se pudo cargar MuJoCo: ${error instanceof Error ? error.message : String(error)}`;
-    simulation = undefined;
+    clearLoadedScenario();
+    physicsStatus.textContent = "No se pudo cargar MuJoCo: " +
+      (error instanceof Error ? error.message : String(error));
   } finally {
     loadButton.disabled = false;
+    physicsModel.disabled = false;
   }
 });
+
 toggleButton.addEventListener("click", () => {
   if (!simulation) return;
   playing = !playing;
   lastFrame = undefined;
   toggleButton.textContent = playing ? "Pausar" : "Iniciar";
 });
+
 resetButton.addEventListener("click", () => {
   if (!simulation) return;
   playing = false;
   clock.reset();
   lastFrame = undefined;
+  maxSampledForwardTiltDeg = 0;
+  horizontalImpulseAppliedNs = 0;
   simulation.reset();
   present(simulation.state());
   toggleButton.textContent = "Iniciar";
+  physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";
 });
+
+updateCalculation();
 frameHandle = window.requestAnimationFrame(animate);
 window.addEventListener("pagehide", () => {
   playing = false;

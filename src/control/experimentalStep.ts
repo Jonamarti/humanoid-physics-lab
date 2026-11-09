@@ -13,6 +13,9 @@ export type StepPhase =
 export interface StepFeedback {
   readonly timeS: number;
   readonly comWorldM: XYZ;
+  readonly comVelocityWorldMps: XYZ;
+  readonly comProjectionInsideLoadedSupport: boolean;
+  readonly capturePointInsideLoadedSupport: boolean;
   readonly pelvisHeightM: number;
   readonly rootTiltDeg: number;
   readonly swingSoleWorldM: XYZ;
@@ -44,6 +47,8 @@ export interface StepSnapshot {
   readonly maxLandingSlipM: number;
   readonly maxSupportFootSlipM: number;
   readonly targetErrorXYM: number;
+  /** Consecutive seconds of verified stability, sampled at physics cadence. */
+  readonly settledDurationS: number;
 }
 
 /** One voluntary step attempt, useful for testing the controller in real
@@ -70,6 +75,9 @@ export class ExperimentalStepSequence {
   private stepContactConfirmed = false;
   private firstLandingSole: XYZ | undefined;
   private maxContactSlipM = 0;
+  private latestSwingLoadN = 0;
+  private settledSinceS: number | undefined;
+  private settledDurationS = 0;
 
   constructor(
     readonly swingSide: FootSide,
@@ -99,6 +107,7 @@ export class ExperimentalStepSequence {
       maxLandingSlipM: this.maxContactSlipM,
       maxSupportFootSlipM: this.maxSupportFootSlipM,
       targetErrorXYM: this.targetErrorXYM,
+      settledDurationS: this.settledDurationS,
     };
   }
 
@@ -109,14 +118,19 @@ export class ExperimentalStepSequence {
   }
 
   observe(info: StepFeedback): void {
-    if (![info.timeS, ...info.comWorldM, info.pelvisHeightM, info.rootTiltDeg,
+    if (![info.timeS, ...info.comWorldM, ...info.comVelocityWorldMps,
+      info.pelvisHeightM, info.rootTiltDeg,
       ...info.swingSoleWorldM, ...info.supportSoleWorldM,
       info.supportLoadN, info.swingLoadN].every(Number.isFinite) ||
       info.supportLoadN < 0 || info.swingLoadN < 0 || info.rootTiltDeg < 0 ||
+      typeof info.comProjectionInsideLoadedSupport !== "boolean" ||
+      typeof info.capturePointInsideLoadedSupport !== "boolean" ||
       info.timeS < this.lastTimeS) {
       throw new RangeError("Mediciones de paso inválidas o tiempo no monótono");
     }
+    const sampleGapS = info.timeS - this.lastTimeS;
     this.lastTimeS = info.timeS;
+    this.latestSwingLoadN = info.swingLoadN;
     if (!this.originalSole) this.originalSole = [...info.swingSoleWorldM] as XYZ;
     if (!this.originalSupportSole) {
       this.originalSupportSole = [...info.supportSoleWorldM] as XYZ;
@@ -163,6 +177,31 @@ export class ExperimentalStepSequence {
       this.transition("ABORT",info.timeS,"El pie apoyado se deslizó más de 4,5 cm");
       return;
     }
+    // A transient impact does not establish a step. Require a continuous
+    // interval of physically loaded bilateral support and a stationary COM.
+    // Missing/late samples invalidate the interval rather than pretending
+    // there was support throughout the gap.
+    const stableNow =
+      info.comProjectionInsideLoadedSupport &&
+      info.capturePointInsideLoadedSupport &&
+      Math.hypot(info.comVelocityWorldMps[0],info.comVelocityWorldMps[1]) < 0.12 &&
+      info.pelvisHeightM > 0.82 && info.rootTiltDeg < 10 &&
+      this.targetErrorXYM <= 0.05 &&
+      this.maxSupportFootSlipM <= 0.02 &&
+      this.maxContactSlipM <= 0.02 &&
+      info.supportLoadN > 40 && info.swingLoadN > 40;
+    if ((this.phase === "RECOVER" || this.phase === "COMPLETE") &&
+        stableNow && sampleGapS <= 0.06) {
+      this.settledSinceS ??= info.timeS;
+      this.settledDurationS = info.timeS-this.settledSinceS;
+    } else {
+      this.settledSinceS = undefined;
+      this.settledDurationS = 0;
+      if (this.phase === "COMPLETE") {
+        this.transition("ABORT",info.timeS,"El apoyo dejó de ser estable tras completarse");
+        return;
+      }
+    }
     const elapsed = info.timeS - this.phaseStartedAtS;
     switch (this.phase) {
       case "STAND":
@@ -200,14 +239,12 @@ export class ExperimentalStepSequence {
         }
         break;
       case "RECOVER":
-        if (elapsed > 0.55 && info.pelvisHeightM > 0.82 &&
-            progress > minProgress && this.targetErrorXYM <= 0.06 &&
-            this.maxSupportFootSlipM <= 0.025 &&
-            info.supportLoadN > 40 && info.swingLoadN > 40) {
-          this.transition("COMPLETE",info.timeS,"Apoyo bilateral tras paso real");
-        } else if (elapsed > 1.0) {
+        if (progress > minProgress && this.settledDurationS >= 1.0) {
+          this.transition("COMPLETE",info.timeS,
+            "Apoyo bilateral y destino estables durante al menos un segundo");
+        } else if (elapsed > 2.2) {
           this.transition("ABORT",info.timeS,
-            "Sin apoyo estable, pie de apoyo fijo o destino correcto tras contacto");
+            "No sostuvo el equilibrio y la colocación durante un segundo");
         }
         break;
     }
@@ -264,7 +301,7 @@ export class ExperimentalStepSequence {
     const initial=this.originalSole;
     let soleTargetWorldM: XYZ | null = null;
     let cartesianBlend=0;
-    if (initial && ["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
+    if (initial && ["LIFT","SWING","LAND"].includes(this.phase)) {
       const horizontal = this.phase==="LIFT" ? 0 :
         this.phase==="SWING" ? t(0.45) : 1;
       const vertical = this.phase==="LIFT" ? 0.095*t(0.3) :
@@ -276,7 +313,11 @@ export class ExperimentalStepSequence {
         initial[2]+vertical,
       ];
       // Smooth engagement of the task-space controller on first lift.
-      cartesianBlend=this.phase==="LIFT"?t(0.12):1;
+      // Never keep pressing the planted foot with task-space swing torques.
+      // During LAND, smoothly fade the swing motor as its normal load rises.
+      cartesianBlend=this.phase==="LIFT" ? t(0.12) :
+        this.phase==="SWING" ? Math.max(0,1-this.latestSwingLoadN/25) :
+        Math.max(0,1-this.latestSwingLoadN/60);
     }
     return { phase:this.phase, referenceComXY:ref, targetsRad:joints,
       soleTargetWorldM, cartesianBlend };

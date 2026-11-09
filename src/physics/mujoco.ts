@@ -467,7 +467,7 @@ export class MujocoSimulation {
             solverRows: constraintForce,
             efcAddress: contact.efc_address,
             dim: contact.dim,
-            pyramidal,
+            pyramidal: Boolean(pyramidal),
             friction: contact.friction as Float64Array,
             adhesionN: contact.adhesion,
           });

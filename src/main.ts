@@ -390,8 +390,8 @@ function animate(timestampMs: number): void {
     }
     if (!(mode === "standing" && (activePush || forceEditor?.running))) present(state);
     if (mode === "standing" && forceEditor?.running && state.time >= forceEditor.horizonS) {
-      forceEditor.finish();
       playing = false;
+      forceEditor.finish();
       toggleButton.textContent = "Iniciar";
       physicsStatus.textContent = "Secuencia múltiple completada; resultados físicos, no validación biomecánica.";
     }

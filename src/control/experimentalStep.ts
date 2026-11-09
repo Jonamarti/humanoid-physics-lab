@@ -19,6 +19,8 @@ export interface StepFeedback {
   readonly pelvisHeightM: number;
   readonly rootTiltDeg: number;
   readonly swingSoleWorldM: XYZ;
+  /** Instantaneous world velocity of the swing sole at observed contact. */
+  readonly swingSoleVelocityWorldMps?: XYZ;
   readonly supportSoleWorldM: XYZ;
   readonly supportLoadN: number;
   readonly swingLoadN: number;
@@ -45,6 +47,10 @@ export interface StepSnapshot {
   readonly maxSupportLoadFraction: number;
   readonly stepContactConfirmed: boolean;
   readonly maxLandingSlipM: number;
+  /** First observed *loaded* touch, not the beginning of the LAND phase. */
+  readonly firstLandingHorizontalSpeedMps: number | null;
+  readonly firstLandingDownwardSpeedMps: number | null;
+  readonly firstLandingNormalForceN: number | null;
   readonly maxSupportFootSlipM: number;
   readonly targetErrorXYM: number;
   /** Consecutive seconds of verified stability, sampled at physics cadence. */
@@ -74,6 +80,9 @@ export class ExperimentalStepSequence {
   private maxSupportLoadFraction = 0;
   private stepContactConfirmed = false;
   private firstLandingSole: XYZ | undefined;
+  private firstLandingHorizontalSpeedMps: number | null = null;
+  private firstLandingDownwardSpeedMps: number | null = null;
+  private firstLandingNormalForceN: number | null = null;
   private maxContactSlipM = 0;
   private latestSwingLoadN = 0;
   private settledSinceS: number | undefined;
@@ -105,6 +114,9 @@ export class ExperimentalStepSequence {
       maxSupportLoadFraction: this.maxSupportLoadFraction,
       stepContactConfirmed: this.stepContactConfirmed,
       maxLandingSlipM: this.maxContactSlipM,
+      firstLandingHorizontalSpeedMps: this.firstLandingHorizontalSpeedMps,
+      firstLandingDownwardSpeedMps: this.firstLandingDownwardSpeedMps,
+      firstLandingNormalForceN: this.firstLandingNormalForceN,
       maxSupportFootSlipM: this.maxSupportFootSlipM,
       targetErrorXYM: this.targetErrorXYM,
       settledDurationS: this.settledDurationS,
@@ -120,7 +132,9 @@ export class ExperimentalStepSequence {
   observe(info: StepFeedback): void {
     if (![info.timeS, ...info.comWorldM, ...info.comVelocityWorldMps,
       info.pelvisHeightM, info.rootTiltDeg,
-      ...info.swingSoleWorldM, ...info.supportSoleWorldM,
+      ...info.swingSoleWorldM,
+      ...(info.swingSoleVelocityWorldMps ?? []),
+      ...info.supportSoleWorldM,
       info.supportLoadN, info.swingLoadN].every(Number.isFinite) ||
       info.supportLoadN < 0 || info.swingLoadN < 0 || info.rootTiltDeg < 0 ||
       typeof info.comProjectionInsideLoadedSupport !== "boolean" ||
@@ -233,6 +247,12 @@ export class ExperimentalStepSequence {
             info.swingLoadN > 40) {
           this.stepContactConfirmed = true;
           this.firstLandingSole = [...info.swingSoleWorldM] as XYZ;
+          this.firstLandingNormalForceN = info.swingLoadN;
+          if (info.swingSoleVelocityWorldMps) {
+            const [vx,vy,vz] = info.swingSoleVelocityWorldMps;
+            this.firstLandingHorizontalSpeedMps = Math.hypot(vx,vy);
+            this.firstLandingDownwardSpeedMps = Math.max(0,-vz);
+          }
           this.transition("RECOVER",info.timeS,"Aterrizaje con carga real verificado");
         } else if (elapsed > 0.9) {
           this.transition("ABORT",info.timeS,"Aterrizaje en dirección objetivo no confirmado");

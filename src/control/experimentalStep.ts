@@ -19,6 +19,7 @@ export interface StepFeedback {
   readonly supportSoleWorldM: XYZ;
   readonly supportLoadN: number;
   readonly swingLoadN: number;
+  readonly swingJointAnglesRad?: Readonly<Record<string,number>>;
 }
 
 export interface StepCommand {
@@ -28,6 +29,7 @@ export interface StepCommand {
   /** World-space end-effector target, used by bounded Jacobian feedback. */
   readonly soleTargetWorldM: XYZ | null;
   readonly cartesianBlend: number;
+  readonly jointStiffnessScale: number;
 }
 
 export interface StepSnapshot {
@@ -69,6 +71,7 @@ export class ExperimentalStepSequence {
   private maxSupportLoadFraction = 0;
   private stepContactConfirmed = false;
   private firstLandingSole: XYZ | undefined;
+  private firstLandingJointAngles: Readonly<Record<string,number>> | undefined;
   private maxContactSlipM = 0;
 
   constructor(
@@ -113,7 +116,9 @@ export class ExperimentalStepSequence {
       ...info.swingSoleWorldM, ...info.supportSoleWorldM,
       info.supportLoadN, info.swingLoadN].every(Number.isFinite) ||
       info.supportLoadN < 0 || info.swingLoadN < 0 || info.rootTiltDeg < 0 ||
-      info.timeS < this.lastTimeS) {
+      info.timeS < this.lastTimeS ||
+      (info.swingJointAnglesRad !== undefined &&
+        Object.values(info.swingJointAnglesRad).some(n=>!Number.isFinite(n)))) {
       throw new RangeError("Mediciones de paso inválidas o tiempo no monótono");
     }
     this.lastTimeS = info.timeS;
@@ -194,6 +199,8 @@ export class ExperimentalStepSequence {
             info.swingLoadN > 40) {
           this.stepContactConfirmed = true;
           this.firstLandingSole = [...info.swingSoleWorldM] as XYZ;
+          this.firstLandingJointAngles = info.swingJointAnglesRad ?
+            { ...info.swingJointAnglesRad } : undefined;
           this.transition("RECOVER",info.timeS,"Aterrizaje con carga real verificado");
         } else if (elapsed > 0.9) {
           this.transition("ABORT",info.timeS,"Aterrizaje en dirección objetivo no confirmado");
@@ -257,6 +264,12 @@ export class ExperimentalStepSequence {
       joints[`${this.swingSide}_knee`] = lift ? -0.6 : -0.05;
       joints[`${this.swingSide}_ankle_pitch`] = lift ? 0.12 : 0;
     }
+    const holding = this.phase === "RECOVER" || this.phase === "COMPLETE";
+    if (holding && this.firstLandingJointAngles) {
+      for (const [jointName, angle] of Object.entries(this.firstLandingJointAngles)) {
+        joints[jointName] = angle;
+      }
+    }
     const t = (duration: number): number => {
       const u=Math.max(0,Math.min(1,elapsed/duration));
       return u*u*(3-2*u);
@@ -279,7 +292,8 @@ export class ExperimentalStepSequence {
       cartesianBlend=this.phase==="LIFT"?t(0.12):1;
     }
     return { phase:this.phase, referenceComXY:ref, targetsRad:joints,
-      soleTargetWorldM, cartesianBlend };
+      soleTargetWorldM, cartesianBlend,
+      jointStiffnessScale:holding ? 0.45 : 1 };
   }
 }
 
@@ -290,7 +304,10 @@ export function applyStepJointTargets(
   model: NamedHingeModel, data: MuJoCoJointStateView,
   baseline: ReadonlyMap<number, JointPDSettings>,
   targetsRad: Readonly<Record<string,number>>,
+  stiffnessScale = 1,
 ): void {
+  if (!Number.isFinite(stiffnessScale) || stiffnessScale <= 0 ||
+      stiffnessScale > 1) throw new RangeError("Rigidez de paso inválida");
   for (const [name,targetRad] of Object.entries(targetsRad)) {
     const joint = model.jnt(name).id;
     if (joint <= 0 || joint >= model.njnt || model.jnt_type[joint] !== 3) {
@@ -301,7 +318,9 @@ export function applyStepJointTargets(
     const settings = baseline.get(joint);
     if (!settings) throw new TypeError("Articulación sin par limitado: " + name);
     data.qfrc_applied[v] = limitedJointTorque(data.qpos[q]!,data.qvel[v]!,
-      { ...settings,targetRad });
+      { ...settings,targetRad,
+        stiffnessNmPerRad:settings.stiffnessNmPerRad*stiffnessScale,
+      });
   }
   if (Array.from(data.qfrc_applied).slice(0,6).some(v => v!==0)) {
     throw new Error("El paso experimental intentó actuar sobre root/pelvis");

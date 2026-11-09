@@ -46,7 +46,6 @@ export class MujocoSimulation {
   private standingController: StandingController | undefined;
   private stepExperiment: ExperimentalStepSequence | undefined;
   private stepExperimentTicks = 0;
-  private stepFootLoadShares: readonly [number,number] | undefined;
 
   private constructor(module: Module) {
     this.module = module;
@@ -81,7 +80,6 @@ export class MujocoSimulation {
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
-    this.stepFootLoadShares = undefined;
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -97,7 +95,6 @@ export class MujocoSimulation {
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
-    this.stepFootLoadShares = undefined;
   }
 
   /** Enables bounded internal-joint torque control on the public humanoid.
@@ -120,7 +117,6 @@ export class MujocoSimulation {
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
     this.stepExperimentTicks = 0;
-    this.stepFootLoadShares = undefined;
   }
 
   experimentalStepStatus(): StepSnapshot | null {
@@ -132,9 +128,6 @@ export class MujocoSimulation {
     const { data } = this.ready();
     const side = this.stepExperiment.swingSide;
     const ground = this.humanoidGroundSupportObservation();
-    this.stepFootLoadShares = ground.totalVerticalLoadN > 20
-      ? [ground.left.verticalLoadN/ground.totalVerticalLoadN,
-         ground.right.verticalLoadN/ground.totalVerticalLoadN] : undefined;
     const com = data.subtree_com as Float64Array;
     const pelvis = data.qpos as Float64Array;
     this.stepExperiment.observe({
@@ -166,7 +159,6 @@ export class MujocoSimulation {
         const controller = command ? {
           ...this.standingController,
           referenceComXY: command.referenceComXY,
-          footLoadShares: this.stepFootLoadShares,
         } : this.standingController;
         stepActiveStanding(model, data, controller);
         if (command) applyStepJointTargets(model,data,

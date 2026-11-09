@@ -17,16 +17,19 @@ let modulePromise: Promise<Module> | undefined;
 
 /** Load the official single-thread MuJoCo runtime; the asset URL is Vite-base aware. */
 export function loadPhysicsModule(): Promise<Module> {
-  // In Node/Vitest, Emscripten resolves the packaged .wasm relative to its
-  // own module. Vite's ?url returns a browser URL, not a local filesystem path.
-  // In the browser, Vite's asset URL is essential for GitHub Pages' base path.
-  const load = typeof window === "undefined"
-    ? loadMujoco()
-    : loadMujoco({ locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path });
-  modulePromise ??= load.catch((error: unknown) => {
-    modulePromise = undefined; // allow retry after transient WASM fetch failure
-    throw error;
-  });
+  // Cache the INITIALIZATION itself, not merely its promise after spawning it.
+  // Starting extra Emscripten runtimes during a parameter sweep leaks memory.
+  if (!modulePromise) {
+    // In Node/Vitest the package locates mujoco.wasm itself. In browsers
+    // Vite must supply a base-aware URL (including the GitHub Pages prefix).
+    const load = typeof window === "undefined"
+      ? loadMujoco()
+      : loadMujoco({ locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path });
+    modulePromise = load.catch((error: unknown) => {
+      modulePromise = undefined; // allow retry after transient WASM fetch failure
+      throw error;
+    });
+  }
   return modulePromise;
 }
 

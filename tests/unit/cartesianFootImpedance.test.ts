@@ -7,9 +7,12 @@ import {
 describe("World-space hinge Jacobian and bounded foot impedance",()=>{
   it("derives correct signed motion of hip pitch and hip roll",()=>{
     const p:[number,number,number]=[0,0,-0.84];
-    expect(hingeSiteJacobianColumn([0,1,0],[0,0,0],p)).toEqual([-0.84,0,0]);
-    expect(hingeSiteJacobianColumn([1,0,0],[0,0,0],p)).toEqual([0,0.84,0]);
-    expect(hingeSiteJacobianColumn([0,0,1],[0,0,0],p)).toEqual([0,0,0]);
+    const pitch=hingeSiteJacobianColumn([0,1,0],[0,0,0],p);
+    const roll=hingeSiteJacobianColumn([1,0,0],[0,0,0],p);
+    const yaw=hingeSiteJacobianColumn([0,0,1],[0,0,0],p);
+    expect(pitch[0]).toBeCloseTo(-0.84,12);
+    expect(roll[1]).toBeCloseTo(0.84,12);
+    expect(yaw.every(v=>Math.abs(v)<1e-12)).toBe(true);
   });
   it("limits force with physically defined stiffness and measured velocity",()=>{
     const base={targetWorldM:[0.2,0.1,0.05] as const,

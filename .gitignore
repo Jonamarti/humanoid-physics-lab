@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+.vite/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+.vscode/
+.idea/
+# Never publish private Blender assets or models.
+*.fbx
+*.blend
+*.blend1

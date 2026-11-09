@@ -9,6 +9,7 @@ import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
+import { decodeSolvedContactForce } from "./contactForces";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -459,25 +460,33 @@ export class MujocoSimulation {
                 first === floorGeomId ? second : first
               )) continue;
           if (contact.efc_address < 0) continue; // excluded / unsolved
-          // Bindings 3.17.0 copy output arrays in mj_contactForce rather
-          // than writing them back into JS typed arrays. Decode the solved
-          // normal directly from efc_force, matching mju_decodePyramid.
-          const rows = pyramidal && contact.dim > 1 ? 2 * (contact.dim - 1) : 1;
-          const start = contact.efc_address;
-          if (start + rows > constraintForce.length) {
-            throw new Error("Índice de restricción fuera de rango");
-          }
-          let normalN = 0;
-          for (let j = 0; j < rows; j++) normalN += constraintForce[start + j]!;
-          normalN -= contact.adhesion;
+          // Decode the solved normal *and* tangents from efc_force with
+          // the same pyramid formula as MuJoCo's mju_decodePyramid.
+          // This avoids the WASM mj_contactForce output-buffer bug.
+          const solved = decodeSolvedContactForce({
+            solverRows: constraintForce,
+            efcAddress: contact.efc_address,
+            dim: contact.dim,
+            pyramidal,
+            friction: contact.friction as Float64Array,
+            adhesionN: contact.adhesion,
+          });
           const point = contact.pos as Float64Array;
           const frame = contact.frame as Float64Array;
+          const [u,v] = solved.tangentN;
+          const tangentWorld: XYZ = [
+            u*frame[3]!+v*frame[6]!,
+            u*frame[4]!+v*frame[7]!,
+            u*frame[5]!+v*frame[8]!,
+          ];
           samples.push({
             geom1: first,
             geom2: second,
             positionWorldM: [point[0]!, point[1]!, point[2]!],
             contactNormalWorld: [frame[0]!, frame[1]!, frame[2]!],
-            contactNormalForceN: Math.max(0, normalN),
+            contactNormalForceN: Math.max(0, solved.normalN),
+            tangentForceWorldN: tangentWorld,
+            frictionUtilization: solved.frictionUtilization,
           });
         } finally {
           contact.delete();

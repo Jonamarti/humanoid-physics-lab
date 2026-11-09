@@ -73,14 +73,52 @@ export class MujocoSimulation {
     this.module.mj_forward(model, data);
   }
 
-  /** Advances one fixed physics step from the MJCF option timestep. */
-  step(count = 1): PhysicsState {
+  /** Advances count physical steps. Each optional callback runs immediately
+   * before the step so force pulses respect physical time, not screen FPS.
+   * External wrenches are cleared on EVERY step to avoid stale impulses.
+   */
+  step(count = 1, beforeStep?: (timeS: number) => void): PhysicsState {
     const { model, data } = this.ready();
     if (!Number.isSafeInteger(count) || count < 0 || count > 100_000) {
       throw new RangeError("Número de pasos inválido");
     }
-    for (let i = 0; i < count; i++) this.module.mj_step(model, data);
+    for (let i = 0; i < count; i++) {
+      (data.xfrc_applied as Float64Array).fill(0);
+      beforeStep?.(data.time);
+      this.module.mj_step(model, data);
+    }
     return this.state();
+  }
+
+  /** Apply a world-force at a point given relative to the body's COM
+   * in the current BODY-LOCAL axes. MuJoCo expects world force + world torque.
+   * Call from step(..., beforeStep) so every interval is applied exactly once.
+   */
+  applyForceAtBodyLocalPoint(
+    bodyIndex: number,
+    localComOffsetM: readonly [number, number, number],
+    worldForceN: readonly [number, number, number],
+  ): void {
+    const { model, data } = this.ready();
+    if (!Number.isSafeInteger(bodyIndex) || bodyIndex <= 0 || bodyIndex >= model.nbody ||
+        ![...localComOffsetM, ...worldForceN].every(Number.isFinite)) {
+      throw new RangeError("Cuerpo o vector de fuerza inválido");
+    }
+    const m = data.xmat as Float64Array;
+    const b = bodyIndex * 9;
+    const [x, y, z] = localComOffsetM;
+    const rx = m[b]! * x + m[b + 1]! * y + m[b + 2]! * z;
+    const ry = m[b + 3]! * x + m[b + 4]! * y + m[b + 5]! * z;
+    const rz = m[b + 6]! * x + m[b + 7]! * y + m[b + 8]! * z;
+    const [fx, fy, fz] = worldForceN;
+    const w = data.xfrc_applied as Float64Array;
+    const offset = bodyIndex * 6;
+    w[offset]! += fx;
+    w[offset + 1]! += fy;
+    w[offset + 2]! += fz;
+    w[offset + 3]! += ry * fz - rz * fy;
+    w[offset + 4]! += rz * fx - rx * fz;
+    w[offset + 5]! += rx * fy - ry * fx;
   }
 
   state(): PhysicsState {

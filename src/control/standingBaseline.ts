@@ -5,7 +5,7 @@ import { applyHingePD, type JointPDSettings, type MuJoCoJointIndexView, type MuJ
  * No root torque, no pelvis anchor, no motion capture and no RL.
  */
 export interface NamedHingeModel extends MuJoCoJointIndexView {
-  joint(name: string): { id: number };
+  jnt(name: string): { id: number };
 }
 
 export type JointGroup = "spine" | "hip" | "knee" | "ankle" | "arm" | "neck";
@@ -37,7 +37,7 @@ export function makeNeutralStandingPD(model: NamedHingeModel): ReadonlyMap<numbe
   for (const group of Object.keys(NEUTRAL_JOINT_GROUPS) as JointGroup[]) {
     const g = NEUTRAL_PD_GAINS[group];
     for (const name of NEUTRAL_JOINT_GROUPS[group]) {
-      const id = model.joint(name).id;
+      const id = model.jnt(name).id;
       if (!Number.isSafeInteger(id) || id <= 0 || id >= model.njnt || model.jnt_type[id] !== 3) {
         throw new TypeError("Joint no es una bisagra interna: " + name);
       }

@@ -27,7 +27,7 @@ npm run preview
 
 ## CI, dependencias y publicación
 
-GitHub Actions ejecuta typecheck, lint, unitarios y compilación en push y pull requests. **Limitación temporal inicial:** el entorno de creación carece de acceso al registro npm y por ello no se ha podido generar `package-lock.json` todavía. El workflow inicial utiliza `npm install` **sin caché**. La siguiente tarea de mantenimiento es generar `package-lock.json` con `npm install --package-lock-only` desde un runner conectado, incorporarlo y cambiar CI a `npm ci` + caché. Las versiones directas de dependencias están fijadas; las transitivas no quedan reproducibles sin lockfile.
+GitHub Actions ejecuta comprobación de tipos, ESLint, Vitest y compilación en cada push y pull request. El archivo `package-lock.json` está confirmado y el workflow utiliza `npm ci` y caché npm para instalaciones reproducibles. El lockfile se generó inicialmente en un runner de GitHub conectado al registro npm.
 
 La ruta base de Vite `/humanoid-physics-lab/` ya está configurada. El despliegue GitHub Pages pertenece a la [issue #6](https://github.com/Jonamarti/humanoid-physics-lab/issues/6).
 

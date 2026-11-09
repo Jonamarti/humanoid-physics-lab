@@ -12,6 +12,7 @@ export interface ForceEditor {
   readonly horizonS: number;
   refresh(): void;
   reset(): void;
+  finish(): void;
   beginFrame(): void;
   applyStep(sim: MujocoSimulation, timeS: number): void;
   present(sim: MujocoSimulation | undefined, viewer: BallViewer | undefined, timeS: number): void;
@@ -238,6 +239,13 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     get running() { return !!snapshot; },
     get horizonS() { return horizonS; },
     refresh,
+    finish() {
+      snapshot = undefined;
+      applied.clear();
+      draw();
+      configureViewer();
+      status.textContent = "Ensayo terminado. Puedes editar las fuerzas y volver a ejecutar.";
+    },
     reset() {
       snapshot = undefined;
       applied.clear();
@@ -292,7 +300,6 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     }
     enabled = check.checked;
     pane.hidden = !enabled;
-    editingPointId = undefined;
     configureViewer();
     preview();
     callbacks.onToggle();

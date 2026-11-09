@@ -49,6 +49,10 @@ app.innerHTML = `
             <option value="backward" selected>Hacia atrás (-X)</option>
             <option value="left">Hacia la izquierda (+Y)</option>
             <option value="right">Hacia la derecha (-Y)</option>
+            <option value="forward-left">Diagonal: delante-izquierda (+X,+Y)</option>
+            <option value="forward-right">Diagonal: delante-derecha (+X,-Y)</option>
+            <option value="backward-left">Diagonal: atrás-izquierda (-X,+Y)</option>
+            <option value="backward-right">Diagonal: atrás-derecha (-X,-Y)</option>
           </select>
           <label for="push-peak">Fuerza máxima del empujón</label>
           <select id="push-peak">

@@ -2,6 +2,7 @@ import loadMujoco from "@mujoco/mujoco";
 import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
+import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -34,6 +35,7 @@ export class MujocoSimulation {
   private readonly module: Module;
   private model: InstanceType<Module["MjModel"]> | undefined;
   private data: InstanceType<Module["MjData"]> | undefined;
+  private standingController: StandingController | undefined;
 
   private constructor(module: Module) {
     this.module = module;
@@ -65,6 +67,7 @@ export class MujocoSimulation {
     this.model?.delete();
     this.model = nextModel;
     this.data = nextData;
+    this.standingController = undefined;
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -74,8 +77,19 @@ export class MujocoSimulation {
 
   reset(): void {
     const { model, data } = this.ready();
+    const standingWasEnabled = this.standingController !== undefined;
     this.module.mj_resetData(model, data);
     this.module.mj_forward(model, data);
+    this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
+  }
+
+  /** Enables bounded internal-joint torque control on the public humanoid.
+   * This is a nominal-stance experiment, not a validated push recovery policy.
+   */
+  enableExperimentalStanding(): void {
+    const { model, data } = this.ready();
+    this.module.mj_forward(model, data);
+    this.standingController = makeStandingController(model, data);
   }
 
   /** Advances count physical steps. Each optional callback runs immediately
@@ -89,6 +103,10 @@ export class MujocoSimulation {
     }
     for (let i = 0; i < count; i++) {
       (data.xfrc_applied as Float64Array).fill(0);
+      if (this.standingController) {
+        this.module.mj_subtreeVel(model, data);
+        stepActiveStanding(model, data, this.standingController);
+      }
       beforeStep?.(data.time);
       this.module.mj_step(model, data);
     }
@@ -221,6 +239,7 @@ export class MujocoSimulation {
   }
 
   dispose(): void {
+    this.standingController = undefined;
     this.data?.delete();
     this.model?.delete();
     this.data = undefined;

@@ -31,6 +31,8 @@ export interface StepSnapshot {
   readonly reason: string;
   readonly maxSoleRiseM: number;
   readonly maxSoleTravelXYM: number;
+  readonly maxTargetProgressM: number;
+  readonly currentTargetProgressM: number;
   readonly minPelvisM: number;
   readonly maxRootTiltDeg: number;
   readonly maxSupportLoadFraction: number;
@@ -50,6 +52,8 @@ export class ExperimentalStepSequence {
   private reason = "Esperando inicio";
   private maxSoleRiseM = 0;
   private maxSoleTravelXYM = 0;
+  private maxTargetProgressM = 0;
+  private currentTargetProgressM = 0;
   private minPelvisM = Infinity;
   private maxRootTiltDeg = 0;
   private maxSupportLoadFraction = 0;
@@ -61,7 +65,8 @@ export class ExperimentalStepSequence {
     readonly startTimeS = 0.8,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
-      Math.hypot(...targetDeltaXY) > 0.38 || startTimeS < 0 || !Number.isFinite(startTimeS)) {
+      Math.hypot(...targetDeltaXY) > 0.38 ||
+      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS)) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -73,6 +78,8 @@ export class ExperimentalStepSequence {
       phase: this.phase, reason: this.reason,
       maxSoleRiseM: this.maxSoleRiseM,
       maxSoleTravelXYM: this.maxSoleTravelXYM,
+      maxTargetProgressM: this.maxTargetProgressM,
+      currentTargetProgressM: this.currentTargetProgressM,
       minPelvisM: this.minPelvisM,
       maxRootTiltDeg: this.maxRootTiltDeg,
       maxSupportLoadFraction: this.maxSupportLoadFraction,
@@ -99,7 +106,15 @@ export class ExperimentalStepSequence {
     this.maxRootTiltDeg = Math.max(this.maxRootTiltDeg, info.rootTiltDeg);
     const [x,y,z] = info.swingSoleWorldM;
     const rise = z - this.originalSole[2];
-    const travel = Math.hypot(x - this.originalSole[0], y - this.originalSole[1]);
+    const travelX = x - this.originalSole[0];
+    const travelY = y - this.originalSole[1];
+    const travel = Math.hypot(travelX, travelY);
+    const desired = Math.hypot(...this.targetDeltaXY);
+    const progress = (travelX * this.targetDeltaXY[0] +
+      travelY * this.targetDeltaXY[1]) / desired;
+    const minProgress = Math.min(0.05, desired * 0.4);
+    this.currentTargetProgressM = progress;
+    this.maxTargetProgressM = Math.max(this.maxTargetProgressM, progress);
     this.maxSoleRiseM = Math.max(this.maxSoleRiseM, rise);
     this.maxSoleTravelXYM = Math.max(this.maxSoleTravelXYM, travel);
     const loadTotal = info.supportLoadN + info.swingLoadN;
@@ -130,27 +145,28 @@ export class ExperimentalStepSequence {
         }
         break;
       case "SWING":
-        if (travel > 0.055 && rise > 0.02) {
-          this.transition("LAND",info.timeS,"Pie avanzó en vuelo; preparar apoyo");
+        if (travel > 0.055 && progress > minProgress * 0.8 && rise > 0.02) {
+          this.transition("LAND",info.timeS,"Avance medido en dirección del objetivo");
         } else if (elapsed > 0.85) {
-          this.transition("ABORT",info.timeS,"El pie no avanzó en vuelo");
+          this.transition("ABORT",info.timeS,"No avanzó físicamente hacia el destino");
         }
         break;
       case "LAND":
-        if (elapsed > 0.05 && travel > 0.05 && rise < 0.02 &&
+        if (elapsed > 0.05 && progress > minProgress && rise < 0.02 &&
             info.swingLoadN > 40) {
           this.stepContactConfirmed = true;
           this.transition("RECOVER",info.timeS,"Aterrizaje con carga real verificado");
         } else if (elapsed > 0.9) {
-          this.transition("ABORT",info.timeS,"Aterrizaje no confirmado");
+          this.transition("ABORT",info.timeS,"Aterrizaje en dirección objetivo no confirmado");
         }
         break;
       case "RECOVER":
         if (elapsed > 0.45 && info.pelvisHeightM > 0.82 &&
+            progress > minProgress &&
             info.supportLoadN > 40 && info.swingLoadN > 40) {
           this.transition("COMPLETE",info.timeS,"Apoyo bilateral tras paso real");
         } else if (elapsed > 1.0) {
-          this.transition("ABORT",info.timeS,"No recuperó postura después del contacto");
+          this.transition("ABORT",info.timeS,"Sin progreso válido o sin equilibrio tras contacto");
         }
         break;
     }

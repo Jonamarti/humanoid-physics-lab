@@ -5,6 +5,7 @@ import { FixedClock } from "./physics/fixedClock";
 import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 import { BallViewer } from "./renderer/ballViewer";
 import { forceDisplayForFrame } from "./renderer/forceDisplay";
+import { installForceEditor, type ForceEditor } from "./editor/forceEditor";
 import { projectBalanceToGround } from "./renderer/balanceProjection";
 import { CYLINDER, cylinderMJCF, cylinderForceAt, cylinderForwardTiltDeg, idealPivotPrediction, localGripPoint, validateCylinderTrial, type CylinderTrial } from "./physics/cylinderBenchmark";
 import { expectedPushImpulseNs, pushForceAtTime, rootTiltDegrees, validatePushTrial, type PushDirection, type PushTrial } from "./physics/standingPush";
@@ -45,6 +46,7 @@ app.innerHTML = `
       <article class="panel controls">
         <div id="standing-push-controls" hidden>
           <h2>Probar un empujón real</h2>
+          <div id="multi-force-editor"></div>
           <p class="muted">El impacto se aplica en el esternón del humanoide, mediante una fuerza externa en MuJoCo. No se fija la pelvis ni se mueve ningún pie artificialmente.</p>
           <label for="push-direction">Dirección</label>
           <select id="push-direction">
@@ -187,7 +189,7 @@ function updateCalculation(): void {
   const standingSelected = selectedScenario() === "standing";
   pushPanel.hidden = !standingSelected;
   rigidPanel.hidden = standingSelected;
-  pushRun.disabled = !simulation || mode !== "standing" || !validPushInputs();
+  pushRun.disabled = !!forceEditor?.enabled || !simulation || mode !== "standing" || !validPushInputs();
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -222,6 +224,7 @@ if (viewport) {
 }
 
 let simulation: MujocoSimulation | undefined;
+let forceEditor: ForceEditor | undefined;
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
@@ -288,7 +291,10 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
         try { previewTrial = activePush ?? selectedPushTrial(); }
         catch { previewTrial = undefined; }
       }
-      if (previewTrial) {
+      if (forceEditor?.enabled) {
+        viewer?.clearForceArrow();
+        forceEditor.present(simulation, viewer, state.time);
+      } else if (previewTrial) {
         const display = forceDisplayForFrame(state.time, previewTrial,
           activePush ? forceAppliedThisFrameN : [0,0,0]);
         const isActive = !!activePush && display.phase === "active";
@@ -363,6 +369,11 @@ function animate(timestampMs: number): void {
           horizontalImpulseAppliedNs += force[0] * CYLINDER.timestepS;
         }
       });
+    } else if (mode === "standing" && forceEditor?.running) {
+      const editor = forceEditor;
+      editor.beginFrame();
+      state = activeSimulation.step(steps, timeS => editor.applyStep(activeSimulation, timeS));
+      present(state);
     } else if (mode === "standing" && activePush) {
       const trial = activePush;
       let peakApplied: readonly [number, number, number] = [0,0,0];
@@ -377,7 +388,12 @@ function animate(timestampMs: number): void {
     } else {
       state = activeSimulation.step(steps);
     }
-    if (!(mode === "standing" && activePush)) present(state);
+    if (!(mode === "standing" && (activePush || forceEditor?.running))) present(state);
+    if (mode === "standing" && forceEditor?.running && state.time >= forceEditor.horizonS) {
+      playing = false;
+      toggleButton.textContent = "Iniciar";
+      physicsStatus.textContent = "Secuencia múltiple completada; resultados físicos, no validación biomecánica.";
+    }
     if (mode === "standing" && activePush && state.time >= 6) {
       playing = false;
       toggleButton.textContent = "Iniciar";
@@ -399,7 +415,7 @@ function animate(timestampMs: number): void {
       pushReadout.textContent += " Deriva máxima final de pies: " + (footDrift * 100).toFixed(1) +
         " cm · error final de COM " + (offset * 100).toFixed(1) + " cm.";
     }
-    if (mode === "standing" && !activePush && state.time >= 10) {
+    if (mode === "standing" && !activePush && !forceEditor?.running && state.time >= 10) {
       playing = false;
       toggleButton.textContent = "Iniciar";
       physicsStatus.textContent = state.qpos[2]! >= 0.79
@@ -439,6 +455,8 @@ function clearLoadedScenario(): void {
   pushPhase.classList.remove("is-active");
   forceMeterFill.style.width = "0%";
   viewer?.clearForceArrow();
+  viewer?.clearMultiForces();
+  forceEditor?.reset();
   viewer?.clearBalanceProjection();
   viewer?.showSphere();
   clock.reset();
@@ -501,7 +519,8 @@ loadButton.addEventListener("click", async () => {
         : "Esfera libre: gravedad y contacto real con el suelo.";
     toggleButton.disabled = false;
     resetButton.disabled = false;
-    pushRun.disabled = mode !== "standing" || !validPushInputs();
+    pushRun.disabled = !!forceEditor?.enabled || mode !== "standing" || !validPushInputs();
+    forceEditor?.refresh();
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -521,7 +540,7 @@ for (const control of [pushPeak, pushDuration, pushDirection]) {
 }
 
 pushRun.addEventListener("click", () => {
-  if (!simulation || mode !== "standing") return;
+  if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
   try {
     const trial = selectedPushTrial();
     playing = false;
@@ -573,11 +592,37 @@ resetButton.addEventListener("click", () => {
   pushReadout.textContent = "El empujón comienza en t=1,00 s y dura 0,12 s.";
   pushVectorReadout.textContent = "Vector del empujón: selecciona una dirección y ejecuta el ensayo.";
   viewer?.clearForceArrow();
+  viewer?.clearMultiForces();
+  forceEditor?.reset();
   present(simulation.state());
   toggleButton.textContent = "Iniciar";
   physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";
 });
 
+forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
+  getSimulation: () => mode === "standing" ? simulation : undefined,
+  getViewer: () => viewer,
+  onToggle: () => {
+    if (!simulation || mode !== "standing" || playing) return;
+    if (forceEditor?.enabled) {
+      activePush = undefined;
+      viewer?.clearForceArrow();
+    } else viewer?.clearMultiForces();
+    updateCalculation();
+    present(simulation.state());
+  },
+  onRun: () => {
+    if (!simulation || mode !== "standing") return;
+    playing = false;
+    simulation.reset();
+    clock.reset(); lastFrame = undefined;
+    activePush = undefined;
+    playing = true;
+    toggleButton.textContent = "Pausar";
+    physicsStatus.textContent = "Secuencia de fuerzas externas 3D activa.";
+    present(simulation.state());
+  },
+});
 updateCalculation();
 frameHandle = window.requestAnimationFrame(animate);
 window.addEventListener("pagehide", () => {

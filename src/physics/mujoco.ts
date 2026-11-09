@@ -50,6 +50,7 @@ export class MujocoSimulation {
   private lastStepFootWorld: XYZ | undefined;
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
+  private cartesianStepScale = 1;
 
   private constructor(module: Module) {
     this.module = module;
@@ -121,10 +122,15 @@ export class MujocoSimulation {
     swingFoot: FootSide,
     targetDeltaXY: XY = [0.10, 0],
     startTimeS = 0.8,
+    cartesianStepScale = 1,
   ): void {
+    if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
+      throw new RangeError("Escala de control de pie fuera de 0..1");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
     this.stepExperimentTicks = 0;
+    this.cartesianStepScale = cartesianStepScale;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
     this.footSpeedWorldMps = [0,0,0];
@@ -175,7 +181,8 @@ export class MujocoSimulation {
         if (command) {
           applyStepJointTargets(model,data,
             this.standingController.gains,command.targetsRad);
-          if (command.soleTargetWorldM && this.stepExperiment) {
+          if (command.soleTargetWorldM && this.stepExperiment &&
+              this.cartesianStepScale > 0) {
             applyCartesianFootImpedance(model,data,this.standingController.gains,
               this.stepExperiment.swingSide,{
                 targetWorldM:command.soleTargetWorldM,
@@ -184,7 +191,7 @@ export class MujocoSimulation {
                 gainsNPerM:[780,780,900],
                 dampingNsPerM:[90,90,80],
                 maxFootForceN:150,
-                blend:command.cartesianBlend,
+                blend:command.cartesianBlend*this.cartesianStepScale,
               });
           }
         }

@@ -353,6 +353,15 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
               (snapshot.targetErrorXYM * 100).toFixed(1) : "—") +
             " cm · equilibrio continuo: " +
             snapshot.settledDurationS.toFixed(2) + " / 1,00 s" +
+            " · velocidad horizontal precontacto (aprox.): " +
+            (snapshot.preLandingTangentialSpeedMps === null ? "sin medir" :
+              snapshot.preLandingTangentialSpeedMps.toFixed(2) + " m/s") +
+            " · velocidad de bajada precontacto (aprox.): " +
+            (snapshot.preLandingDownwardSpeedMps === null ? "sin medir" :
+              snapshot.preLandingDownwardSpeedMps.toFixed(2) + " m/s") +
+            " · fricción del contacto inicial: " +
+            (snapshot.frictionUtilizationAtLanding === null ? "sin medir" :
+              (snapshot.frictionUtilizationAtLanding*100).toFixed(0) + " %") +
             " · " + snapshot.reason;
         }
       }

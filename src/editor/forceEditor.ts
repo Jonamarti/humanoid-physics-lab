@@ -21,6 +21,7 @@ export interface ForceEditor {
 interface EditorCallbacks {
   getSimulation(): MujocoSimulation | undefined;
   getViewer(): BallViewer | undefined;
+  canEdit(): boolean;
   onToggle(): void;
   onRun(): void;
 }
@@ -39,8 +40,8 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
   let selectedId = "f1";
   function configureViewer(): void {
     callbacks.getViewer()?.configureForceEditing(
-      enabled && !snapshot ? selectedId : undefined,
-      enabled && !snapshot ? (id, geomId, point) => {
+      enabled && !snapshot && callbacks.canEdit() ? selectedId : undefined,
+      enabled && !snapshot && callbacks.canEdit() ? (id, geomId, point) => {
         const sim = callbacks.getSimulation();
         if (!sim) return;
         try {
@@ -52,7 +53,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
           status.textContent = error instanceof Error ? error.message : String(error);
         }
       } : undefined,
-      enabled && !snapshot ? (id, direction) => {
+      enabled && !snapshot && callbacks.canEdit() ? (id, direction) => {
         const current = forces.find(f => f.id === id);
         if (!current) return;
         const magnitude = Math.hypot(...current.forceN);
@@ -99,8 +100,8 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
   }
 
   function refresh(): void {
-    run.disabled = !enabled || !!snapshot || !callbacks.getSimulation() || !checked();
-    add.disabled = !!snapshot || forces.length >= 12;
+    run.disabled = !enabled || !!snapshot || !callbacks.canEdit() || !callbacks.getSimulation() || !checked();
+    add.disabled = !!snapshot || !callbacks.canEdit() || forces.length >= 12;
     configureViewer();
     if (!snapshot) status.textContent = checked()
       ? forces.length + " fuerza(s) configurada(s). Pulsa ejecutar para aplicar física real."
@@ -108,7 +109,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
   }
 
   function replace(id: string, update: Partial<EditedForce>): void {
-    if (snapshot) return;
+    if (snapshot || !callbacks.canEdit()) return;
     const i = forces.findIndex(f => f.id === id);
     if (i < 0) return;
     forces[i] = { ...forces[i]!, ...update };
@@ -133,7 +134,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       group.append(legend);
       const select = document.createElement("button");
       select.type = "button"; select.textContent = "Editar esta flecha";
-      select.disabled = !!snapshot;
+      select.disabled = !!snapshot || !callbacks.canEdit();
       select.addEventListener("click", () => {
         selectedId = f.id; draw(); preview();
       });
@@ -146,7 +147,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
         option.selected = item.id === f.site;
         site.append(option);
       }
-      site.disabled = !!snapshot;
+      site.disabled = !!snapshot || !callbacks.canEdit();
       site.addEventListener("change", () => replace(f.id, {
         site: site.value as ForceSite, attachment: undefined,
       }));
@@ -154,7 +155,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       const pick = document.createElement("button");
       pick.type = "button";
       pick.textContent = f.attachment ? "Recolocar sobre el cuerpo" : "Elegir punto sobre el cuerpo";
-      pick.disabled = !!snapshot || !callbacks.getSimulation();
+      pick.disabled = !!snapshot || !callbacks.canEdit() || !callbacks.getSimulation();
       pick.addEventListener("click", () => {
         selectedId = f.id;
         configureViewer();
@@ -173,7 +174,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
         input.type = "number";
         input.step = "10";
         input.value = String(f.forceN[axis]);
-        input.disabled = !!snapshot;
+        input.disabled = !!snapshot || !callbacks.canEdit();
         input.addEventListener("change", () => {
           const components = [...f.forceN];
           components[axis] = input.valueAsNumber;
@@ -202,7 +203,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
         option.selected = value === f.waveform;
         shape.append(option);
       }
-      shape.disabled = !!snapshot;
+      shape.disabled = !!snapshot || !callbacks.canEdit();
       shape.addEventListener("change", () => replace(f.id, { waveform: shape.value as ForceWaveform }));
       field(group, "Aplicación temporal", shape);
       const impulse = document.createElement("p");
@@ -217,7 +218,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       const remove = document.createElement("button");
       remove.type = "button";
       remove.textContent = "Eliminar";
-      remove.disabled = !!snapshot || forces.length === 1;
+      remove.disabled = !!snapshot || !callbacks.canEdit() || forces.length === 1;
       remove.addEventListener("click", () => {
         if (snapshot) return;
         forces = forces.filter(other => other.id !== f.id);
@@ -294,7 +295,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     },
   };
   check.addEventListener("change", () => {
-    if (snapshot) {
+    if (snapshot || !callbacks.canEdit()) {
       check.checked = enabled;
       return;
     }
@@ -305,7 +306,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     callbacks.onToggle();
   });
   add.addEventListener("click", () => {
-    if (snapshot || forces.length >= 12) return;
+    if (snapshot || !callbacks.canEdit() || forces.length >= 12) return;
     forces.push({
       id: "f" + nextId++, site: "sternum_impact", forceN: [0, 120, 0],
       startS: 1.2, durationS: 0.2, waveform: "half-sine",
@@ -313,7 +314,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     draw(); preview();
   });
   run.addEventListener("click", () => {
-    if (!enabled || snapshot || !callbacks.getSimulation()) return;
+    if (!enabled || snapshot || !callbacks.canEdit() || !callbacks.getSimulation()) return;
     try {
       validateForceSequence(forces);
       snapshot = forces.map(f => ({

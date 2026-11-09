@@ -7,7 +7,7 @@ import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } fr
 import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
 import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
-import type { XY } from "../control/balanceSensors";
+import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 
 export type PhysicsState = Readonly<{
@@ -142,14 +142,26 @@ export class MujocoSimulation {
 
   private sampleStepExperiment(): void {
     if (!this.stepExperiment) return;
-    const { data } = this.ready();
+    const { model, data } = this.ready();
     const side = this.stepExperiment.swingSide;
+    this.module.mj_subtreeVel(model,data);
     const ground = this.humanoidGroundSupportObservation();
     const com = data.subtree_com as Float64Array;
+    const vel = data.subtree_linvel as Float64Array;
+    const comWorldM: XYZ = [com[3]!,com[4]!,com[5]!];
+    const comVelocityWorldMps: XYZ = [vel[3]!,vel[4]!,vel[5]!];
+    const loaded = ground.loadedSupportPolygonXY;
+    const captureXY = capturePointXY([comWorldM[0],comWorldM[1]],
+      [comVelocityWorldMps[0],comVelocityWorldMps[1]],
+      Math.max(0.01,comWorldM[2]));
     const pelvis = data.qpos as Float64Array;
     this.stepExperiment.observe({
       timeS: data.time,
-      comWorldM: [com[3]!,com[4]!,com[5]!],
+      comWorldM,
+      comVelocityWorldMps,
+      comProjectionInsideLoadedSupport: insideConvexHullXY(
+        [comWorldM[0],comWorldM[1]],loaded),
+      capturePointInsideLoadedSupport: insideConvexHullXY(captureXY,loaded),
       pelvisHeightM: pelvis[2]!,
       rootTiltDeg: rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
       swingSoleWorldM: this.siteWorldPosition(side+"_sole"),

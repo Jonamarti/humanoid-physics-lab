@@ -54,7 +54,7 @@ describe("Pre-seoi rigid cylinder and obstacle", () => {
         expect(model.nbody).toBe(2);
         expect(model.ngeom).toBe(3);
         expect(model.nu).toBe(0);
-        expect(Array.from(model.body_mass).reduce((sum, m) => sum + m, 0)).toBeCloseTo(75, 6);
+        expect(Array.from(model.body_mass as Float64Array).reduce((sum, mass) => sum + mass, 0)).toBeCloseTo(75, 6);
         expect(data.qpos[2]).toBeCloseTo(CYLINDER.heightM / 2 + 0.001, 6);
         expect(Array.from(data.geom_xmat).every(Number.isFinite)).toBe(true);
         expect(Array.from(model.geom_type)).toContain(5);

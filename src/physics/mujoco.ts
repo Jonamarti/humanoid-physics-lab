@@ -17,16 +17,19 @@ let modulePromise: Promise<Module> | undefined;
 
 /** Load the official single-thread MuJoCo runtime; the asset URL is Vite-base aware. */
 export function loadPhysicsModule(): Promise<Module> {
-  // In Node/Vitest, Emscripten resolves the packaged .wasm relative to its
-  // own module. Vite's ?url returns a browser URL, not a local filesystem path.
-  // In the browser, Vite's asset URL is essential for GitHub Pages' base path.
-  const load = typeof window === "undefined"
-    ? loadMujoco()
-    : loadMujoco({ locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path });
-  modulePromise ??= load.catch((error: unknown) => {
-    modulePromise = undefined; // allow retry after transient WASM fetch failure
-    throw error;
-  });
+  // Cache the INITIALIZATION itself, not merely its promise after spawning it.
+  // Starting extra Emscripten runtimes during a parameter sweep leaks memory.
+  if (!modulePromise) {
+    // In Node/Vitest the package locates mujoco.wasm itself. In browsers
+    // Vite must supply a base-aware URL (including the GitHub Pages prefix).
+    const load = typeof window === "undefined"
+      ? loadMujoco()
+      : loadMujoco({ locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path });
+    modulePromise = load.catch((error: unknown) => {
+      modulePromise = undefined; // allow retry after transient WASM fetch failure
+      throw error;
+    });
+  }
   return modulePromise;
 }
 
@@ -142,6 +145,42 @@ export class MujocoSimulation {
     w[offset + 3]! += ry * fz - rz * fy;
     w[offset + 4]! += rz * fx - rx * fz;
     w[offset + 5]! += rx * fy - ry * fx;
+  }
+
+  /** Apply an EXTERNAL world-space force at a real body-attached site.
+   * Converts its world-space moment arm into a physical wrench about the COM.
+   * Intended to be called only inside step(..., beforeStep), after clearing
+   * previous xfrc_applied. This never actuates the unanchored pelvis root.
+   */
+  applyWorldForceAtSite(
+    siteName: string,
+    forceWorldN: readonly [number, number, number],
+  ): void {
+    const { model, data } = this.ready();
+    if (!siteName || !forceWorldN.every(Number.isFinite)) {
+      throw new RangeError("Sitio o fuerza inválidos");
+    }
+    const siteId = model.site(siteName).id;
+    const bodyId = (model.site_bodyid as Int32Array)[siteId]!;
+    if (!Number.isInteger(bodyId) || bodyId <= 0 || bodyId >= model.nbody) {
+      throw new RangeError("El punto de impacto debe pertenecer a un cuerpo dinámico");
+    }
+    const positions = data.site_xpos as Float64Array;
+    const centers = data.xipos as Float64Array;
+    const wrench = data.xfrc_applied as Float64Array;
+    const a = siteId * 3;
+    const b = bodyId * 3;
+    const rx = positions[a]! - centers[b]!;
+    const ry = positions[a + 1]! - centers[b + 1]!;
+    const rz = positions[a + 2]! - centers[b + 2]!;
+    const [fx, fy, fz] = forceWorldN;
+    const o = bodyId * 6;
+    wrench[o]! += fx;
+    wrench[o + 1]! += fy;
+    wrench[o + 2]! += fz;
+    wrench[o + 3]! += ry * fz - rz * fy;
+    wrench[o + 4]! += rz * fx - rx * fz;
+    wrench[o + 5]! += rx * fy - ry * fx;
   }
 
   state(): PhysicsState {

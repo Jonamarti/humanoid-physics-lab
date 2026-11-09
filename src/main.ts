@@ -5,6 +5,7 @@ import { FixedClock } from "./physics/fixedClock";
 import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 import { BallViewer } from "./renderer/ballViewer";
 import { CYLINDER, cylinderMJCF, cylinderForceAt, cylinderForwardTiltDeg, idealPivotPrediction, localGripPoint, validateCylinderTrial, type CylinderTrial } from "./physics/cylinderBenchmark";
+import { expectedPushImpulseNs, pushForceAtTime, rootTiltDegrees, validatePushTrial, type PushDirection, type PushTrial } from "./physics/standingPush";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("No existe el contenedor de la aplicacion");
@@ -39,6 +40,28 @@ app.innerHTML = `
         </div>
       </article>
       <article class="panel controls">
+        <div id="standing-push-controls" hidden>
+          <h2>Probar un empujón real</h2>
+          <p class="muted">El impacto se aplica en el esternón del humanoide, mediante una fuerza externa en MuJoCo. No se fija la pelvis ni se mueve ningún pie artificialmente.</p>
+          <label for="push-direction">Dirección</label>
+          <select id="push-direction">
+            <option value="forward">Hacia delante (+X)</option>
+            <option value="backward" selected>Hacia atrás (-X)</option>
+            <option value="left">Hacia la izquierda (+Y)</option>
+            <option value="right">Hacia la derecha (-Y)</option>
+          </select>
+          <label for="push-peak">Fuerza máxima del empujón</label>
+          <select id="push-peak">
+            <option value="20">20 N — muy suave</option>
+            <option value="60">60 N — suave</option>
+            <option value="120">120 N — moderado</option>
+            <option value="240" selected>240 N — puede derribar hacia atrás</option>
+          </select>
+          <button id="push-run" type="button" disabled>Reiniciar y probar empujón (6 s)</button>
+          <p class="muted" id="push-readout">La fuerza se aplica entre t=1,00 y 1,12 s. La recuperación se observa durante el resto de la simulación.</p>
+          <p class="muted">El diagnóstico visual es aproximado. Las pruebas automatizadas registran resultados cada 0,04 s.</p>
+        </div>
+        <div id="rigid-force-controls">
         <h2>Ensayo de fuerza y vuelco</h2>
         <p class="muted" id="force-description">En el modo cilindro, estos parámetros se aplican a la física real. En los otros modos solo calculan el impulso.</p>
         <label for="force">Fuerza constante (N)</label>
@@ -65,6 +88,7 @@ app.innerHTML = `
           <p class="muted">Para cambiar parámetros de una simulación ya cargada, pulsa <strong>Cargar simulación</strong> otra vez.</p>
         </div>
         <p class="muted">Este cilindro es un cuerpo rígido: no camina ni tiene articulaciones. La predicción de pivote es idealizada; la simulación resuelve el contacto con MuJoCo. Equilibrio humano: #8–#9.</p>
+        </div>
       </article>
     </section>
     <footer><a href="https://github.com/Jonamarti/humanoid-physics-lab" rel="noopener noreferrer">Código en GitHub</a> · <a href="https://github.com/Jonamarti/humanoid-physics-lab/issues/1" rel="noopener noreferrer">Hoja de ruta</a></footer>
@@ -92,6 +116,12 @@ const physicsStatus = required<HTMLElement>("#physics-status");
 const physicsReadout = required<HTMLElement>("#physics-readout");
 const balanceReadout = required<HTMLElement>("#balance-readout");
 const physicsModel = required<HTMLSelectElement>("#physics-model");
+const pushPanel = required<HTMLElement>("#standing-push-controls");
+const rigidPanel = required<HTMLElement>("#rigid-force-controls");
+const pushDirection = required<HTMLSelectElement>("#push-direction");
+const pushPeak = required<HTMLSelectElement>("#push-peak");
+const pushRun = required<HTMLButtonElement>("#push-run");
+const pushReadout = required<HTMLElement>("#push-readout");
 
 type Scenario = "ball" | "humanoid" | "standing" | "cylinder";
 const selectedScenario = (): Scenario => {
@@ -114,6 +144,10 @@ function selectedTrial(): CylinderTrial {
 
 function updateCalculation(): void {
   const cylinderSelected = selectedScenario() === "cylinder";
+  const standingSelected = selectedScenario() === "standing";
+  pushPanel.hidden = !standingSelected;
+  rigidPanel.hidden = standingSelected;
+  pushRun.disabled = !simulation || mode !== "standing";
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -150,6 +184,12 @@ if (viewport) {
 let simulation: MujocoSimulation | undefined;
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
+let activePush: PushTrial | undefined;
+let initialPushCom: readonly [number, number] | undefined;
+let initialPushFeet: Map<number, readonly number[]> | undefined;
+let minimumPushPelvisM = Infinity;
+let maximumPushTiltDeg = 0;
+let settledAfterPush = true;
 let playing = false;
 let lastFrame: number | undefined;
 let clock = new FixedClock(0.002, 50);
@@ -176,6 +216,19 @@ function present(state: PhysicsState): void {
     if (simulation) {
       viewer?.setArticulatedPoses(simulation.geometryPoses());
       const b = simulation.humanoidBalanceObservation();
+      if (mode === "standing" && activePush && initialPushCom) {
+        minimumPushPelvisM = Math.min(minimumPushPelvisM, state.qpos[2]!);
+        maximumPushTiltDeg = Math.max(maximumPushTiltDeg, rootTiltDegrees(state.qpos));
+        const delta = Math.hypot(b.comWorldM[0] - initialPushCom[0], b.comWorldM[1] - initialPushCom[1]);
+        const speed = Math.hypot(b.comVelocityWorldMps[0], b.comVelocityWorldMps[1]);
+        if (state.time > 5 && (delta > 0.03 || speed > 0.08 || rootTiltDegrees(state.qpos) > 8)) {
+          settledAfterPush = false;
+        }
+        pushReadout.textContent = "Empujón máximo " + activePush.peakForceN + " N · impulso teórico " +
+          expectedPushImpulseNs(activePush).toFixed(2) + " N·s · inclinación máxima muestreada " +
+          maximumPushTiltDeg.toFixed(1) + "° · pelvis mínima " + minimumPushPelvisM.toFixed(3) +
+          " m · desviación de COM actual " + (delta * 100).toFixed(1) + " cm.";
+      }
       const fmt = (n: number) => n.toFixed(3);
       balanceReadout.textContent =
         "Centro de masas (x,y,z): " + b.comWorldM.map(fmt).join(", ") + " m" +
@@ -214,11 +267,38 @@ function animate(timestampMs: number): void {
           horizontalImpulseAppliedNs += force[0] * CYLINDER.timestepS;
         }
       });
+    } else if (mode === "standing" && activePush) {
+      const trial = activePush;
+      state = activeSimulation.step(steps, timeS => {
+        const force = pushForceAtTime(timeS, trial);
+        if (force.some(v => v !== 0)) activeSimulation.applyWorldForceAtSite("sternum_impact", force);
+      });
     } else {
       state = activeSimulation.step(steps);
     }
     present(state);
-    if (mode === "standing" && state.time >= 10) {
+    if (mode === "standing" && activePush && state.time >= 6) {
+      playing = false;
+      toggleButton.textContent = "Iniciar";
+      const b = activeSimulation.humanoidBalanceObservation();
+      const footDrift = initialPushFeet
+        ? Math.max(...Array.from(initialPushFeet, ([id, before]) => {
+            const now = activeSimulation.geometryPoses().find(p => p.id === id)?.position;
+            return now ? Math.hypot(now[0] - before[0]!, now[1] - before[1]!) : Infinity;
+          }))
+        : Infinity;
+      const recovered = minimumPushPelvisM > 0.86 && maximumPushTiltDeg < 25 &&
+        footDrift < 0.02 && settledAfterPush;
+      const offset = initialPushCom
+        ? Math.hypot(b.comWorldM[0] - initialPushCom[0], b.comWorldM[1] - initialPushCom[1])
+        : Infinity;
+      physicsStatus.textContent = recovered
+        ? "Prueba con empujón: recuperó la postura sin un paso, según métricas muestreadas."
+        : "Prueba con empujón: NO recuperó la postura con los límites de este ensayo.";
+      pushReadout.textContent += " Deriva máxima final de pies: " + (footDrift * 100).toFixed(1) +
+        " cm · error final de COM " + (offset * 100).toFixed(1) + " cm.";
+    }
+    if (mode === "standing" && !activePush && state.time >= 10) {
       playing = false;
       toggleButton.textContent = "Iniciar";
       physicsStatus.textContent = state.qpos[2]! >= 0.79
@@ -245,6 +325,14 @@ function clearLoadedScenario(): void {
   simulation?.dispose();
   simulation = undefined;
   activeTrial = undefined;
+  activePush = undefined;
+  initialPushCom = undefined;
+  initialPushFeet = undefined;
+  minimumPushPelvisM = Infinity;
+  maximumPushTiltDeg = 0;
+  settledAfterPush = true;
+  pushRun.disabled = true;
+  pushReadout.textContent = "El empujón comienza en t=1,00 s y dura 0,12 s.";
   viewer?.showSphere();
   clock.reset();
   maxSampledForwardTiltDeg = 0;
@@ -306,6 +394,7 @@ loadButton.addEventListener("click", async () => {
         : "Esfera libre: gravedad y contacto real con el suelo.";
     toggleButton.disabled = false;
     resetButton.disabled = false;
+    pushRun.disabled = mode !== "standing";
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -314,6 +403,40 @@ loadButton.addEventListener("click", async () => {
   } finally {
     loadButton.disabled = false;
     physicsModel.disabled = false;
+  }
+});
+
+pushRun.addEventListener("click", () => {
+  if (!simulation || mode !== "standing") return;
+  try {
+    const trial: PushTrial = {
+      direction: pushDirection.value as PushDirection,
+      peakForceN: Number(pushPeak.value),
+      startS: 1,
+      durationS: 0.12,
+    };
+    validatePushTrial(trial);
+    playing = false;
+    simulation.reset();
+    clock.reset();
+    lastFrame = undefined;
+    const b = simulation.humanoidBalanceObservation();
+    initialPushCom = [b.comWorldM[0], b.comWorldM[1]];
+    const feetIds = simulation.geometrySpecs().filter(spec =>
+      spec.shape === "box" && Math.abs(spec.size[2] - 0.035) < 1e-6).map(spec => spec.id);
+    initialPushFeet = new Map(simulation.geometryPoses().filter(p => feetIds.includes(p.id)).map(p => [p.id, p.position]));
+    activePush = trial;
+    minimumPushPelvisM = simulation.state().qpos[2]!;
+    maximumPushTiltDeg = 0;
+    settledAfterPush = true;
+    playing = true;
+    toggleButton.textContent = "Pausar";
+    physicsStatus.textContent = "Empujón físico programado desde t=1,00 s; simulación hasta t=6,00 s.";
+    present(simulation.state());
+  } catch (error) {
+    playing = false;
+    physicsStatus.textContent = "No se pudo iniciar el ensayo: " +
+      (error instanceof Error ? error.message : String(error));
   }
 });
 
@@ -331,7 +454,14 @@ resetButton.addEventListener("click", () => {
   lastFrame = undefined;
   maxSampledForwardTiltDeg = 0;
   horizontalImpulseAppliedNs = 0;
+  activePush = undefined;
+  initialPushCom = undefined;
+  initialPushFeet = undefined;
+  settledAfterPush = true;
+  maximumPushTiltDeg = 0;
+  minimumPushPelvisM = Infinity;
   simulation.reset();
+  pushReadout.textContent = "El empujón comienza en t=1,00 s y dura 0,12 s.";
   present(simulation.state());
   toggleButton.textContent = "Iniciar";
   physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";

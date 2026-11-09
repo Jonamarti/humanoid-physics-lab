@@ -84,8 +84,8 @@ export class MujocoSimulation {
 
   state(): PhysicsState {
     const { model, data } = this.ready();
-    const qpos = Array.from(data.qpos);
-    const qvel = Array.from(data.qvel);
+    const qpos = Array.from(data.qpos as Float64Array);
+    const qvel = Array.from(data.qvel as Float64Array);
     if (![data.time, ...qpos, ...qvel].every(Number.isFinite)) {
       throw new Error("El integrador devolvió valores no finitos");
     }

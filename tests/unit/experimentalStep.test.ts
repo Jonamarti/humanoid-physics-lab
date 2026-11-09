@@ -39,6 +39,13 @@ describe("Recovery-step FSM requires verified contact events", () => {
     }));
     expect(step.snapshot().phase).toBe("COMPLETE");
     expect(step.snapshot().stepContactConfirmed).toBe(true);
+    // After a forward/side step, the new support centroid is no longer
+    // the original bilateral midpoint. Never drag the COM back to it.
+    const after = step.command(2.15,[0,0]);
+    expect(after.referenceComXY[0]).toBeGreaterThan(0.04);
+    expect(after.referenceComXY[1]).toBeGreaterThan(0.03);
+    expect(step.snapshot().maxSupportFootSlipM).toBe(0);
+    expect(step.snapshot().targetErrorXYM).toBeLessThan(0.03);
   });
   it("reports ABORT if no measured transfer; never labels a timed pose as a step", () => {
     const step = new ExperimentalStepSequence("right",[0.12,-0.08],0.3);

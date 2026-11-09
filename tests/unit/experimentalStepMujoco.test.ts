@@ -27,6 +27,14 @@ describe("Real MuJoCo voluntary-step actuation, not a keyframe animation", () =>
         expect(status).not.toBeNull();
         expect(status!.maxSupportLoadFraction).toBeGreaterThan(0);
         expect(status!.maxSoleTravelXYM).toBeGreaterThan(0.001);
+        if (status!.phase === "COMPLETE") {
+          // Passing a test suite does not prove a step: only solver-backed
+          // sustained loaded support with low slip can be called complete.
+          expect(status!.settledDurationS).toBeGreaterThanOrEqual(1);
+          expect(status!.maxLandingSlipM).toBeLessThanOrEqual(0.02);
+          expect(status!.maxSupportFootSlipM).toBeLessThanOrEqual(0.02);
+          expect(status!.targetErrorXYM).toBeLessThanOrEqual(0.05);
+        }
         // An incomplete step is deliberately not called complete; phase
         // and measured take-off/landing are evidence, not fixed presets.
       } finally {sim.dispose();}

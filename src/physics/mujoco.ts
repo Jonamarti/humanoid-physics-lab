@@ -273,6 +273,58 @@ export class MujocoSimulation {
     w[offset + 5]! += rx * fy - ry * fx;
   }
 
+  /** Attach a picked world point to the geom's dynamic body, relative to its
+   * current inertial COM. This is NOT a world-fixed point after simulation moves.
+   */
+  bodyAttachmentAtGeomPoint(
+    geomId: number, pointWorldM: readonly [number, number, number],
+  ): { bodyIndex: number; localComOffsetM: readonly [number, number, number] } {
+    const { model, data } = this.ready();
+    if (!Number.isSafeInteger(geomId) || geomId < 0 || geomId >= model.ngeom ||
+        !pointWorldM.every(Number.isFinite)) {
+      throw new RangeError("Geometría o punto de selección inválido");
+    }
+    const bodyIndex = (model.geom_bodyid as Int32Array)[geomId]!;
+    if (bodyIndex <= 0 || bodyIndex >= model.nbody) {
+      throw new RangeError("No se pueden anclar fuerzas al mundo o al suelo");
+    }
+    const com = data.xipos as Float64Array;
+    const rotation = data.xmat as Float64Array;
+    const bi = bodyIndex * 3;
+    const ri = bodyIndex * 9;
+    const dx = pointWorldM[0] - com[bi]!;
+    const dy = pointWorldM[1] - com[bi + 1]!;
+    const dz = pointWorldM[2] - com[bi + 2]!;
+    // xmat is row-major body-to-world; inverse of a rotation is transpose.
+    const localComOffsetM: readonly [number, number, number] = [
+      rotation[ri]! * dx + rotation[ri + 3]! * dy + rotation[ri + 6]! * dz,
+      rotation[ri + 1]! * dx + rotation[ri + 4]! * dy + rotation[ri + 7]! * dz,
+      rotation[ri + 2]! * dx + rotation[ri + 5]! * dy + rotation[ri + 8]! * dz,
+    ];
+    return { bodyIndex, localComOffsetM };
+  }
+
+  /** World point corresponding to the body-local COM offset after movement. */
+  bodyAttachmentWorldPosition(
+    bodyIndex: number, localComOffsetM: readonly [number, number, number],
+  ): readonly [number, number, number] {
+    const { model, data } = this.ready();
+    if (!Number.isSafeInteger(bodyIndex) || bodyIndex <= 0 ||
+        bodyIndex >= model.nbody || !localComOffsetM.every(Number.isFinite)) {
+      throw new RangeError("Anclaje al cuerpo inválido");
+    }
+    const com = data.xipos as Float64Array;
+    const rotation = data.xmat as Float64Array;
+    const bi = bodyIndex * 3;
+    const ri = bodyIndex * 9;
+    const [x, y, z] = localComOffsetM;
+    return [
+      com[bi]! + rotation[ri]! * x + rotation[ri + 1]! * y + rotation[ri + 2]! * z,
+      com[bi + 1]! + rotation[ri + 3]! * x + rotation[ri + 4]! * y + rotation[ri + 5]! * z,
+      com[bi + 2]! + rotation[ri + 6]! * x + rotation[ri + 7]! * y + rotation[ri + 8]! * z,
+    ];
+  }
+
   /** Current physical world position of a named MuJoCo site (copied). */
   siteWorldPosition(siteName: string): readonly [number, number, number] {
     const { model, data } = this.ready();

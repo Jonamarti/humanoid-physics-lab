@@ -78,6 +78,9 @@ export function editedForceAtTime(timeS: number, force: EditedForce): ForceVecto
   if (phase < 0 || phase >= 1 - 1e-12) return [0, 0, 0];
   const fraction = force.waveform === "constant" ? 1 :
     (phase <= 1e-12 ? 0 : Math.sin(Math.PI * phase));
+  // Explicit +0 at pulse boundaries avoids -0 from negative components.
+  // This also makes 'force active' checks unambiguous for the viewer.
+  if (fraction === 0) return [0, 0, 0];
   return force.forceN.map(component => component * fraction) as unknown as ForceVector;
 }
 

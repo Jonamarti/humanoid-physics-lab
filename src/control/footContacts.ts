@@ -13,6 +13,10 @@ export interface GroundContactSample {
   readonly contactNormalForceN: number;
   /** First axis of mjContact.frame, pointing from geom1 to geom2. */
   readonly contactNormalWorld: XYZ;
+  /** Solver-derived tangential force, in world space, before geom ordering. */
+  readonly tangentForceWorldN?: XYZ;
+  /** Fraction of the solver contact friction cone/pyramid used. */
+  readonly frictionUtilization?: number | null;
 }
 
 export interface FootSupport {
@@ -20,6 +24,11 @@ export interface FootSupport {
   /** Full projected foot rectangle for predicting a *future* landing. */
   readonly footprintXY: readonly XY[];
   readonly verticalLoadN: number;
+  /** Net horizontal frictional reaction on this foot, from solved tangents. */
+  readonly tangentialReactionXYN: XY;
+  /** Normal-force-weighted mean friction usage (0 to ~1 in cone). */
+  readonly frictionUtilizationMean: number | null;
+  readonly frictionUtilizationPeak: number | null;
   readonly activeContacts: number;
   /** Vertical-force-weighted contact position; not a full 6D CoP. */
   readonly verticalLoadCentroidXY: XY | null;
@@ -54,15 +63,26 @@ export function summarizeGroundSupport(input: {
       !Number.isFinite(threshold) || threshold <= 0) {
     throw new RangeError("Geometrías o umbral de contacto inválidos");
   }
-  const buckets: Record<"left" | "right", { load: number; count: number; x: number; y: number }> = {
-    left: { load: 0, count: 0, x: 0, y: 0 },
-    right: { load: 0, count: 0, x: 0, y: 0 },
+  type Bucket = { load: number; count: number; x: number; y: number;
+    tx: number; ty: number; frictionWeighted: number; frictionLoad: number;
+    frictionPeak: number | null };
+  const makeBucket = (): Bucket => ({
+    load: 0,count: 0,x: 0,y: 0,tx: 0,ty: 0,
+    frictionWeighted: 0,frictionLoad: 0,frictionPeak: null,
+  });
+  const buckets: Record<"left" | "right",Bucket> = {
+    left: makeBucket(),right: makeBucket(),
   };
   for (const contact of contacts) {
-    const { geom1, geom2, positionWorldM, contactNormalForceN, contactNormalWorld } = contact;
+    const { geom1,geom2,positionWorldM,contactNormalForceN,contactNormalWorld,
+      tangentForceWorldN,frictionUtilization } = contact;
     if (![geom1, geom2].every(Number.isSafeInteger) ||
         ![...positionWorldM, ...contactNormalWorld, contactNormalForceN].every(Number.isFinite) ||
-        contactNormalForceN < 0) {
+        contactNormalForceN < 0 ||
+        (tangentForceWorldN !== undefined &&
+          !tangentForceWorldN.every(Number.isFinite)) ||
+        (frictionUtilization != null &&
+          (!Number.isFinite(frictionUtilization) || frictionUtilization < 0))) {
       throw new RangeError("Contacto de MuJoCo inválido");
     }
     if (geom1 !== floorGeomId && geom2 !== floorGeomId) continue;
@@ -81,6 +101,15 @@ export function summarizeGroundSupport(input: {
     b.count++;
     b.x += positionWorldM[0] * upwardN;
     b.y += positionWorldM[1] * upwardN;
+    if (tangentForceWorldN) {
+      b.tx += towardFoot*tangentForceWorldN[0];
+      b.ty += towardFoot*tangentForceWorldN[1];
+    }
+    if (frictionUtilization != null && upwardN > 5) {
+      b.frictionLoad += upwardN;
+      b.frictionWeighted += frictionUtilization*upwardN;
+      b.frictionPeak = Math.max(b.frictionPeak ?? 0,frictionUtilization);
+    }
   }
 
   const makeFoot = (geom: FootGeom, side: "left" | "right"): FootSupport => {
@@ -90,6 +119,10 @@ export function summarizeGroundSupport(input: {
       centerXY: [geom.centerM[0], geom.centerM[1]],
       footprintXY: footprint,
       verticalLoadN: b.load,
+      tangentialReactionXYN: [b.tx,b.ty],
+      frictionUtilizationMean: b.frictionLoad > 0 ?
+        b.frictionWeighted/b.frictionLoad : null,
+      frictionUtilizationPeak: b.frictionPeak,
       activeContacts: b.count,
       verticalLoadCentroidXY: b.load > 0 ? [b.x / b.load, b.y / b.load] : null,
       isLoaded: b.load >= threshold,

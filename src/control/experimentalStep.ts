@@ -223,7 +223,29 @@ export class ExperimentalStepSequence {
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
-    const ref: XY = [referenceComXY[0],referenceComXY[1]+supportSign*0.075*fraction];
+    const weightShiftRef: XY = [
+      referenceComXY[0],referenceComXY[1]+supportSign*0.075*fraction,
+    ];
+    let ref: XY = weightShiftRef;
+    if (this.firstLandingSole && this.originalSole &&
+      (this.phase === "RECOVER" || this.phase === "COMPLETE")) {
+      // The support centroid changes when the swing foot lands at a new
+      // XY location. A fixed pre-step COM reference pulled the body and
+      // the planted foot backwards immediately after landing.
+      const deltaX=this.firstLandingSole[0]-this.originalSole[0];
+      const deltaY=this.firstLandingSole[1]-this.originalSole[1];
+      const newStandingRef:XY=[
+        referenceComXY[0]+0.5*deltaX,
+        referenceComXY[1]+0.5*deltaY,
+      ];
+      const u=this.phase==="COMPLETE" ? 1 :
+        Math.max(0,Math.min(1,elapsed/0.7));
+      const w=u*u*(3-2*u);
+      ref=[
+        weightShiftRef[0]*(1-w)+newStandingRef[0]*w,
+        (referenceComXY[1]+supportSign*0.075)*(1-w)+newStandingRef[1]*w,
+      ];
+    }
     const joints: Record<string,number> = {};
     if (["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
       const dx = this.targetDeltaXY[0],dy = this.targetDeltaXY[1];

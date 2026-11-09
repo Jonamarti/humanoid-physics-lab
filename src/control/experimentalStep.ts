@@ -121,11 +121,13 @@ export class ExperimentalStepSequence {
     const loadTotal = info.supportLoadN + info.swingLoadN;
     const supportFraction = loadTotal > 10 ? info.supportLoadN/loadTotal : 0;
     this.maxSupportLoadFraction = Math.max(this.maxSupportLoadFraction,supportFraction);
-    if (this.phase === "ABORT" || this.phase === "FALL") return;
+    if (this.phase === "FALL") return;
+    // Even an aborted attempt can subsequently become a real MuJoCo fall.
     if (info.pelvisHeightM < 0.65 || info.rootTiltDeg > 50) {
       this.transition("FALL",info.timeS,"Pelvis baja o tronco demasiado inclinado");
       return;
     }
+    if (this.phase === "ABORT") return;
     const elapsed = info.timeS - this.phaseStartedAtS;
     if (this.phase === "COMPLETE") {
       // A transient contact is not enough: keep monitoring the planted foot.

@@ -50,7 +50,13 @@ describe("Landing friction/GRF comparison in real MuJoCo",()=>{
           maxLandingSlipM:+outcome.maxLandingSlipM.toFixed(3),
           maxSupportSlipM:+outcome.maxSupportFootSlipM.toFixed(3),
           finalErrorM:+outcome.targetErrorXYM.toFixed(3),
-          stableS:+outcome.settledDurationS.toFixed(2)});
+          stableS:+outcome.settledDurationS.toFixed(2),
+          preLandingXYSpeedMps:outcome.preLandingTangentialSpeedMps===null
+            ? null : +outcome.preLandingTangentialSpeedMps.toFixed(3),
+          preLandingDownSpeedMps:outcome.preLandingDownwardSpeedMps===null
+            ? null : +outcome.preLandingDownwardSpeedMps.toFixed(3),
+          frictionAtLanding:outcome.frictionUtilizationAtLanding===null
+            ? null : +outcome.frictionUtilizationAtLanding.toFixed(3)});
         if(outcome.phase==="COMPLETE") {
           expect(outcome.settledDurationS).toBeGreaterThanOrEqual(1);
           expect(outcome.maxLandingSlipM).toBeLessThanOrEqual(0.02);

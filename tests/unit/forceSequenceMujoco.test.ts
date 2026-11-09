@@ -32,4 +32,46 @@ describe("Multiple simultaneous forces in actual MuJoCo", () => {
       sim.dispose();
     }
   }, 30000);
+  it("converts a picked world position into a body-fixed COM offset", async () => {
+    const sim = await MujocoSimulation.create(await readFile(xmlFile, "utf8"));
+    try {
+      const geom = sim.geometrySpecs().find(g => g.shape === "capsule");
+      expect(geom).toBeDefined();
+      const original = sim.geometryPoses().find(p => p.id === geom!.id)!.position;
+      const anchor = sim.bodyAttachmentAtGeomPoint(geom!.id, original);
+      expect(anchor.bodyIndex).toBeGreaterThan(0);
+      const reconstructed = sim.bodyAttachmentWorldPosition(
+        anchor.bodyIndex, anchor.localComOffsetM);
+      for (let i = 0; i < 3; i++) {
+        expect(reconstructed[i]).toBeCloseTo(original[i]!, 7);
+      }
+      sim.step(200);
+      const moved = sim.bodyAttachmentWorldPosition(
+        anchor.bodyIndex, anchor.localComOffsetM);
+      expect([...moved].every(Number.isFinite)).toBe(true);
+      expect(() => sim.bodyAttachmentAtGeomPoint(0, [0,0,0])).toThrow();
+    } finally {
+      sim.dispose();
+    }
+  }, 30000);
+
+  it("sums simultaneous forces exactly like a single resultant at the same site", async () => {
+    const xml = await readFile(xmlFile, "utf8");
+    const a = await MujocoSimulation.create(xml);
+    const b = await MujocoSimulation.create(xml);
+    try {
+      a.step(20, () => {
+        a.applyWorldForceAtSite("sternum_impact", [40, -20, 0]);
+        a.applyWorldForceAtSite("sternum_impact", [-10, 25, 5]);
+      });
+      b.step(20, () => b.applyWorldForceAtSite("sternum_impact", [30, 5, 5]));
+      const qa = a.state().qpos;
+      const qb = b.state().qpos;
+      expect(qa.length).toBe(qb.length);
+      for (let i = 0; i < qa.length; i++) expect(qa[i]).toBeCloseTo(qb[i]!, 8);
+    } finally {
+      a.dispose(); b.dispose();
+    }
+  }, 30000);
+
 });

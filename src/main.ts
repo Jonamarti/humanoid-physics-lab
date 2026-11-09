@@ -390,6 +390,7 @@ function animate(timestampMs: number): void {
     }
     if (!(mode === "standing" && (activePush || forceEditor?.running))) present(state);
     if (mode === "standing" && forceEditor?.running && state.time >= forceEditor.horizonS) {
+      forceEditor.finish();
       playing = false;
       toggleButton.textContent = "Iniciar";
       physicsStatus.textContent = "Secuencia múltiple completada; resultados físicos, no validación biomecánica.";
@@ -534,7 +535,7 @@ loadButton.addEventListener("click", async () => {
 
 for (const control of [pushPeak, pushDuration, pushDirection]) {
   control.addEventListener("input", () => {
-    pushRun.disabled = !simulation || mode !== "standing" || !validPushInputs();
+    pushRun.disabled = !!forceEditor?.enabled || !simulation || mode !== "standing" || !validPushInputs();
     if (simulation && mode === "standing" && !activePush) present(simulation.state());
   });
 }

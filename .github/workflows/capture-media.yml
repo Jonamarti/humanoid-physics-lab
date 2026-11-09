@@ -29,7 +29,7 @@ jobs:
           npm ci --no-audit --no-fund
           npm install --no-save --no-audit --no-fund playwright@1.58.2
           command -v google-chrome || command -v chromium || npx playwright install chromium
-          command -v ffmpeg
+          command -v ffmpeg || echo 'No ffmpeg; keeping original WebM videos'
       - name: Build current branch with the step prototype
         run: npm run build
       - name: Serve built laboratory

@@ -29,4 +29,4 @@ El flujo de auto-merge dejará la PR abierta, con el registro visible en [GitHub
 - PR #21: fusionada manualmente para instalar la política (modificaba workflows).
 - PR #22: MuJoCo WASM, CI verde, fusionada **automáticamente**.
 - PR #23: Three.js, permaneció Draft durante desarrollo; marcada Ready tras CI verde y fusionada **automáticamente**.
-- La prueba de la etiqueta `no-merge` se realiza mediante una PR documental independiente y se documentará aquí cuando termine.
+- PR #25: prueba de la etiqueta `no-merge` sobre una PR documental; su historial y las ejecuciones de Actions sirven como evidencia del comportamiento.

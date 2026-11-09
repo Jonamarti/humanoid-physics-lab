@@ -58,6 +58,7 @@ export class ExperimentalStepSequence {
   private maxRootTiltDeg = 0;
   private maxSupportLoadFraction = 0;
   private stepContactConfirmed = false;
+  private landingComXY: XY | undefined;
 
   constructor(
     readonly swingSide: FootSide,
@@ -120,12 +121,19 @@ export class ExperimentalStepSequence {
     const loadTotal = info.supportLoadN + info.swingLoadN;
     const supportFraction = loadTotal > 10 ? info.supportLoadN/loadTotal : 0;
     this.maxSupportLoadFraction = Math.max(this.maxSupportLoadFraction,supportFraction);
-    if (["COMPLETE","ABORT","FALL"].includes(this.phase)) return;
+    if (this.phase === "ABORT" || this.phase === "FALL") return;
     if (info.pelvisHeightM < 0.65 || info.rootTiltDeg > 50) {
       this.transition("FALL",info.timeS,"Pelvis baja o tronco demasiado inclinado");
       return;
     }
     const elapsed = info.timeS - this.phaseStartedAtS;
+    if (this.phase === "COMPLETE") {
+      // A transient contact is not enough: keep monitoring the planted foot.
+      if (progress < minProgress * 0.5 || info.supportLoadN < 30 || info.swingLoadN < 30) {
+        this.transition("ABORT",info.timeS,"No mantuvo el nuevo apoyo tras completar");
+      }
+      return;
+    }
     switch (this.phase) {
       case "STAND":
         if (info.timeS >= this.startTimeS) this.transition("SHIFT_WEIGHT",info.timeS,"Transferencia de peso inicial");
@@ -155,6 +163,7 @@ export class ExperimentalStepSequence {
         if (elapsed > 0.05 && progress > minProgress && rise < 0.02 &&
             info.swingLoadN > 40) {
           this.stepContactConfirmed = true;
+          this.landingComXY = [info.comWorldM[0], info.comWorldM[1]];
           this.transition("RECOVER",info.timeS,"Aterrizaje con carga real verificado");
         } else if (elapsed > 0.9) {
           this.transition("ABORT",info.timeS,"Aterrizaje en dirección objetivo no confirmado");
@@ -182,15 +191,26 @@ export class ExperimentalStepSequence {
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
-    const ref: XY = [referenceComXY[0],referenceComXY[1]+supportSign*0.075*fraction];
+    const shifted: XY = [referenceComXY[0],referenceComXY[1]+supportSign*0.075*fraction];
+    // On landing, keep the new COM target and swing-leg pose rather than
+    // snapping to old neutral joint angles; that pulled the planted foot
+    // backwards over 10 cm in the initial experiment.
+    const blend = this.phase === "RECOVER" ? Math.min(1,elapsed/0.5) :
+      this.phase === "COMPLETE" ? 1 : 0;
+    const finalRef = this.landingComXY ?? referenceComXY;
+    const ref: XY = this.phase === "RECOVER" || this.phase === "COMPLETE"
+      ? [referenceComXY[0] + (finalRef[0]-referenceComXY[0])*blend,
+        referenceComXY[1] + supportSign*0.075*(1-blend) +
+          (finalRef[1]-referenceComXY[1])*blend]
+      : shifted;
     const joints: Record<string,number> = {};
-    if (["LIFT","SWING","LAND"].includes(this.phase)) {
+    if (["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
       const dx = this.targetDeltaXY[0],dy = this.targetDeltaXY[1];
-      const lift = this.phase !== "LAND";
+      const lift = this.phase === "LIFT" || this.phase === "SWING";
       joints[`${this.swingSide}_hip_pitch`] = this.phase === "LIFT"
         ? -0.15 : Math.max(-0.5,Math.min(0.5,-dx / 0.65));
       joints[`${this.swingSide}_hip_roll`] = this.phase === "LIFT"
-        ? moveSign * 0.09 : Math.max(-0.4,Math.min(0.4,dy / 0.65));
+        ? moveSign * 0.09 : Math.max(-0.4,Math.min(0.4,-dy / 0.65));
       joints[`${this.swingSide}_knee`] = lift ? -0.6 : -0.05;
       joints[`${this.swingSide}_ankle_pitch`] = lift ? 0.12 : 0;
     }

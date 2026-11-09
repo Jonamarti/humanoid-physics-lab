@@ -1,0 +1,54 @@
+name: Capture real humanoid simulation media
+
+on:
+  push:
+    branches:
+      - feat/step-feedback-media-20261109
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capture-media-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Chromium recordings of actual MuJoCo/Three.js viewer
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install repository and browser controller
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.58.2
+          command -v google-chrome || command -v chromium || npx playwright install chromium
+          npx playwright install ffmpeg
+          command -v ffmpeg || echo 'No system ffmpeg; keeping original WebM videos'
+      - name: Build current branch with the step prototype
+        run: npm run build
+      - name: Serve built laboratory
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/hpl-vite.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl --silent --fail http://127.0.0.1:4173/humanoid-physics-lab/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/hpl-vite.log
+          exit 1
+      - name: Record actual physics outcomes and screenshots
+        run: node scripts/capture-ui.mjs
+      - name: Upload media even when some scenarios fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: humanoid-step-feedback-media
+          path: media/
+          retention-days: 7
+          if-no-files-found: warn

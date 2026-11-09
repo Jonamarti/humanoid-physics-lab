@@ -59,6 +59,17 @@ try {
   await numeric.nth(4).press("Tab");
   await second.locator("select").last().selectOption("constant");
   result.steps.push("two-3d-forces-configured");
+  // Exercise the physical attachment picker, not only the named MJCF site:
+  // the humanoid's sternum is near canvas centre x=50%, y=35%.
+  await second.getByRole("button",{name:"Elegir punto sobre el cuerpo"}).click();
+  const canvas=page.locator("#physics-viewport canvas");
+  const bounds=await canvas.boundingBox();
+  if(!bounds) throw new Error("Canvas no localizado para seleccionar impacto");
+  await canvas.click({position:{x:bounds.width*0.5,y:bounds.height*0.35}});
+  await second.locator("small").filter({hasText:"Anclaje físico"}).waitFor({
+    state:"visible",timeout:10000,
+  });
+  result.steps.push("body-attached-point-picked");
   await snapshot("02-two-vectors");
   await page.getByRole("button",{name:"Ejecutar secuencia"}).click();
   if(!await page.getByRole("button",{name:"+ Añadir fuerza"}).isDisabled())

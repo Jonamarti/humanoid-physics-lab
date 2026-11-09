@@ -166,6 +166,8 @@ export class MujocoSimulation {
       pelvisHeightM: pelvis[2]!,
       rootTiltDeg: rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
       swingSoleWorldM: this.siteWorldPosition(side+"_sole"),
+      swingSoleVelocityWorldMps: this.footSpeedWorldMps,
+      swingFrictionUtilization: ground[side].frictionUtilizationMean,
       supportSoleWorldM: this.siteWorldPosition((side==="left"?"right":"left")+"_sole"),
       swingLoadN: ground[side].verticalLoadN,
       supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,

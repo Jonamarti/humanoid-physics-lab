@@ -47,3 +47,12 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
   background: #283b50; }
 .force-meter-fill { width: 0%; height: 100%; background: #ff596b; }
 #ground-projection-readout { border-left: 3px solid #5df0b3; padding-left: 10px; }
+
+.step-experiment { border-top: 1px solid #3d546d; margin-top: 28px; padding-top: 24px; }
+.step-experiment h2 { font-size: 1.15rem; }
+#push-run, #step-run { width: 100%; margin: 18px 0 6px; border-radius: 10px;
+  padding: 12px 15px; border: 1px solid #63abb7; color: #efffff;
+  background: #245a67; font: inherit; font-weight: 700; cursor: pointer; }
+#step-run { border-color: #92c9aa; background: #285b51; }
+#push-run:disabled, #step-run:disabled { opacity: .48; cursor: not-allowed; }
+#step-run:focus-visible, #push-run:focus-visible { outline: 3px solid #7ddbf4; outline-offset: 3px; }

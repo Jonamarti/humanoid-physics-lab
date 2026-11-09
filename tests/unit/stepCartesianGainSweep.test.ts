@@ -3,7 +3,8 @@ import { describe,expect,it } from "vitest";
 import { MujocoSimulation } from "../../src/physics/mujoco";
 
 describe("Task-space foot control gain sweep (diagnostic, not an acceptance claim)",()=>{
-  it("records six-second objective and stability measurements for a controlled gain sweep",async()=>{
+  const diagnosticOnly = process.env.RUN_LONG_BENCHMARKS === "1" ? it : it.skip;
+  diagnosticOnly("records six-second objective and stability measurements for a controlled gain sweep",async()=>{
     const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
     const rows=[];
     for (const [direction,delta] of [

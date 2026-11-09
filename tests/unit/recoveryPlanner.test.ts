@@ -81,19 +81,19 @@ describe("Pure recovery planner: proposals, not simulated steps", () => {
     expect(r.decision).toBe("SHIFT_WEIGHT");
   });
 
-  it("uses the lighter swinging foot when COM is viable over one support", () => {
+  it("proposes the lighter foot only when the support foot can bear COM", () => {
     const r = planRecovery({
-      ...input(0.6,0.35),
-      comXY: [0.025, 0.105],
-      ground: makeGround(600,150),
+      ...input(0.75,0.35),
+      comXY: [0.025, -0.105],
+      ground: makeGround(150,600),
       maxStepReachM: 0.5,
     });
-    expect(["STEP","FALL"]).toContain(r.decision);
-    if (r.decision === "STEP") {
-      expect(r.swingFoot).toBe("right");
-      expect(r.supportFoot).toBe("left");
-      expect(r.targetFootXY).not.toBeNull();
-    }
+    expect(r.decision).toBe("STEP");
+    expect(r.swingFoot).toBe("left");
+    expect(r.supportFoot).toBe("right");
+    expect(r.targetFootXY).not.toBeNull();
+    expect(Math.hypot(r.targetFootXY![0] - 0.065,
+      r.targetFootXY![1] - 0.105)).toBeLessThanOrEqual(0.5);
   });
 
   it("refuses impossible far capture, missing support, and excessive rotation", () => {

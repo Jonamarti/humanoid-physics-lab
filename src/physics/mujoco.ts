@@ -50,7 +50,7 @@ export class MujocoSimulation {
   private lastStepFootWorld: XYZ | undefined;
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
-  private cartesianStepScale = 1;
+  private cartesianStepScale = 0;
 
   private constructor(module: Module) {
     this.module = module;
@@ -122,7 +122,7 @@ export class MujocoSimulation {
     swingFoot: FootSide,
     targetDeltaXY: XY = [0.10, 0],
     startTimeS = 0.8,
-    cartesianStepScale = 1,
+    cartesianStepScale = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -153,6 +153,7 @@ export class MujocoSimulation {
       pelvisHeightM: pelvis[2]!,
       rootTiltDeg: rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
       swingSoleWorldM: this.siteWorldPosition(side+"_sole"),
+      supportSoleWorldM: this.siteWorldPosition((side==="left"?"right":"left")+"_sole"),
       swingLoadN: ground[side].verticalLoadN,
       supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,
     });

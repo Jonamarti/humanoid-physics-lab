@@ -69,25 +69,26 @@ app.innerHTML = `
   </main>
 `;
 
-const forceInput = document.querySelector<HTMLInputElement>("#force");
-const durationInput = document.querySelector<HTMLInputElement>("#duration");
-const impulseOutput = document.querySelector<HTMLElement>("#impulse");
-const obstacleInput = document.querySelector<HTMLSelectElement>("#obstacle-height");
-const upwardInput = document.querySelector<HTMLSelectElement>("#upward-ratio");
-const cylinderControls = document.querySelector<HTMLElement>("#cylinder-controls");
-const predictionOutput = document.querySelector<HTMLElement>("#pivot-prediction");
-const forceDescription = document.querySelector<HTMLElement>("#force-description");
-const loadButton = document.querySelector<HTMLButtonElement>("#physics-load");
-const toggleButton = document.querySelector<HTMLButtonElement>("#physics-toggle");
-const resetButton = document.querySelector<HTMLButtonElement>("#physics-reset");
-const physicsStatus = document.querySelector<HTMLElement>("#physics-status");
-const physicsReadout = document.querySelector<HTMLElement>("#physics-readout");
-const physicsModel = document.querySelector<HTMLSelectElement>("#physics-model");
-if (!forceInput || !durationInput || !impulseOutput || !obstacleInput || !upwardInput ||
-    !cylinderControls || !predictionOutput || !forceDescription ||
-    !loadButton || !toggleButton || !resetButton || !physicsStatus || !physicsReadout || !physicsModel) {
-  throw new Error("Faltan controles del laboratorio");
+function required<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) throw new Error("Falta el control " + selector);
+  return element;
 }
+
+const forceInput = required<HTMLInputElement>("#force");
+const durationInput = required<HTMLInputElement>("#duration");
+const impulseOutput = required<HTMLElement>("#impulse");
+const obstacleInput = required<HTMLSelectElement>("#obstacle-height");
+const upwardInput = required<HTMLSelectElement>("#upward-ratio");
+const cylinderControls = required<HTMLElement>("#cylinder-controls");
+const predictionOutput = required<HTMLElement>("#pivot-prediction");
+const forceDescription = required<HTMLElement>("#force-description");
+const loadButton = required<HTMLButtonElement>("#physics-load");
+const toggleButton = required<HTMLButtonElement>("#physics-toggle");
+const resetButton = required<HTMLButtonElement>("#physics-reset");
+const physicsStatus = required<HTMLElement>("#physics-status");
+const physicsReadout = required<HTMLElement>("#physics-readout");
+const physicsModel = required<HTMLSelectElement>("#physics-model");
 
 type Scenario = "ball" | "humanoid" | "cylinder";
 const selectedScenario = (): Scenario => {

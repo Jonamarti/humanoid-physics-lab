@@ -24,6 +24,9 @@ export interface StepCommand {
   readonly phase: StepPhase;
   readonly referenceComXY: XY;
   readonly targetsRad: Readonly<Record<string, number>>;
+  /** World-space end-effector target, used by bounded Jacobian feedback. */
+  readonly soleTargetWorldM: XYZ | null;
+  readonly cartesianBlend: number;
 }
 
 export interface StepSnapshot {
@@ -37,6 +40,7 @@ export interface StepSnapshot {
   readonly maxRootTiltDeg: number;
   readonly maxSupportLoadFraction: number;
   readonly stepContactConfirmed: boolean;
+  readonly maxLandingSlipM: number;
 }
 
 /** One voluntary step attempt, useful for testing the controller in real
@@ -58,6 +62,8 @@ export class ExperimentalStepSequence {
   private maxRootTiltDeg = 0;
   private maxSupportLoadFraction = 0;
   private stepContactConfirmed = false;
+  private firstLandingSole: XYZ | undefined;
+  private maxContactSlipM = 0;
 
   constructor(
     readonly swingSide: FootSide,
@@ -84,6 +90,7 @@ export class ExperimentalStepSequence {
       maxRootTiltDeg: this.maxRootTiltDeg,
       maxSupportLoadFraction: this.maxSupportLoadFraction,
       stepContactConfirmed: this.stepContactConfirmed,
+      maxLandingSlipM: this.maxContactSlipM,
     };
   }
 
@@ -105,6 +112,10 @@ export class ExperimentalStepSequence {
     this.minPelvisM = Math.min(this.minPelvisM, info.pelvisHeightM);
     this.maxRootTiltDeg = Math.max(this.maxRootTiltDeg, info.rootTiltDeg);
     const [x,y,z] = info.swingSoleWorldM;
+    if (this.firstLandingSole && info.swingLoadN > 40) {
+      this.maxContactSlipM = Math.max(this.maxContactSlipM,
+        Math.hypot(x-this.firstLandingSole[0],y-this.firstLandingSole[1]));
+    }
     const rise = z - this.originalSole[2];
     const travelX = x - this.originalSole[0];
     const travelY = y - this.originalSole[1];
@@ -126,6 +137,13 @@ export class ExperimentalStepSequence {
       return;
     }
     if (this.phase === "ABORT") return;
+    // Any foot which slides away after the first actual landing has failed
+    // the planted-foot objective. This prevents spurious COMPLETE.
+    if ((this.phase === "RECOVER" || this.phase === "COMPLETE") &&
+      this.maxContactSlipM > 0.045) {
+      this.transition("ABORT",info.timeS,"El pie apoyado se deslizó más de 4,5 cm");
+      return;
+    }
     const elapsed = info.timeS - this.phaseStartedAtS;
     switch (this.phase) {
       case "STAND":
@@ -156,6 +174,7 @@ export class ExperimentalStepSequence {
         if (elapsed > 0.05 && progress > minProgress && rise < 0.02 &&
             info.swingLoadN > 40) {
           this.stepContactConfirmed = true;
+          this.firstLandingSole = [...info.swingSoleWorldM] as XYZ;
           this.transition("RECOVER",info.timeS,"Aterrizaje con carga real verificado");
         } else if (elapsed > 0.9) {
           this.transition("ABORT",info.timeS,"Aterrizaje en dirección objetivo no confirmado");
@@ -195,7 +214,29 @@ export class ExperimentalStepSequence {
       joints[`${this.swingSide}_knee`] = lift ? -0.6 : -0.05;
       joints[`${this.swingSide}_ankle_pitch`] = lift ? 0.12 : 0;
     }
-    return { phase:this.phase, referenceComXY:ref, targetsRad:joints };
+    const t = (duration: number): number => {
+      const u=Math.max(0,Math.min(1,elapsed/duration));
+      return u*u*(3-2*u);
+    };
+    const initial=this.originalSole;
+    let soleTargetWorldM: XYZ | null = null;
+    let cartesianBlend=0;
+    if (initial && ["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
+      const horizontal = this.phase==="LIFT" ? 0 :
+        this.phase==="SWING" ? t(0.45) : 1;
+      const vertical = this.phase==="LIFT" ? 0.095*t(0.3) :
+        this.phase==="SWING" ? 0.095 :
+        this.phase==="LAND" ? 0.095*(1-t(0.35)) : 0;
+      soleTargetWorldM=[
+        initial[0]+this.targetDeltaXY[0]*horizontal,
+        initial[1]+this.targetDeltaXY[1]*horizontal,
+        initial[2]+vertical,
+      ];
+      // Smooth engagement of the task-space controller on first lift.
+      cartesianBlend=this.phase==="LIFT"?t(0.12):1;
+    }
+    return { phase:this.phase, referenceComXY:ref, targetsRad:joints,
+      soleTargetWorldM, cartesianBlend };
   }
 }
 

@@ -148,6 +148,20 @@ export class MujocoSimulation {
     w[offset + 5]! += rx * fy - ry * fx;
   }
 
+  /** Current physical world position of a named MuJoCo site (copied). */
+  siteWorldPosition(siteName: string): readonly [number, number, number] {
+    const { model, data } = this.ready();
+    if (!siteName) throw new RangeError("Nombre de sitio vacío");
+    const id = model.site(siteName).id;
+    if (id < 0 || id >= model.nsite) throw new RangeError("Sitio físico inexistente");
+    const p = data.site_xpos as Float64Array;
+    const xyz: readonly [number, number, number] = [
+      p[id * 3]!, p[id * 3 + 1]!, p[id * 3 + 2]!,
+    ];
+    if (!xyz.every(Number.isFinite)) throw new Error("Punto físico no finito");
+    return xyz;
+  }
+
   /** Apply an EXTERNAL world-space force at a real body-attached site.
    * Converts its world-space moment arm into a physical wrench about the COM.
    * Intended to be called only inside step(..., beforeStep), after clearing

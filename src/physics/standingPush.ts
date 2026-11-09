@@ -38,7 +38,7 @@ export const DEFAULT_PUSH_TRIAL: PushTrial = Object.freeze({
 export function validatePushTrial(trial: PushTrial): void {
   if (!PUSH_DIRECTIONS.includes(trial.direction) ||
       ![trial.peakForceN, trial.startS, trial.durationS].every(Number.isFinite) ||
-      trial.peakForceN < 0 || trial.peakForceN > 2000 ||
+      trial.peakForceN < 0 || trial.peakForceN > 10000 ||
       trial.startS < 0 || trial.startS > 120 ||
       trial.durationS <= 0 || trial.durationS > 1.0) {
     throw new RangeError("Parámetros de empujón fuera de rango");

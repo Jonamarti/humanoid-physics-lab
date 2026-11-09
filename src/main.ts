@@ -55,12 +55,9 @@ app.innerHTML = `
             <option value="backward-right">Diagonal: atrás-derecha (-X,-Y)</option>
           </select>
           <label for="push-peak">Fuerza máxima del empujón</label>
-          <select id="push-peak">
-            <option value="20">20 N — muy suave</option>
-            <option value="60">60 N — suave</option>
-            <option value="120">120 N — moderado</option>
-            <option value="240" selected>240 N — puede derribar hacia atrás</option>
-          </select>
+          <input id="push-peak" type="number" min="0" max="10000" step="10" value="240" inputmode="decimal" aria-describedby="push-force-hint" />
+          <p class="muted" id="push-force-hint">Introduce una fuerza pico entre 0 y 10.000 N. Es una simulación numérica, no un límite seguro para personas. La flecha naranja indica la dirección prevista; roja, la fuerza que se está aplicando.</p>
+          <p class="muted" id="push-vector-readout" role="status" aria-live="off">Vector del empujón: selecciona una dirección y ejecuta el ensayo.</p>
           <button id="push-run" type="button" disabled>Reiniciar y probar empujón (6 s)</button>
           <p class="muted" id="push-readout">La fuerza se aplica entre t=1,00 y 1,12 s. La recuperación se observa durante el resto de la simulación.</p>
           <p class="muted">El diagnóstico visual es aproximado. Las pruebas automatizadas registran resultados cada 0,04 s.</p>
@@ -123,7 +120,8 @@ const physicsModel = required<HTMLSelectElement>("#physics-model");
 const pushPanel = required<HTMLElement>("#standing-push-controls");
 const rigidPanel = required<HTMLElement>("#rigid-force-controls");
 const pushDirection = required<HTMLSelectElement>("#push-direction");
-const pushPeak = required<HTMLSelectElement>("#push-peak");
+const pushPeak = required<HTMLInputElement>("#push-peak");
+const pushVectorReadout = required<HTMLElement>("#push-vector-readout");
 const pushRun = required<HTMLButtonElement>("#push-run");
 const pushReadout = required<HTMLElement>("#push-readout");
 
@@ -151,7 +149,7 @@ function updateCalculation(): void {
   const standingSelected = selectedScenario() === "standing";
   pushPanel.hidden = !standingSelected;
   rigidPanel.hidden = standingSelected;
-  pushRun.disabled = !simulation || mode !== "standing";
+  pushRun.disabled = !simulation || mode !== "standing" || !pushPeak.validity.valid || !Number.isFinite(pushPeak.valueAsNumber);
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -211,6 +209,7 @@ function present(state: PhysicsState): void {
       " m · inclinación máxima muestreada = " + maxSampledForwardTiltDeg.toFixed(1) +
       "° · impulso aplicado = " + horizontalImpulseAppliedNs.toFixed(1) + " N·s";
     if (simulation) viewer?.setArticulatedPoses(simulation.geometryPoses());
+    viewer?.clearForceArrow();
     return;
   }
   physicsReadout.textContent = "t = " + state.time.toFixed(3) +
@@ -219,6 +218,21 @@ function present(state: PhysicsState): void {
   if (mode === "humanoid" || mode === "standing") {
     if (simulation) {
       viewer?.setArticulatedPoses(simulation.geometryPoses());
+      if (mode === "standing" && activePush) {
+        const start = activePush.startS;
+        const end = start + activePush.durationS;
+        // Distinguish a planned direction from the actual force in this step.
+        const active = state.time > start && state.time < end;
+        const force = active
+          ? pushForceAtTime(state.time, activePush)
+          : pushForceAtTime(start + activePush.durationS / 2, activePush);
+        viewer?.setForceArrow(simulation.siteWorldPosition("sternum_impact"), force, active);
+        pushVectorReadout.textContent = (active ? "Fuerza aplicada: " : "Referencia (sin fuerza activa): ") +
+          force.map(v => v.toFixed(1)).join(", ") + " N (X, Y, Z)" +
+          (active ? "" : " · fuerza instantánea real: 0 N");
+      } else {
+        viewer?.clearForceArrow();
+      }
       const b = simulation.humanoidBalanceObservation();
       if (mode === "standing" && activePush && initialPushCom) {
         minimumPushPelvisM = Math.min(minimumPushPelvisM, state.qpos[2]!);
@@ -337,6 +351,8 @@ function clearLoadedScenario(): void {
   settledAfterPush = true;
   pushRun.disabled = true;
   pushReadout.textContent = "El empujón comienza en t=1,00 s y dura 0,12 s.";
+  pushVectorReadout.textContent = "Vector del empujón: selecciona una dirección y ejecuta el ensayo.";
+  viewer?.clearForceArrow();
   viewer?.showSphere();
   clock.reset();
   maxSampledForwardTiltDeg = 0;
@@ -398,7 +414,7 @@ loadButton.addEventListener("click", async () => {
         : "Esfera libre: gravedad y contacto real con el suelo.";
     toggleButton.disabled = false;
     resetButton.disabled = false;
-    pushRun.disabled = mode !== "standing";
+    pushRun.disabled = mode !== "standing" || !pushPeak.validity.valid || !Number.isFinite(pushPeak.valueAsNumber);
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -410,12 +426,18 @@ loadButton.addEventListener("click", async () => {
   }
 });
 
+pushPeak.addEventListener("input", () => {
+  const valid = pushPeak.validity.valid && Number.isFinite(pushPeak.valueAsNumber);
+  pushRun.disabled = !simulation || mode !== "standing" || !valid;
+  if (!valid) pushVectorReadout.textContent = "Introduce una fuerza entre 0 y 10.000 N.";
+});
+
 pushRun.addEventListener("click", () => {
   if (!simulation || mode !== "standing") return;
   try {
     const trial: PushTrial = {
       direction: pushDirection.value as PushDirection,
-      peakForceN: Number(pushPeak.value),
+      peakForceN: pushPeak.valueAsNumber,
       startS: 1,
       durationS: 0.12,
     };
@@ -466,6 +488,8 @@ resetButton.addEventListener("click", () => {
   minimumPushPelvisM = Infinity;
   simulation.reset();
   pushReadout.textContent = "El empujón comienza en t=1,00 s y dura 0,12 s.";
+  pushVectorReadout.textContent = "Vector del empujón: selecciona una dirección y ejecuta el ensayo.";
+  viewer?.clearForceArrow();
   present(simulation.state());
   toggleButton.textContent = "Iniciar";
   physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";

@@ -26,10 +26,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      # Bootstrap only: no package-lock.json exists yet. Replace npm install
-      # with npm ci + setup-node cache: npm once a lockfile is committed.
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+          cache: npm
+      - name: Install frozen dependencies
+        run: npm ci --no-audit --no-fund
       - name: TypeScript strict check
         run: npm run typecheck
       - name: ESLint

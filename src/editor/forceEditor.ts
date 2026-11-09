@@ -35,6 +35,33 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     startS: 1, durationS: 0.12, waveform: "half-sine",
   }];
   const applied = new Map<string, ForceVector>();
+  let selectedId = "f1";
+  function configureViewer(): void {
+    callbacks.getViewer()?.configureForceEditing(
+      enabled && !snapshot ? selectedId : undefined,
+      enabled && !snapshot ? (id, geomId, point) => {
+        const sim = callbacks.getSimulation();
+        if (!sim) return;
+        try {
+          const attachment = sim.bodyAttachmentAtGeomPoint(geomId, point);
+          replace(id, { attachment });
+          status.textContent = "Punto fijado en el cuerpo " + attachment.bodyIndex +
+            " (coordenadas locales, sigue al segmento).";
+        } catch (error) {
+          status.textContent = error instanceof Error ? error.message : String(error);
+        }
+      } : undefined,
+      enabled && !snapshot ? (id, direction) => {
+        const current = forces.find(f => f.id === id);
+        if (!current) return;
+        const magnitude = Math.hypot(...current.forceN);
+        if (!magnitude) return;
+        replace(id, {
+          forceN: direction.map(component => Number((component * magnitude).toFixed(3))) as unknown as ForceVector,
+        });
+      } : undefined,
+    );
+  }
   const heading = document.createElement("label");
   heading.className = "force-editor-toggle";
   const check = document.createElement("input");
@@ -73,6 +100,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
   function refresh(): void {
     run.disabled = !enabled || !!snapshot || !callbacks.getSimulation() || !checked();
     add.disabled = !!snapshot || forces.length >= 12;
+    configureViewer();
     if (!snapshot) status.textContent = checked()
       ? forces.length + " fuerza(s) configurada(s). Pulsa ejecutar para aplicar física real."
       : "Parámetros inválidos: limita la magnitud total a 10.000 N por fuerza.";
@@ -100,8 +128,15 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       const group = document.createElement("fieldset");
       group.className = "edited-force-row";
       const legend = document.createElement("legend");
-      legend.textContent = "Fuerza " + f.id;
+      legend.textContent = "Fuerza " + f.id + (f.id === selectedId ? " · seleccionada" : "");
       group.append(legend);
+      const select = document.createElement("button");
+      select.type = "button"; select.textContent = "Editar esta flecha";
+      select.disabled = !!snapshot;
+      select.addEventListener("click", () => {
+        selectedId = f.id; draw(); preview();
+      });
+      group.append(select);
       const site = document.createElement("select");
       for (const item of FORCE_SITES) {
         const option = document.createElement("option");
@@ -111,8 +146,27 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
         site.append(option);
       }
       site.disabled = !!snapshot;
-      site.addEventListener("change", () => replace(f.id, { site: site.value as ForceSite }));
+      site.addEventListener("change", () => replace(f.id, {
+        site: site.value as ForceSite, attachment: undefined,
+      }));
       field(group, "Punto de aplicación", site);
+      const pick = document.createElement("button");
+      pick.type = "button";
+      pick.textContent = f.attachment ? "Recolocar sobre el cuerpo" : "Elegir punto sobre el cuerpo";
+      pick.disabled = !!snapshot || !callbacks.getSimulation();
+      pick.addEventListener("click", () => {
+        selectedId = f.id;
+        configureViewer();
+        callbacks.getViewer()?.armForcePointPick(f.id);
+        status.textContent = "Toca o haz clic sobre el segmento del humanoide donde aplicar la fuerza.";
+      });
+      group.append(pick);
+      if (f.attachment) {
+        const anchor = document.createElement("small");
+        anchor.textContent = "Anclaje físico: cuerpo " + f.attachment.bodyIndex +
+          ", offset COM " + f.attachment.localComOffsetM.map(v => v.toFixed(3)).join(", ") + " m";
+        group.append(anchor);
+      }
       for (let axis = 0; axis < 3; axis++) {
         const input = document.createElement("input");
         input.type = "number";
@@ -166,6 +220,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       remove.addEventListener("click", () => {
         if (snapshot) return;
         forces = forces.filter(other => other.id !== f.id);
+        if (selectedId === f.id) selectedId = forces[0]!.id;
         draw(); preview();
       });
       group.append(remove);
@@ -188,6 +243,7 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       applied.clear();
       draw();
       if (!enabled) callbacks.getViewer()?.clearMultiForces();
+      configureViewer();
     },
     beginFrame() { applied.clear(); },
     applyStep(sim, timeS) {
@@ -195,7 +251,12 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       for (const f of snapshot) {
         const vec = editedForceAtTime(timeS, f);
         if (Math.hypot(...vec) <= 0) continue;
-        sim.applyWorldForceAtSite(f.site, vec);
+        if (f.attachment) {
+          sim.applyForceAtBodyLocalPoint(
+            f.attachment.bodyIndex, f.attachment.localComOffsetM, vec);
+        } else {
+          sim.applyWorldForceAtSite(f.site, vec);
+        }
         const previous = applied.get(f.id);
         if (!previous || Math.hypot(...vec) > Math.hypot(...previous)) applied.set(f.id, vec);
       }
@@ -213,7 +274,9 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
         const instant = applied.get(f.id);
         return {
           id: f.id,
-          point: sim.siteWorldPosition(f.site),
+          point: f.attachment
+            ? sim.bodyAttachmentWorldPosition(f.attachment.bodyIndex, f.attachment.localComOffsetM)
+            : sim.siteWorldPosition(f.site),
           force: instant ?? f.forceN,
           active: !!instant,
         };
@@ -229,6 +292,8 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     }
     enabled = check.checked;
     pane.hidden = !enabled;
+    editingPointId = undefined;
+    configureViewer();
     preview();
     callbacks.onToggle();
   });
@@ -244,7 +309,14 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
     if (!enabled || snapshot || !callbacks.getSimulation()) return;
     try {
       validateForceSequence(forces);
-      snapshot = forces.map(f => ({ ...f, forceN: [...f.forceN] as unknown as ForceVector }));
+      snapshot = forces.map(f => ({
+        ...f,
+        forceN: [...f.forceN] as unknown as ForceVector,
+        attachment: f.attachment ? {
+          bodyIndex: f.attachment.bodyIndex,
+          localComOffsetM: [...f.attachment.localComOffsetM] as unknown as ForceVector,
+        } : undefined,
+      }));
       horizonS = editedSequenceHorizonS(snapshot);
       applied.clear();
       draw();

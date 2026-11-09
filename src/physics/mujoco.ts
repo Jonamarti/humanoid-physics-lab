@@ -52,6 +52,7 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  private landingBrakeScale = 0;
 
   private constructor(module: Module) {
     this.module = module;
@@ -124,14 +125,17 @@ export class MujocoSimulation {
     targetDeltaXY: XY = [0.10, 0],
     startTimeS = 0.8,
     cartesianStepScale = 0,
+    landingBrakeScale = 0,
   ): void {
-    if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
-      throw new RangeError("Escala de control de pie fuera de 0..1");
+    if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1 ||
+      !Number.isFinite(landingBrakeScale) || landingBrakeScale<0 || landingBrakeScale>1) {
+      throw new RangeError("Escala de control de pie/frenado fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
+    this.landingBrakeScale = landingBrakeScale;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
     this.footSpeedWorldMps = [0,0,0];
@@ -166,6 +170,7 @@ export class MujocoSimulation {
       pelvisHeightM: pelvis[2]!,
       rootTiltDeg: rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
       swingSoleWorldM: this.siteWorldPosition(side+"_sole"),
+      swingSoleVelocityWorldMps: this.footSpeedWorldMps,
       supportSoleWorldM: this.siteWorldPosition((side==="left"?"right":"left")+"_sole"),
       swingLoadN: ground[side].verticalLoadN,
       supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,
@@ -195,6 +200,25 @@ export class MujocoSimulation {
         if (command) {
           applyStepJointTargets(model,data,
             this.standingController.gains,command.targetsRad);
+          // Optional *pre-contact* damping of the swing foot during LAND.
+          // Virtual work J^T*F adds only joint torques; it never anchors the
+          // sole or injects forces into the pelvis free root. Stop applying
+          // extra damping when solved contact load rises: pushing a planted
+          // foot would consume friction and cause more sliding.
+          if (this.stepExperiment && command.phase === "LAND" &&
+              this.landingBrakeScale > 0 && command.cartesianBlend > 0) {
+            const sole = this.siteWorldPosition(this.stepExperiment.swingSide+"_sole");
+            applyCartesianFootImpedance(model,data,this.standingController.gains,
+              this.stepExperiment.swingSide,{
+                targetWorldM:sole,
+                currentWorldM:sole,
+                measuredVelocityWorldMps:this.footSpeedWorldMps,
+                gainsNPerM:[0,0,0],
+                dampingNsPerM:[100,100,100],
+                maxFootForceN:100,
+                blend:command.cartesianBlend*this.landingBrakeScale,
+              });
+          }
           if (command.soleTargetWorldM && this.stepExperiment &&
               this.cartesianStepScale > 0) {
             applyCartesianFootImpedance(model,data,this.standingController.gains,

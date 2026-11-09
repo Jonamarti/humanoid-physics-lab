@@ -153,12 +153,13 @@ export function stepActiveStanding(
   stepNeutralStandingPD(model,data,controller.gains);
   const [left,right]=controller.footBodyIds;
   const xpos=data.xpos;
-  const shares = controller.footLoadShares ?? [0.5,0.5];
+  const shares: readonly [number,number] = controller.footLoadShares ?? [0.5,0.5];
   const sum = shares[0] + shares[1];
   if (![...shares].every(Number.isFinite) || shares.some(v => v < 0) || sum <= 0) {
     throw new RangeError("Porcentajes de carga de pie inválidos");
   }
-  const [wl,wr] = [shares[0]/sum,shares[1]/sum];
+  const wl = shares[0]/sum;
+  const wr = shares[1]/sum;
   const ankleXY: readonly [number,number]=[
     xpos[left*3]! * wl + xpos[right*3]! * wr,
     xpos[left*3+1]! * wl + xpos[right*3+1]! * wr,

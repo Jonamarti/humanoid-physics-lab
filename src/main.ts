@@ -4,6 +4,8 @@ import { GRAVITY_DEMO_MJCF } from "./physics/demoModel";
 import { FixedClock } from "./physics/fixedClock";
 import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 import { BallViewer } from "./renderer/ballViewer";
+import { forceDisplayForFrame } from "./renderer/forceDisplay";
+import { projectBalanceToGround } from "./renderer/balanceProjection";
 import { CYLINDER, cylinderMJCF, cylinderForceAt, cylinderForwardTiltDeg, idealPivotPrediction, localGripPoint, validateCylinderTrial, type CylinderTrial } from "./physics/cylinderBenchmark";
 import { expectedPushImpulseNs, pushForceAtTime, rootTiltDegrees, validatePushTrial, type PushDirection, type PushTrial } from "./physics/standingPush";
 
@@ -32,6 +34,7 @@ app.innerHTML = `
           <p id="physics-status" role="status" aria-live="polite">Motor sin cargar.</p>
           <p id="physics-readout" class="result">t = 0.000 s · altura 1.500 m</p>
           <p id="balance-readout" class="muted" hidden></p>
+          <p id="ground-projection-readout" class="muted" hidden></p>
           <div class="button-row">
             <button id="physics-load" type="button">Cargar simulación</button>
             <button id="physics-toggle" type="button" disabled>Iniciar</button>
@@ -56,7 +59,13 @@ app.innerHTML = `
           </select>
           <label for="push-peak">Fuerza máxima del empujón</label>
           <input id="push-peak" type="number" min="0" max="10000" step="10" value="240" inputmode="decimal" aria-describedby="push-force-hint" />
-          <p class="muted" id="push-force-hint">Introduce una fuerza pico entre 0 y 10.000 N. Es una simulación numérica, no un límite seguro para personas. La flecha naranja indica la dirección prevista; roja, la fuerza que se está aplicando.</p>
+          <p class="muted" id="push-force-hint">Fuerza pico de 0 a 10.000 N; no es un límite seguro para personas. La flecha ámbar indica el vector elegido (antes y después del empujón).</p>
+          <label for="push-duration">Duración del empujón (ms)</label>
+          <input id="push-duration" type="number" min="10" max="1000" step="10" value="120" inputmode="numeric" />
+          <p class="muted">La fuerza sigue un pulso sinusoidal: al aumentar la duración, aumenta el tiempo de aplicación y también el impulso.</p>
+          <p id="push-phase" class="force-phase" role="status" aria-live="off">LISTO · 0 N aplicados</p>
+          <div class="force-meter" aria-hidden="true"><div id="force-meter-fill" class="force-meter-fill"></div></div>
+          <p class="muted">Cuando actúa, la flecha se ilumina y aparece un halo rojo. El indicador muestra la fuerza medida en los pasos físicos del fotograma.</p>
           <p class="muted" id="push-vector-readout" role="status" aria-live="off">Vector del empujón: selecciona una dirección y ejecuta el ensayo.</p>
           <button id="push-run" type="button" disabled>Reiniciar y probar empujón (6 s)</button>
           <p class="muted" id="push-readout">La fuerza se aplica entre t=1,00 y 1,12 s. La recuperación se observa durante el resto de la simulación.</p>
@@ -116,11 +125,15 @@ const resetButton = required<HTMLButtonElement>("#physics-reset");
 const physicsStatus = required<HTMLElement>("#physics-status");
 const physicsReadout = required<HTMLElement>("#physics-readout");
 const balanceReadout = required<HTMLElement>("#balance-readout");
+const groundProjectionReadout = required<HTMLElement>("#ground-projection-readout");
 const physicsModel = required<HTMLSelectElement>("#physics-model");
 const pushPanel = required<HTMLElement>("#standing-push-controls");
 const rigidPanel = required<HTMLElement>("#rigid-force-controls");
 const pushDirection = required<HTMLSelectElement>("#push-direction");
 const pushPeak = required<HTMLInputElement>("#push-peak");
+const pushDuration = required<HTMLInputElement>("#push-duration");
+const pushPhase = required<HTMLElement>("#push-phase");
+const forceMeterFill = required<HTMLElement>("#force-meter-fill");
 const pushVectorReadout = required<HTMLElement>("#push-vector-readout");
 const pushRun = required<HTMLButtonElement>("#push-run");
 const pushReadout = required<HTMLElement>("#push-readout");
@@ -144,12 +157,37 @@ function selectedTrial(): CylinderTrial {
   return trial;
 }
 
+/** These values become fixed in activePush when the user launches a trial.
+ * Editing a field never alters a pulse already being integrated. */
+function selectedPushTrial(): PushTrial {
+  const trial: PushTrial = {
+    direction: pushDirection.value as PushDirection,
+    peakForceN: pushPeak.valueAsNumber,
+    startS: 1,
+    durationS: pushDuration.valueAsNumber / 1000,
+  };
+  if (!pushPeak.validity.valid || !pushDuration.validity.valid) {
+    throw new RangeError("La magnitud o la duración del empujón están fuera de rango");
+  }
+  validatePushTrial(trial);
+  return trial;
+}
+
+function validPushInputs(): boolean {
+  try {
+    selectedPushTrial();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function updateCalculation(): void {
   const cylinderSelected = selectedScenario() === "cylinder";
   const standingSelected = selectedScenario() === "standing";
   pushPanel.hidden = !standingSelected;
   rigidPanel.hidden = standingSelected;
-  pushRun.disabled = !simulation || mode !== "standing" || !pushPeak.validity.valid || !Number.isFinite(pushPeak.valueAsNumber);
+  pushRun.disabled = !simulation || mode !== "standing" || !validPushInputs();
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -199,9 +237,10 @@ let maxSampledForwardTiltDeg = 0;
 let horizontalImpulseAppliedNs = 0;
 let frameHandle: number | undefined;
 
-function present(state: PhysicsState): void {
+function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,number,number] = [0,0,0]): void {
   const z = state.qpos[2];
   balanceReadout.hidden = mode !== "humanoid" && mode !== "standing";
+  groundProjectionReadout.hidden = balanceReadout.hidden;
   if (mode === "cylinder") {
     maxSampledForwardTiltDeg = Math.max(maxSampledForwardTiltDeg, cylinderForwardTiltDeg(state.qpos));
     physicsReadout.textContent = "t = " + state.time.toFixed(3) +
@@ -234,6 +273,45 @@ function present(state: PhysicsState): void {
         viewer?.clearForceArrow();
       }
       const b = simulation.humanoidBalanceObservation();
+      const ground = simulation.humanoidGroundSupportObservation();
+      const projection = projectBalanceToGround(b.comWorldM, ground.loadedSupportPolygonXY);
+      viewer?.setBalanceProjection(b.comWorldM, ground.loadedSupportPolygonXY);
+      const label = projection.status === "inside" ? "DENTRO" :
+        projection.status === "outside" ? "FUERA" : "SIN APOYO VERIFICADO";
+      groundProjectionReadout.textContent =
+        "Proyección del centro de masas en el suelo: " + label +
+        " · carga pie izquierdo: " + ground.left.verticalLoadN.toFixed(0) +
+        " N · pie derecho: " + ground.right.verticalLoadN.toFixed(0) +
+        " N. El contorno de apoyo es una aproximación geométrica de los pies cargados, no un CoP medido.";
+      let previewTrial: PushTrial | undefined;
+      if (mode === "standing") {
+        try { previewTrial = activePush ?? selectedPushTrial(); }
+        catch { previewTrial = undefined; }
+      }
+      if (previewTrial) {
+        const display = forceDisplayForFrame(state.time, previewTrial,
+          activePush ? forceAppliedThisFrameN : [0,0,0]);
+        const isActive = !!activePush && display.phase === "active";
+        viewer?.setForceArrow(simulation.siteWorldPosition("sternum_impact"),
+          display.displayForceN, isActive);
+        const phase = !activePush ? "PREPARADO" :
+          display.phase === "active" ? "APLICANDO FUERZA" :
+          display.phase === "applied" ? "FUERZA APLICADA" : "PENDIENTE";
+        pushPhase.textContent = phase + " · " + display.activeMagnitudeN.toFixed(1) +
+          " N ahora · " + (previewTrial.durationS * 1000).toFixed(0) + " ms de duración";
+        pushPhase.classList.toggle("is-active", isActive);
+        forceMeterFill.style.width = (isActive ? display.activeFraction * 100 : 0).toFixed(1) + "%";
+        pushVectorReadout.textContent =
+          "Dirección configurada (X, Y, Z): " +
+          display.referenceForceN.map(v => v.toFixed(1)).join(", ") + " N" +
+          (isActive ? " · fuerza muestreada: " +
+          display.displayForceN.map(v => v.toFixed(1)).join(", ") + " N" : "");
+      } else {
+        viewer?.clearForceArrow();
+        forceMeterFill.style.width = "0%";
+        pushPhase.classList.remove("is-active");
+        pushPhase.textContent = "Fuerza o duración inválida";
+      }
       if (mode === "standing" && activePush && initialPushCom) {
         minimumPushPelvisM = Math.min(minimumPushPelvisM, state.qpos[2]!);
         maximumPushTiltDeg = Math.max(maximumPushTiltDeg, rootTiltDegrees(state.qpos));
@@ -287,14 +365,19 @@ function animate(timestampMs: number): void {
       });
     } else if (mode === "standing" && activePush) {
       const trial = activePush;
+      let peakApplied: readonly [number, number, number] = [0,0,0];
       state = activeSimulation.step(steps, timeS => {
         const force = pushForceAtTime(timeS, trial);
-        if (force.some(v => v !== 0)) activeSimulation.applyWorldForceAtSite("sternum_impact", force);
+        if (force.some(v => v !== 0)) {
+          activeSimulation.applyWorldForceAtSite("sternum_impact", force);
+          if (Math.hypot(...force) > Math.hypot(...peakApplied)) peakApplied = force;
+        }
       });
+      present(state, peakApplied);
     } else {
       state = activeSimulation.step(steps);
     }
-    present(state);
+    if (!(mode === "standing" && activePush)) present(state);
     if (mode === "standing" && activePush && state.time >= 6) {
       playing = false;
       toggleButton.textContent = "Iniciar";
@@ -352,7 +435,11 @@ function clearLoadedScenario(): void {
   pushRun.disabled = true;
   pushReadout.textContent = "El empujón comienza en t=1,00 s y dura 0,12 s.";
   pushVectorReadout.textContent = "Vector del empujón: selecciona una dirección y ejecuta el ensayo.";
+  pushPhase.textContent = "LISTO · 0 N aplicados";
+  pushPhase.classList.remove("is-active");
+  forceMeterFill.style.width = "0%";
   viewer?.clearForceArrow();
+  viewer?.clearBalanceProjection();
   viewer?.showSphere();
   clock.reset();
   maxSampledForwardTiltDeg = 0;
@@ -414,7 +501,7 @@ loadButton.addEventListener("click", async () => {
         : "Esfera libre: gravedad y contacto real con el suelo.";
     toggleButton.disabled = false;
     resetButton.disabled = false;
-    pushRun.disabled = mode !== "standing" || !pushPeak.validity.valid || !Number.isFinite(pushPeak.valueAsNumber);
+    pushRun.disabled = mode !== "standing" || !validPushInputs();
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -426,22 +513,17 @@ loadButton.addEventListener("click", async () => {
   }
 });
 
-pushPeak.addEventListener("input", () => {
-  const valid = pushPeak.validity.valid && Number.isFinite(pushPeak.valueAsNumber);
-  pushRun.disabled = !simulation || mode !== "standing" || !valid;
-  if (!valid) pushVectorReadout.textContent = "Introduce una fuerza entre 0 y 10.000 N.";
-});
+for (const control of [pushPeak, pushDuration, pushDirection]) {
+  control.addEventListener("input", () => {
+    pushRun.disabled = !simulation || mode !== "standing" || !validPushInputs();
+    if (simulation && mode === "standing" && !activePush) present(simulation.state());
+  });
+}
 
 pushRun.addEventListener("click", () => {
   if (!simulation || mode !== "standing") return;
   try {
-    const trial: PushTrial = {
-      direction: pushDirection.value as PushDirection,
-      peakForceN: pushPeak.valueAsNumber,
-      startS: 1,
-      durationS: 0.12,
-    };
-    validatePushTrial(trial);
+    const trial = selectedPushTrial();
     playing = false;
     simulation.reset();
     clock.reset();
@@ -471,6 +553,7 @@ toggleButton.addEventListener("click", () => {
   playing = !playing;
   lastFrame = undefined;
   toggleButton.textContent = playing ? "Pausar" : "Iniciar";
+  if (!playing) present(simulation.state());
 });
 
 resetButton.addEventListener("click", () => {

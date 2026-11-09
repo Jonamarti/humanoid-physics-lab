@@ -40,7 +40,9 @@ export function pushForceAtTime(
   validatePushTrial(trial);
   if (!Number.isFinite(timeS)) throw new RangeError("Tiempo no finito");
   const phase = (timeS - trial.startS) / trial.durationS;
-  if (phase <= 0 || phase >= 1) return [0, 0, 0];
+  // Floating-point division may produce 0.999999999999999 at the endpoint.
+  // Snap endpoint residuals to zero to avoid phantom external impulses.
+  if (phase <= 1e-12 || phase >= 1 - 1e-12) return [0, 0, 0];
   const force = trial.peakForceN * Math.sin(Math.PI * phase);
   switch (trial.direction) {
     case "forward": return [force, 0, 0];

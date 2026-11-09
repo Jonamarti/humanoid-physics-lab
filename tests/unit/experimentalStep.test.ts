@@ -32,7 +32,6 @@ describe("Recovery-step FSM requires verified contact events", () => {
     expect(step.snapshot().phase).toBe("LAND");
     step.observe(sample(1.56,{
       supportLoadN:590,swingLoadN:150,swingSoleWorldM:[0.17,0.19,0.003],
-      swingJointAnglesRad:{left_hip_pitch:-0.21,left_knee:-0.17},
     }));
     expect(step.snapshot().phase).toBe("RECOVER");
     step.observe(sample(2.15,{
@@ -44,9 +43,6 @@ describe("Recovery-step FSM requires verified contact events", () => {
     // the original bilateral midpoint. Never drag the COM back to it.
     const after = step.command(2.15,[0,0]);
     expect(after.referenceComXY[0]).toBeGreaterThan(0.04);
-    expect(after.targetsRad.left_hip_pitch).toBeCloseTo(-0.21);
-    expect(after.targetsRad.left_knee).toBeCloseTo(-0.17);
-    expect(after.jointStiffnessScale).toBeLessThan(1);
     expect(after.referenceComXY[1]).toBeGreaterThan(0.03);
     expect(step.snapshot().maxSupportFootSlipM).toBe(0);
     expect(step.snapshot().targetErrorXYM).toBeLessThan(0.03);

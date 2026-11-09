@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Typecheck, lint, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Bootstrap only: no package-lock.json exists yet. Replace npm install
+      # with npm ci + setup-node cache: npm once a lockfile is committed.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript strict check
+        run: npm run typecheck
+      - name: ESLint
+        run: npm run lint
+      - name: Vitest unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Verify production output
+        run: test -s dist/index.html && test -d dist/assets

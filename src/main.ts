@@ -5,7 +5,7 @@ import { FixedClock } from "./physics/fixedClock";
 import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 import { BallViewer } from "./renderer/ballViewer";
 import { forceDisplayForFrame } from "./renderer/forceDisplay";
-import { installForceEditor, type ForceEditor } from "./editor/forceEditor";
+import { installForceEditor } from "./editor/forceEditor";
 import { projectBalanceToGround } from "./renderer/balanceProjection";
 import { CYLINDER, cylinderMJCF, cylinderForceAt, cylinderForwardTiltDeg, idealPivotPrediction, localGripPoint, validateCylinderTrial, type CylinderTrial } from "./physics/cylinderBenchmark";
 import { expectedPushImpulseNs, pushForceAtTime, rootTiltDegrees, validatePushTrial, type PushDirection, type PushTrial } from "./physics/standingPush";
@@ -224,7 +224,6 @@ if (viewport) {
 }
 
 let simulation: MujocoSimulation | undefined;
-let forceEditor: ForceEditor | undefined;
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
@@ -601,7 +600,7 @@ resetButton.addEventListener("click", () => {
   physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";
 });
 
-forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
+const forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
   getSimulation: () => mode === "standing" ? simulation : undefined,
   getViewer: () => viewer,
   canEdit: () => !playing,

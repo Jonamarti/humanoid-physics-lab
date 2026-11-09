@@ -29,7 +29,7 @@ npm run preview
 
 GitHub Actions ejecuta comprobación de tipos, ESLint, Vitest y compilación en cada push y pull request. El archivo `package-lock.json` está confirmado y el workflow utiliza `npm ci` y caché npm para instalaciones reproducibles. El lockfile se generó inicialmente en un runner de GitHub conectado al registro npm.
 
-La ruta base de Vite `/humanoid-physics-lab/` ya está configurada. El despliegue GitHub Pages pertenece a la [issue #6](https://github.com/Jonamarti/humanoid-physics-lab/issues/6).
+La ruta base de Vite `/humanoid-physics-lab/` ya está configurada. El workflow para GitHub Pages (`.github/workflows/pages.yml`) compila y despliega automáticamente **cuando GitHub Pages esté activado** en **Settings → Pages → Source: GitHub Actions**. Consulta la [guía de activación y verificación](docs/PAGES.md). La URL prevista es <https://jonamarti.github.io/humanoid-physics-lab/>; no se considera publicada hasta que el job `Publish site` finalice correctamente.
 
 ## Principios
 

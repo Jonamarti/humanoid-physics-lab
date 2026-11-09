@@ -29,6 +29,7 @@ app.innerHTML = `
           </select>
           <p id="physics-status" role="status" aria-live="polite">Motor sin cargar.</p>
           <p id="physics-readout" class="result">t = 0.000 s · altura 1.500 m</p>
+          <p id="balance-readout" class="muted" hidden></p>
           <div class="button-row">
             <button id="physics-load" type="button">Cargar simulación</button>
             <button id="physics-toggle" type="button" disabled>Iniciar</button>
@@ -88,6 +89,7 @@ const toggleButton = required<HTMLButtonElement>("#physics-toggle");
 const resetButton = required<HTMLButtonElement>("#physics-reset");
 const physicsStatus = required<HTMLElement>("#physics-status");
 const physicsReadout = required<HTMLElement>("#physics-readout");
+const balanceReadout = required<HTMLElement>("#balance-readout");
 const physicsModel = required<HTMLSelectElement>("#physics-model");
 
 type Scenario = "ball" | "humanoid" | "cylinder";
@@ -155,6 +157,7 @@ let frameHandle: number | undefined;
 
 function present(state: PhysicsState): void {
   const z = state.qpos[2];
+  balanceReadout.hidden = mode !== "humanoid";
   if (mode === "cylinder") {
     maxSampledForwardTiltDeg = Math.max(maxSampledForwardTiltDeg, cylinderForwardTiltDeg(state.qpos));
     physicsReadout.textContent = "t = " + state.time.toFixed(3) +
@@ -168,7 +171,19 @@ function present(state: PhysicsState): void {
     " s · " + (mode === "humanoid" ? "pelvis" : "altura") +
     " " + (z?.toFixed(3) ?? "?") + " m";
   if (mode === "humanoid") {
-    if (simulation) viewer?.setArticulatedPoses(simulation.geometryPoses());
+    if (simulation) {
+      viewer?.setArticulatedPoses(simulation.geometryPoses());
+      const b = simulation.humanoidBalanceObservation();
+      const fmt = (n: number) => n.toFixed(3);
+      balanceReadout.textContent =
+        "Centro de masas (x,y,z): " + b.comWorldM.map(fmt).join(", ") + " m" +
+        " · velocidad horizontal: " + fmt(b.comVelocityWorldMps[0]) + ", " +
+        fmt(b.comVelocityWorldMps[1]) + " m/s" +
+        " · punto de captura estimado: " + b.capturePointXY.map(fmt).join(", ") + " m" +
+        " · proyección del CM sobre huellas cercanas al suelo: " +
+        (b.comProjectionInsideCandidateSupport ? "dentro" : "fuera") +
+        " (no mide presión real ni demuestra estabilidad).";
+    }
   } else if (state.qpos.length >= 3) {
     viewer?.setSpherePosition([state.qpos[0]!, state.qpos[1]!, state.qpos[2]!]);
   }

@@ -19,6 +19,10 @@ export interface StepFeedback {
   readonly pelvisHeightM: number;
   readonly rootTiltDeg: number;
   readonly swingSoleWorldM: XYZ;
+  /** Filtered speed from physical integration. Sampled ~20ms apart. */
+  readonly swingSoleVelocityWorldMps?: XYZ;
+  /** Solver's measured tangential-friction utilization at this sample. */
+  readonly swingFrictionUtilization?: number | null;
   readonly supportSoleWorldM: XYZ;
   readonly supportLoadN: number;
   readonly swingLoadN: number;
@@ -49,6 +53,13 @@ export interface StepSnapshot {
   readonly targetErrorXYM: number;
   /** Consecutive seconds of verified stability, sampled at physics cadence. */
   readonly settledDurationS: number;
+  /** Last unloaded-foot velocity sampled BEFORE the loaded landing frame.
+   * This is a ~20ms-cadence proxy, not an exact contact-time impact velocity.
+   */
+  readonly preLandingTangentialSpeedMps: number | null;
+  readonly preLandingDownwardSpeedMps: number | null;
+  readonly frictionUtilizationAtLanding: number | null;
+  readonly firstLandingTimeS: number | null;
 }
 
 /** One voluntary step attempt, useful for testing the controller in real
@@ -78,6 +89,10 @@ export class ExperimentalStepSequence {
   private latestSwingLoadN = 0;
   private settledSinceS: number | undefined;
   private settledDurationS = 0;
+  private lastUnloadedFootVelocityWorldMps: XYZ | undefined;
+  private firstLandingVelocityEstimate: XYZ | undefined;
+  private frictionUtilizationAtLanding: number | null = null;
+  private firstLandingTimeS: number | null = null;
 
   constructor(
     readonly swingSide: FootSide,
@@ -108,6 +123,13 @@ export class ExperimentalStepSequence {
       maxSupportFootSlipM: this.maxSupportFootSlipM,
       targetErrorXYM: this.targetErrorXYM,
       settledDurationS: this.settledDurationS,
+      preLandingTangentialSpeedMps: this.firstLandingVelocityEstimate
+        ? Math.hypot(this.firstLandingVelocityEstimate[0],
+          this.firstLandingVelocityEstimate[1]) : null,
+      preLandingDownwardSpeedMps: this.firstLandingVelocityEstimate
+        ? Math.max(0,-this.firstLandingVelocityEstimate[2]) : null,
+      frictionUtilizationAtLanding: this.frictionUtilizationAtLanding,
+      firstLandingTimeS: this.firstLandingTimeS,
     };
   }
 
@@ -125,7 +147,13 @@ export class ExperimentalStepSequence {
       info.supportLoadN < 0 || info.swingLoadN < 0 || info.rootTiltDeg < 0 ||
       typeof info.comProjectionInsideLoadedSupport !== "boolean" ||
       typeof info.capturePointInsideLoadedSupport !== "boolean" ||
-      info.timeS < this.lastTimeS) {
+      info.timeS < this.lastTimeS ||
+      (info.swingSoleVelocityWorldMps !== undefined &&
+        (!info.swingSoleVelocityWorldMps.every(Number.isFinite) ||
+         info.swingSoleVelocityWorldMps.length !== 3)) ||
+      (info.swingFrictionUtilization != null &&
+        (!Number.isFinite(info.swingFrictionUtilization) ||
+         info.swingFrictionUtilization < 0))) {
       throw new RangeError("Mediciones de paso inválidas o tiempo no monótono");
     }
     const sampleGapS = info.timeS - this.lastTimeS;
@@ -170,6 +198,11 @@ export class ExperimentalStepSequence {
       return;
     }
     if (this.phase === "ABORT") return;
+    if (["LIFT","SWING","LAND"].includes(this.phase) &&
+        info.swingLoadN < 25 && info.swingSoleVelocityWorldMps) {
+      this.lastUnloadedFootVelocityWorldMps =
+        [...info.swingSoleVelocityWorldMps] as XYZ;
+    }
     // Any foot which slides away after the first actual landing has failed
     // the planted-foot objective. This prevents spurious COMPLETE.
     if ((this.phase === "RECOVER" || this.phase === "COMPLETE") &&
@@ -233,6 +266,9 @@ export class ExperimentalStepSequence {
             info.swingLoadN > 40) {
           this.stepContactConfirmed = true;
           this.firstLandingSole = [...info.swingSoleWorldM] as XYZ;
+          this.firstLandingVelocityEstimate = this.lastUnloadedFootVelocityWorldMps;
+          this.frictionUtilizationAtLanding = info.swingFrictionUtilization ?? null;
+          this.firstLandingTimeS = info.timeS;
           this.transition("RECOVER",info.timeS,"Aterrizaje con carga real verificado");
         } else if (elapsed > 0.9) {
           this.transition("ABORT",info.timeS,"Aterrizaje en dirección objetivo no confirmado");

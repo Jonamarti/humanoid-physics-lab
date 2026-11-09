@@ -147,4 +147,17 @@ jobs:
               });
               if (!result.data.merged) throw new Error("GitHub no fusionó PR #" + number);
               core.notice("PR #" + number + " fusionada tras CI verde");
+
+              // A push created by GITHUB_TOKEN does not trigger a new push workflow.
+              // repository_dispatch is explicitly exempt from that GitHub Actions rule.
+              // Dispatch only AFTER a verified successful merge, building latest main.
+              await github.rest.repos.createDispatchEvent({
+                owner, repo,
+                event_type: "pages-after-auto-merge",
+                client_payload: {
+                  pull_request: number,
+                  merge_sha: result.data.sha,
+                },
+              });
+              core.notice("Publicación Pages solicitada tras fusionar PR #" + number);
             }

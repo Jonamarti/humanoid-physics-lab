@@ -98,10 +98,14 @@ export class ExperimentalStepSequence {
     readonly swingSide: FootSide,
     readonly targetDeltaXY: XY,
     readonly startTimeS = 0.8,
+    /** Experimental: hip flexion during LIFT only. -0.15 rad is baseline. */
+    readonly liftHipPitchRad = -0.15,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
-      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS)) {
+      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
+      !Number.isFinite(liftHipPitchRad) || liftHipPitchRad < -0.35 ||
+      liftHipPitchRad > 0.2) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -324,7 +328,7 @@ export class ExperimentalStepSequence {
       const dx = this.targetDeltaXY[0],dy = this.targetDeltaXY[1];
       const lift = this.phase === "LIFT" || this.phase === "SWING";
       joints[`${this.swingSide}_hip_pitch`] = this.phase === "LIFT"
-        ? -0.15 : Math.max(-0.5,Math.min(0.5,-dx / 0.65));
+        ? this.liftHipPitchRad : Math.max(-0.5,Math.min(0.5,-dx / 0.65));
       joints[`${this.swingSide}_hip_roll`] = this.phase === "LIFT"
         ? moveSign * 0.09 : Math.max(-0.4,Math.min(0.4,dy / 0.65));
       joints[`${this.swingSide}_knee`] = lift ? -0.6 : -0.05;

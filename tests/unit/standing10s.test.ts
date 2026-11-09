@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import loadMujoco from "@mujoco/mujoco";
-import { makeNeutralStandingPD, stepNeutralStandingPD } from "../../src/control/standingBaseline";
+import { makeStandingController, stepActiveStanding } from "../../src/control/standingBaseline";
 
 function rootTiltDegrees(qpos: Float64Array): number {
   const x = qpos[4]!, y = qpos[5]!;
@@ -15,7 +15,8 @@ describe("Experimental 10-second neutral standing (actual MuJoCo WASM)", () => {
     const mj = await loadMujoco();
     const model = mj.MjModel.from_xml_string(xml);
     const data = new mj.MjData(model);
-    const gains = makeNeutralStandingPD(model);
+    mj.mj_forward(model,data);
+    const controller=makeStandingController(model,data);
     const report: Array<Record<string, unknown>> = [];
     try {
       mj.mj_forward(model, data);
@@ -24,7 +25,8 @@ describe("Experimental 10-second neutral standing (actual MuJoCo WASM)", () => {
       let lowestPelvis = initialHeight;
       let saturatedSteps = 0;
       for (let i = 0; i < 5000; i++) {
-        stepNeutralStandingPD(model, data, gains);
+        mj.mj_subtreeVel(model,data);
+        stepActiveStanding(model,data,controller);
         const applied = data.qfrc_applied;
         expect(Array.from(applied.subarray(0, 6))).toEqual([0, 0, 0, 0, 0, 0]);
         const maxNm = Math.max(...Array.from(applied, Math.abs));

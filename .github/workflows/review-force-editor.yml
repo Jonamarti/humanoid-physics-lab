@@ -1,0 +1,51 @@
+name: Visual QA of multi-force editor
+
+on:
+  push:
+    branches: [qa/force-editor-browser]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: force-editor-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Browser dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.58.2
+          npx playwright install ffmpeg
+          command -v google-chrome
+      - name: Build review branch
+        run: npm run build
+      - name: Serve actual Three.js/MuJoCo app
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/hpl-preview.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:4173/humanoid-physics-lab/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/hpl-preview.log
+          exit 1
+      - name: Exercise advanced 3D editor and record
+        run: node scripts/review-force-editor.mjs
+      - name: Upload real screenshots, video, QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: force-editor-3d-visual-qa
+          path: media-force-editor/
+          retention-days: 7
+          if-no-files-found: warn

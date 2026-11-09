@@ -95,7 +95,7 @@ export function planRecovery(input: RecoveryInput): RecoveryPlan {
     const dy = desired[1] - swing.centerXY[1];
     const len = Math.hypot(dx, dy);
     const scale = len > reach ? reach / len : 1;
-    const target: XY = [
+    const target: [number, number] = [
       swing.centerXY[0] + dx * scale,
       swing.centerXY[1] + dy * scale,
     ];

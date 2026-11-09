@@ -85,6 +85,14 @@ app.innerHTML = `
               <option value="backward">Hacia atrás</option>
               <option value="diagonal" selected>Diagonal hacia delante y fuera</option>
             </select>
+            <label for="step-cartesian">Control cartesiano de pie (experimental)</label>
+            <select id="step-cartesian">
+              <option value="0" selected>Desactivado — control articular anterior</option>
+              <option value="0.2">20 % — corrección leve</option>
+              <option value="0.5">50 % — corrección media</option>
+              <option value="1">100 % — corrección máxima experimental</option>
+            </select>
+            <p class="muted">Aún no está calibrado: las pruebas actuales han mostrado más caídas al aumentar esta corrección. Se conserva desactivado por defecto.</p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
           </section>
@@ -157,6 +165,7 @@ const pushRun = required<HTMLButtonElement>("#push-run");
 const pushReadout = required<HTMLElement>("#push-readout");
 const stepFoot = required<HTMLSelectElement>("#step-foot");
 const stepDirection = required<HTMLSelectElement>("#step-direction");
+const stepCartesian = required<HTMLSelectElement>("#step-cartesian");
 const stepRun = required<HTMLButtonElement>("#step-run");
 const stepReadout = required<HTMLElement>("#step-readout");
 
@@ -330,7 +339,10 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             (snapshot.currentTargetProgressM*100).toFixed(1) +
             " cm · aterrizaje verificado: " +
             (snapshot.stepContactConfirmed ? "sí" : "no") +
-            " · " + snapshot.reason;
+            " · deriva máxima del pie de apoyo: " +
+            (snapshot.maxSupportFootSlipM * 100).toFixed(1) + " cm" +
+            " · error hasta destino: " + (snapshot.targetErrorXYM * 100).toFixed(1) +
+            " cm · " + snapshot.reason;
         }
       }
       if (mode === "standing" && activePush && initialPushCom) {
@@ -596,7 +608,7 @@ stepRun.addEventListener("click", () => {
         direction === "backward" ? [-0.10,0] : [0.12,0.08*sign];
     playing = false;
     simulation.reset();
-    simulation.enableExperimentalStepTrial(side, delta, 0.8);
+    simulation.enableExperimentalStepTrial(side, delta, 0.8, Number(stepCartesian.value));
     clock.reset();
     lastFrame = undefined;
     activePush = undefined;

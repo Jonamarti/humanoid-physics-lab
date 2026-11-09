@@ -3,7 +3,7 @@ import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
-import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
+import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot, type LandingJointPolicy } from "../control/experimentalStep";
 import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
 import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
@@ -124,12 +124,13 @@ export class MujocoSimulation {
     targetDeltaXY: XY = [0.10, 0],
     startTimeS = 0.8,
     cartesianStepScale = 0,
+    landingPolicy: LandingJointPolicy = "old-target",
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
-    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
+    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS, landingPolicy);
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
@@ -169,6 +170,14 @@ export class MujocoSimulation {
       supportSoleWorldM: this.siteWorldPosition((side==="left"?"right":"left")+"_sole"),
       swingLoadN: ground[side].verticalLoadN,
       supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,
+      swingJointAnglesRad: Object.fromEntries(
+        ["hip_pitch","hip_roll","knee","ankle_pitch"].map(jointPart => {
+          const name=side+"_"+jointPart;
+          const jointId=model.jnt(name).id;
+          const angle=(data.qpos as Float64Array)[model.jnt_qposadr[jointId]!]!;
+          return [name,angle];
+        }),
+      ),
     });
   }
 

@@ -321,11 +321,12 @@ export class MujocoSimulation {
               ![leftFootGeomId, rightFootGeomId].includes(
                 first === floorGeomId ? second : first
               )) continue;
-          if (contact.efc_address < 0) continue; // excluded / unsolved
+          if (contact.efc_address < 0) { console.log("CONTACT-DEBUG unsolved", i, first, second, contact.efc_address); continue; } // excluded / unsolved
           forceLocal.fill(0);
           this.module.mj_contactForce(model, data, i, forceLocal);
           const point = contact.pos as Float64Array;
           const frame = contact.frame as Float64Array;
+          if (data.time > 0.99 && data.time < 1.01) console.log("CONTACT-DEBUG", { i, first, second, efc: contact.efc_address, force: Array.from(forceLocal), frame: Array.from(frame).slice(0,3), point: Array.from(point) });
           samples.push({
             geom1: first,
             geom2: second,

@@ -142,7 +142,7 @@ export class MujocoSimulation {
 
   private sampleStepExperiment(): void {
     if (!this.stepExperiment) return;
-    const { model,data } = this.ready();
+    const { data } = this.ready();
     const side = this.stepExperiment.swingSide;
     const ground = this.humanoidGroundSupportObservation();
     const com = data.subtree_com as Float64Array;
@@ -156,14 +156,6 @@ export class MujocoSimulation {
       supportSoleWorldM: this.siteWorldPosition((side==="left"?"right":"left")+"_sole"),
       swingLoadN: ground[side].verticalLoadN,
       supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,
-      swingJointAnglesRad: Object.fromEntries([
-        "hip_pitch","hip_roll","hip_yaw","knee","ankle_pitch","ankle_roll",
-      ].map(part=>{
-        const name=side+"_"+part;
-        return [name,(data.qpos as Float64Array)[
-          model.jnt_qposadr[model.jnt(name).id]!
-        ]!];
-      })),
     });
   }
 
@@ -189,8 +181,7 @@ export class MujocoSimulation {
         stepActiveStanding(model, data, controller);
         if (command) {
           applyStepJointTargets(model,data,
-            this.standingController.gains,command.targetsRad,
-            command.jointStiffnessScale);
+            this.standingController.gains,command.targetsRad);
           if (command.soleTargetWorldM && this.stepExperiment &&
               this.cartesianStepScale > 0) {
             applyCartesianFootImpedance(model,data,this.standingController.gains,

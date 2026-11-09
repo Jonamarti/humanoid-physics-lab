@@ -3,6 +3,10 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
+  # GitHub Actions' GITHUB_TOKEN merges don't trigger push workflows.
+  # The trusted auto-merge workflow dispatches this event after a green merge.
+  repository_dispatch:
+    types: [pages-after-auto-merge]
   workflow_dispatch:
 
 permissions:

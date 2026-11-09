@@ -9,6 +9,8 @@ Este repositorio utiliza [`.github/workflows/auto-merge.yml`](../.github/workflo
 5. El **último commit exacto** de la rama tiene un workflow **CI** de tipo **pull_request**, terminado con **success**, y el job obligatorio `Typecheck, lint, tests and build` también está correcto.
 6. GitHub confirma que no existen conflictos de integración y que la rama sigue apuntando al mismo commit revisado.
 
+Tras cada fusión automática aprobada, el workflow envía el evento `repository_dispatch: pages-after-auto-merge` para que **GitHub Pages compile y publique la versión nueva**. Esto es necesario porque GitHub no inicia workflows de tipo `push` cuando una fusión la hace el propio `GITHUB_TOKEN`. El evento se envía **solo después** de que GitHub confirme la fusión y el nuevo commit. El despliegue tiene sus propias verificaciones de TypeScript, lint, tests y build.
+
 El sistema utiliza `squash` para mantener el historial limpio. No se fusionan PRs con CI pendiente, fallido o cancelado. Los checks para cada revisión se evalúan otra vez si cambia el commit.
 
 ## Cómo bloquear la fusión

@@ -35,3 +35,15 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 
 #physics-viewport { display: block; overflow: hidden; touch-action: none; }
 #physics-viewport canvas { display: block; width: 100%; height: 100%; }
+
+/* The arrow remains an orientation reference. The flash/meter is ONLY
+   illuminated for a sampled interval with actual MuJoCo force. */
+.force-phase { margin: 18px 0 6px; border: 1px solid #41607c; border-radius: 9px;
+  background: #0b192b; padding: 10px 12px; font-size: .9rem; font-weight: 750;
+  letter-spacing: .02em; color: #f8d99c; }
+.force-phase.is-active { background: #61263a; border-color: #ff6980; color: #fff;
+  box-shadow: 0 0 16px #ff526450; }
+.force-meter { width: 100%; height: 9px; border-radius: 9px; overflow: hidden;
+  background: #283b50; }
+.force-meter-fill { width: 0%; height: 100%; background: #ff596b; }
+#ground-projection-readout { border-left: 3px solid #5df0b3; padding-left: 10px; }

@@ -3,6 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { PhysicsGeomPose, PhysicsGeomSpec } from "../physics/geometry";
 import { mujocoToThreePosition } from "./coordinates";
 import { forceArrowLengthM } from "./forceArrow";
+import { projectBalanceToGround, type ProjectionStatus } from "./balanceProjection";
+import type { XY, XYZ } from "../control/balanceSensors";
 
 const MUJOCO_TO_THREE = new THREE.Quaternion().setFromAxisAngle(
   new THREE.Vector3(1, 0, 0), -Math.PI / 2,
@@ -18,6 +20,12 @@ export class BallViewer {
   private readonly controls: OrbitControls;
   private readonly sphere: THREE.Mesh;
   private readonly forceArrow: THREE.ArrowHelper;
+  private readonly forceFlash: THREE.Mesh;
+  private readonly forceFlashRing: THREE.Mesh;
+  private readonly comMarker: THREE.Mesh;
+  private readonly comGroundMarker: THREE.Mesh;
+  private readonly comVerticalLine: THREE.Line;
+  private readonly supportOutline: THREE.LineLoop;
   private readonly observer: ResizeObserver;
   private readonly articulated = new Map<number, THREE.Mesh>();
   private readonly rotationMatrix = new THREE.Matrix4();
@@ -64,6 +72,53 @@ export class BallViewer {
     this.forceArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 1, 0xffbd59, 0.18, 0.09);
     this.forceArrow.visible = false;
     this.scene.add(this.forceArrow);
+
+    // Force highlight is visible only for physics steps which applied force:
+    // emissive halo + camera-facing ring + vivid arrow, not merely color.
+    this.forceFlash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.105, 18, 12),
+      new THREE.MeshBasicMaterial({
+        color: 0xff315f, transparent: true, opacity: 0.42,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }),
+    );
+    this.forceFlashRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.15, 0.022, 8, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0xffe08b, transparent: true, opacity: 0.95,
+        depthWrite: false, depthTest: false,
+      }),
+    );
+    this.forceFlash.visible = false;
+    this.forceFlashRing.visible = false;
+    this.scene.add(this.forceFlash, this.forceFlashRing);
+
+    this.comMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.034, 18, 12),
+      new THREE.MeshBasicMaterial({ color: 0x50d9f9, depthTest: false }),
+    );
+    this.comGroundMarker = new THREE.Mesh(
+      new THREE.CircleGeometry(0.055, 32),
+      new THREE.MeshBasicMaterial({ color: 0x50d9f9, side: THREE.DoubleSide, depthTest: false }),
+    );
+    this.comGroundMarker.rotation.x = -Math.PI / 2;
+    const dropGeometry = new THREE.BufferGeometry();
+    dropGeometry.setAttribute("position",
+      new THREE.BufferAttribute(new Float32Array(6), 3).setUsage(THREE.DynamicDrawUsage));
+    this.comVerticalLine = new THREE.Line(dropGeometry,
+      new THREE.LineDashedMaterial({ color: 0x5fe0f3, dashSize: 0.065, gapSize: 0.04, depthTest: false }));
+    const hullGeometry = new THREE.BufferGeometry();
+    hullGeometry.setAttribute("position",
+      new THREE.BufferAttribute(new Float32Array(24), 3).setUsage(THREE.DynamicDrawUsage));
+    hullGeometry.setDrawRange(0, 0);
+    this.supportOutline = new THREE.LineLoop(hullGeometry,
+      new THREE.LineBasicMaterial({ color: 0x74e0ae, depthTest: false }));
+    this.comMarker.visible = false;
+    this.comGroundMarker.visible = false;
+    this.comVerticalLine.visible = false;
+    this.supportOutline.visible = false;
+    this.scene.add(this.comMarker, this.comGroundMarker,
+      this.comVerticalLine, this.supportOutline);
     this.setSpherePosition([0, 0, 1.5]);
 
     this.observer = new ResizeObserver(() => this.resize());
@@ -72,6 +127,7 @@ export class BallViewer {
     this.renderer.setAnimationLoop(() => {
       if (this.disposed) return;
       this.controls.update();
+      if (this.forceFlashRing.visible) this.forceFlashRing.quaternion.copy(this.camera.quaternion);
       this.renderer.render(this.scene, this.camera);
     });
   }
@@ -83,6 +139,7 @@ export class BallViewer {
 
   showSphere(): void {
     this.clearForceArrow();
+    this.clearBalanceProjection();
     this.clearArticulated();
     this.sphere.visible = true;
   }
@@ -90,6 +147,7 @@ export class BallViewer {
   /** Loads primitive shapes from the actual compiled MJCF model, not a fake pose. */
   showArticulated(specs: readonly PhysicsGeomSpec[]): void {
     this.clearForceArrow();
+    this.clearBalanceProjection();
     this.clearArticulated();
     this.sphere.visible = false;
     for (const spec of specs) {
@@ -173,12 +231,64 @@ export class BallViewer {
     this.forceArrow.setDirection(new THREE.Vector3(fx, fy, fz).normalize());
     const length = forceArrowLengthM(magnitude);
     this.forceArrow.setLength(length, Math.min(0.18, length * 0.25), Math.min(0.09, length * 0.13));
-    this.forceArrow.setColor(active ? 0xff5454 : 0xffbd59);
+    this.forceArrow.setColor(active ? 0xff3355 : 0xffbd59);
     this.forceArrow.visible = true;
+    this.forceFlash.position.copy(this.forceArrow.position);
+    this.forceFlashRing.position.copy(this.forceArrow.position);
+    this.forceFlash.visible = active;
+    this.forceFlashRing.visible = active;
   }
 
   clearForceArrow(): void {
     this.forceArrow.visible = false;
+    this.forceFlash.visible = false;
+    this.forceFlashRing.visible = false;
+  }
+
+  /** The marker is at the actual physical body COM, with dashed vertical
+   * projection to z=0. Support contour is an approximate hull of *loaded*
+   * feet, never a measured CoP or a stability certificate.
+   */
+  setBalanceProjection(
+    comWorldM: XYZ,
+    loadedSupportPolygonXY: readonly XY[],
+  ): ProjectionStatus {
+    const projection = projectBalanceToGround(comWorldM, loadedSupportPolygonXY);
+    const [x, y, z] = mujocoToThreePosition(comWorldM);
+    const groundY = 0.008;
+    this.comMarker.position.set(x, y, z);
+    this.comGroundMarker.position.set(x, groundY, z);
+    const color = projection.status === "outside" ? 0xff5975 :
+      projection.status === "inside" ? 0x5df0b3 : 0xffd27c;
+    (this.comMarker.material as THREE.MeshBasicMaterial).color.setHex(color);
+    (this.comGroundMarker.material as THREE.MeshBasicMaterial).color.setHex(color);
+    (this.comVerticalLine.material as THREE.LineDashedMaterial).color.setHex(color);
+    const drop = this.comVerticalLine.geometry.getAttribute("position") as THREE.BufferAttribute;
+    drop.setXYZ(0, x, y, z);
+    drop.setXYZ(1, x, groundY, z);
+    drop.needsUpdate = true;
+    this.comVerticalLine.computeLineDistances();
+    const attr = this.supportOutline.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const count = Math.min(loadedSupportPolygonXY.length, 8);
+    for (let i = 0; i < count; i++) {
+      const [hx, hy] = loadedSupportPolygonXY[i]!;
+      // MuJoCo +Y -> Three -Z
+      attr.setXYZ(i, hx, groundY + 0.002, -hy);
+    }
+    attr.needsUpdate = true;
+    this.supportOutline.geometry.setDrawRange(0, count);
+    this.supportOutline.visible = count >= 3;
+    this.comMarker.visible = true;
+    this.comGroundMarker.visible = true;
+    this.comVerticalLine.visible = true;
+    return projection.status;
+  }
+
+  clearBalanceProjection(): void {
+    this.comMarker.visible = false;
+    this.comGroundMarker.visible = false;
+    this.comVerticalLine.visible = false;
+    this.supportOutline.visible = false;
   }
 
   private clearArticulated(): void {
@@ -205,6 +315,17 @@ export class BallViewer {
     this.observer.disconnect();
     this.controls.dispose();
     this.clearArticulated();
+    this.scene.remove(this.forceFlash, this.forceFlashRing,
+      this.comMarker, this.comGroundMarker, this.comVerticalLine, this.supportOutline);
+    for (const marker of [this.forceFlash, this.forceFlashRing,
+      this.comMarker, this.comGroundMarker]) {
+      marker.geometry.dispose();
+      (marker.material as THREE.Material).dispose();
+    }
+    for (const line of [this.comVerticalLine, this.supportOutline]) {
+      line.geometry.dispose();
+      (line.material as THREE.Material).dispose();
+    }
     this.forceArrow.line.geometry.dispose();
     (this.forceArrow.line.material as THREE.Material).dispose();
     this.forceArrow.cone.geometry.dispose();

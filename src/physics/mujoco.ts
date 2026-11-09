@@ -144,6 +144,42 @@ export class MujocoSimulation {
     w[offset + 5]! += rx * fy - ry * fx;
   }
 
+  /** Apply an EXTERNAL world-space force at a real body-attached site.
+   * Converts its world-space moment arm into a physical wrench about the COM.
+   * Intended to be called only inside step(..., beforeStep), after clearing
+   * previous xfrc_applied. This never actuates the unanchored pelvis root.
+   */
+  applyWorldForceAtSite(
+    siteName: string,
+    forceWorldN: readonly [number, number, number],
+  ): void {
+    const { model, data } = this.ready();
+    if (!siteName || !forceWorldN.every(Number.isFinite)) {
+      throw new RangeError("Sitio o fuerza inválidos");
+    }
+    const siteId = model.site(siteName).id;
+    const bodyId = (model.site_bodyid as Int32Array)[siteId]!;
+    if (!Number.isInteger(bodyId) || bodyId <= 0 || bodyId >= model.nbody) {
+      throw new RangeError("El punto de impacto debe pertenecer a un cuerpo dinámico");
+    }
+    const positions = data.site_xpos as Float64Array;
+    const centers = data.xipos as Float64Array;
+    const wrench = data.xfrc_applied as Float64Array;
+    const a = siteId * 3;
+    const b = bodyId * 3;
+    const rx = positions[a]! - centers[b]!;
+    const ry = positions[a + 1]! - centers[b + 1]!;
+    const rz = positions[a + 2]! - centers[b + 2]!;
+    const [fx, fy, fz] = forceWorldN;
+    const o = bodyId * 6;
+    wrench[o]! += fx;
+    wrench[o + 1]! += fy;
+    wrench[o + 2]! += fz;
+    wrench[o + 3]! += ry * fz - rz * fy;
+    wrench[o + 4]! += rz * fx - rx * fz;
+    wrench[o + 5]! += rx * fy - ry * fx;
+  }
+
   state(): PhysicsState {
     const { model, data } = this.ready();
     const qpos = Array.from(data.qpos as Float64Array);

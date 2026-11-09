@@ -83,10 +83,14 @@ export class ExperimentalStepSequence {
     readonly swingSide: FootSide,
     readonly targetDeltaXY: XY,
     readonly startTimeS = 0.8,
+    /** Opt-in smooth release to neutral after loaded landing, seconds. */
+    readonly landingJointReleaseS = 0,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
-      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS)) {
+      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
+      !Number.isFinite(landingJointReleaseS) || landingJointReleaseS < 0 ||
+      landingJointReleaseS > 2) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -293,6 +297,18 @@ export class ExperimentalStepSequence {
         ? moveSign * 0.09 : Math.max(-0.4,Math.min(0.4,dy / 0.65));
       joints[`${this.swingSide}_knee`] = lift ? -0.6 : -0.05;
       joints[`${this.swingSide}_ankle_pitch`] = lift ? 0.12 : 0;
+    }
+    if (this.landingJointReleaseS > 0 &&
+        (this.phase === "RECOVER" || this.phase === "COMPLETE")) {
+      // Release residual swing-leg joint targets gradually after real contact.
+      // The previous immediate release induced reverse foot motion; this
+      // opt-in experiment lets us measure whether a slow release reduces slip.
+      const u = this.phase === "COMPLETE" ? 1 :
+        Math.min(1, Math.max(0, elapsed / this.landingJointReleaseS));
+      const keep = 1 - u*u*(3-2*u);
+      for (const name of Object.keys(joints)) {
+        joints[name] = joints[name]! * keep;
+      }
     }
     const t = (duration: number): number => {
       const u=Math.max(0,Math.min(1,elapsed/duration));

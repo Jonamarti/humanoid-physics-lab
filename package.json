@@ -23,5 +23,8 @@
     "typescript-eslint": "8.46.4",
     "vite": "7.1.12",
     "vitest": "3.2.4"
+  },
+  "dependencies": {
+    "@mujoco/mujoco": "3.17.0"
   }
 }

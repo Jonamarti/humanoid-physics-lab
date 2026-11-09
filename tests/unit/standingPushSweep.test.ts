@@ -22,7 +22,8 @@ interface SweepRow {
   readonly finalComSpeedMps: number;
   readonly footDriftM: number;
   readonly finalPelvisM: number;
-  readonly nearGroundFootContacts: number;
+  /** All physical contacts, regardless of geometry; NOT sole pressure. */
+  readonly samplesWithAtLeastTwoContacts: number;
   readonly recovered: boolean;
 }
 
@@ -50,7 +51,7 @@ describe("Exploratory symmetric pushes on an unanchored standing humanoid", () =
           let minimumPelvisM = sim.state().qpos[2]!;
           let maxTiltDeg = 0;
           let maximumComDisplacementM = 0;
-          let nearGroundFootContacts = 0;
+          let samplesWithAtLeastTwoContacts = 0;
           let settledLastSecond = true;
           for (let step = 0; step < HORIZON_STEPS; step += SAMPLE_STEPS) {
             const state = sim.step(SAMPLE_STEPS, timeS => {
@@ -64,7 +65,7 @@ describe("Exploratory symmetric pushes on an unanchored standing humanoid", () =
             minimumPelvisM = Math.min(minimumPelvisM, state.qpos[2]!);
             maxTiltDeg = Math.max(maxTiltDeg, tiltDeg);
             maximumComDisplacementM = Math.max(maximumComDisplacementM, delta);
-            if (obs.contactCount >= 2) nearGroundFootContacts++;
+            if (obs.contactCount >= 2) samplesWithAtLeastTwoContacts++;
             if (state.time > 5 && (delta > 0.03 || speed > 0.08 || tiltDeg > 8)) {
               settledLastSecond = false;
             }
@@ -87,7 +88,7 @@ describe("Exploratory symmetric pushes on an unanchored standing humanoid", () =
             finalComSpeedMps: Number(finalComSpeedMps.toFixed(3)),
             footDriftM: Number(footDriftM.toFixed(3)),
             finalPelvisM: Number(finalState.qpos[2]!.toFixed(3)),
-            nearGroundFootContacts,
+            samplesWithAtLeastTwoContacts,
             recovered,
           });
           expect([finalState.time, ...finalState.qpos, ...finalState.qvel].every(Number.isFinite)).toBe(true);

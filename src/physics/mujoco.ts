@@ -16,9 +16,13 @@ let modulePromise: Promise<Module> | undefined;
 
 /** Load the official single-thread MuJoCo runtime; the asset URL is Vite-base aware. */
 export function loadPhysicsModule(): Promise<Module> {
-  modulePromise ??= loadMujoco({
-    locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path,
-  }).catch((error: unknown) => {
+  // In Node/Vitest, Emscripten resolves the packaged .wasm relative to its
+  // own module. Vite's ?url returns a browser URL, not a local filesystem path.
+  // In the browser, Vite's asset URL is essential for GitHub Pages' base path.
+  const load = typeof window === "undefined"
+    ? loadMujoco()
+    : loadMujoco({ locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path });
+  modulePromise ??= load.catch((error: unknown) => {
     modulePromise = undefined; // allow retry after transient WASM fetch failure
     throw error;
   });

@@ -1,0 +1,53 @@
+name: Integrated browser smoke for step and force editor
+
+on:
+  push:
+    branches:
+      - feat/step-integrated-browser-smoke
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step-integrated-smoke
+  cancel-in-progress: true
+
+jobs:
+  ui:
+    name: Step then two independent forces in real Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.58.2
+          npx playwright install ffmpeg
+          command -v google-chrome || command -v chromium || npx playwright install chromium
+      - name: Build
+        run: npm run build
+      - name: Serve
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/hpl-preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl --silent --fail http://127.0.0.1:4173/humanoid-physics-lab/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/hpl-preview.log
+          exit 1
+      - name: Test actual renderer and capture
+        run: node scripts/smoke-integrated-step-editor.mjs
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hpl-step-editor-integration
+          path: integration-media/
+          retention-days: 7
+          if-no-files-found: warn

@@ -16,7 +16,7 @@ La herramienta web ofrece un modo simple de empujón histórico y un **editor av
 2. **Implementado inicialmente:** botón «Editar esta flecha» y arrastre de punta de flecha para cambiar su **dirección** con ratón o dedo. La magnitud en newtons no cambia al arrastrar; se introduce en los campos Fx/Fy/Fz.
 3. **Pendiente:** manipulación de magnitud por arrastre, handles específicos por ejes, snapping a ejes y ajustes de accesibilidad/ergonomía móvil.
 4. **Pendiente:** guardar/cargar secuencias de fuerzas y anclajes en JSON.
-5. **Pendiente:** pruebas E2E y visuales en navegador y móvil. Validar build y tests localmente antes de integrar; no asumir CI disponible.
+5. **Verificado en CI y navegador** (9 de noviembre de 2026): TypeScript, ESLint, Vitest y compilación en PR #47. Smoke de Chrome/Three.js (rama temporal `feat/force-editor-browser-smoke`) ejecutó dos fuerzas con tiempos independientes y grabó el visor, sin excepciones; tras finalizar el ensayo los controles volvieron a habilitarse. En Chrome táctil de 390 px se activaron y editaron dos fuerzas y se comprobó `document.scrollWidth=390 px`, sin desbordamiento horizontal. [Ejecución y artefactos](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42691480739). La selección por raycasting sobre partes corporales y arrastre de flechas todavía requiere una evaluación táctil manual específica de precisión/usabilidad; los ensayos automatizados no la sustituyen.
 6. Física de interacción entre dos humanoides: necesita modelar el contacto explícito y sigue fuera de alcance.
 
 ## Comparación con Physics Sandbox

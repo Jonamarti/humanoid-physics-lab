@@ -574,6 +574,7 @@ toggleButton.addEventListener("click", () => {
   lastFrame = undefined;
   toggleButton.textContent = playing ? "Pausar" : "Iniciar";
   if (!playing) present(simulation.state());
+  forceEditor?.refresh();
 });
 
 resetButton.addEventListener("click", () => {
@@ -603,6 +604,7 @@ resetButton.addEventListener("click", () => {
 forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
   getSimulation: () => mode === "standing" ? simulation : undefined,
   getViewer: () => viewer,
+  canEdit: () => !playing,
   onToggle: () => {
     if (!simulation || mode !== "standing" || playing) return;
     if (forceEditor?.enabled) {
@@ -622,6 +624,7 @@ forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
     toggleButton.textContent = "Pausar";
     physicsStatus.textContent = "Secuencia de fuerzas externas 3D activa.";
     present(simulation.state());
+    forceEditor?.refresh();
   },
 });
 updateCalculation();

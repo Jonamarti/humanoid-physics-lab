@@ -4,6 +4,7 @@ import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
 import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
+import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
 import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
 import type { XY } from "../control/balanceSensors";
@@ -46,6 +47,9 @@ export class MujocoSimulation {
   private standingController: StandingController | undefined;
   private stepExperiment: ExperimentalStepSequence | undefined;
   private stepExperimentTicks = 0;
+  private lastStepFootWorld: XYZ | undefined;
+  private lastStepFootTimeS = 0;
+  private footSpeedWorldMps: XYZ = [0,0,0];
 
   private constructor(module: Module) {
     this.module = module;
@@ -80,6 +84,8 @@ export class MujocoSimulation {
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
+    this.lastStepFootWorld = undefined;
+    this.footSpeedWorldMps = [0,0,0];
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -95,6 +101,8 @@ export class MujocoSimulation {
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
+    this.lastStepFootWorld = undefined;
+    this.footSpeedWorldMps = [0,0,0];
   }
 
   /** Enables bounded internal-joint torque control on the public humanoid.
@@ -117,6 +125,9 @@ export class MujocoSimulation {
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
     this.stepExperimentTicks = 0;
+    this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
+    this.lastStepFootTimeS = this.ready().data.time;
+    this.footSpeedWorldMps = [0,0,0];
   }
 
   experimentalStepStatus(): StepSnapshot | null {
@@ -161,11 +172,44 @@ export class MujocoSimulation {
           referenceComXY: command.referenceComXY,
         } : this.standingController;
         stepActiveStanding(model, data, controller);
-        if (command) applyStepJointTargets(model,data,
-          this.standingController.gains,command.targetsRad);
+        if (command) {
+          applyStepJointTargets(model,data,
+            this.standingController.gains,command.targetsRad);
+          if (command.soleTargetWorldM && this.stepExperiment) {
+            applyCartesianFootImpedance(model,data,this.standingController.gains,
+              this.stepExperiment.swingSide,{
+                targetWorldM:command.soleTargetWorldM,
+                currentWorldM:this.siteWorldPosition(this.stepExperiment.swingSide+"_sole"),
+                measuredVelocityWorldMps:this.footSpeedWorldMps,
+                gainsNPerM:[780,780,900],
+                dampingNsPerM:[90,90,80],
+                maxFootForceN:150,
+                blend:command.cartesianBlend,
+              });
+          }
+        }
       }
       beforeStep?.(data.time);
       this.module.mj_step(model, data);
+      if (this.stepExperiment) {
+        const point = this.siteWorldPosition(this.stepExperiment.swingSide+"_sole");
+        const dt = data.time-this.lastStepFootTimeS;
+        if (this.lastStepFootWorld && dt > 0) {
+          const instant:XYZ = [
+            (point[0]-this.lastStepFootWorld[0])/dt,
+            (point[1]-this.lastStepFootWorld[1])/dt,
+            (point[2]-this.lastStepFootWorld[2])/dt,
+          ];
+          const prev = this.footSpeedWorldMps;
+          this.footSpeedWorldMps = [
+            0.75*prev[0]+0.25*instant[0],
+            0.75*prev[1]+0.25*instant[1],
+            0.75*prev[2]+0.25*instant[2],
+          ];
+        }
+        this.lastStepFootWorld = point;
+        this.lastStepFootTimeS = data.time;
+      }
       if (this.stepExperiment && ++this.stepExperimentTicks % 10 === 0) {
         // Read solved loads at 50 Hz, with the prior physical step's
         // contact solution (a <=2ms lag), not on render frames.

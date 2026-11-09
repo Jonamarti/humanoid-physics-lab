@@ -1,6 +1,7 @@
 import loadMujoco from "@mujoco/mujoco";
 import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
+import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -15,9 +16,13 @@ let modulePromise: Promise<Module> | undefined;
 
 /** Load the official single-thread MuJoCo runtime; the asset URL is Vite-base aware. */
 export function loadPhysicsModule(): Promise<Module> {
-  modulePromise ??= loadMujoco({
-    locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path,
-  }).catch((error: unknown) => {
+  // In Node/Vitest, Emscripten resolves the packaged .wasm relative to its
+  // own module. Vite's ?url returns a browser URL, not a local filesystem path.
+  // In the browser, Vite's asset URL is essential for GitHub Pages' base path.
+  const load = typeof window === "undefined"
+    ? loadMujoco()
+    : loadMujoco({ locateFile: (path: string) => path.endsWith(".wasm") ? wasmUrl : path });
+  modulePromise ??= load.catch((error: unknown) => {
     modulePromise = undefined; // allow retry after transient WASM fetch failure
     throw error;
   });
@@ -175,6 +180,44 @@ export class MujocoSimulation {
       });
     }
     return poses;
+  }
+
+  /** Observe physical centre of mass, COM velocity and the projected foot
+   * geometry. This is a DIAGNOSTIC, not a ground-force/COP sensor.
+   * Only valid for the public humanoid_v1.xml with one free pelvis root.
+   */
+  humanoidBalanceObservation(): BalanceObservation {
+    const { model, data } = this.ready();
+    this.module.mj_subtreeVel(model, data);
+    const bodyRoot = 1; // public humanoid: world=0, free pelvis=1
+    if (model.nbody < 15) throw new Error("El escenario actual no contiene humanoide_v1");
+    const comArr = data.subtree_com as Float64Array;
+    const velArr = data.subtree_linvel as Float64Array;
+    const from3 = (arr: ArrayLike<number>, i: number): XYZ =>
+      [arr[i]!, arr[i + 1]!, arr[i + 2]!];
+    const foot = (geomId: number): FootGeom => {
+      const xyz = data.geom_xpos as Float64Array;
+      const rot = data.geom_xmat as Float64Array;
+      const sizes = model.geom_size as Float64Array;
+      const matIndex = geomId * 9;
+      return {
+        centerM: from3(xyz, geomId * 3),
+        halfSizeM: from3(sizes, geomId * 3),
+        rotationWorld: Array.from(rot.subarray(matIndex, matIndex + 9)) as unknown as Matrix3,
+      };
+    };
+    const left = foot(model.geom("left_foot_geom").id);
+    const right = foot(model.geom("right_foot_geom").id);
+    const totalMassKg = Array.from(model.body_mass as Float64Array).reduce((sum, mass) => sum + mass, 0);
+    return buildBalanceObservation({
+      timeS: data.time,
+      totalMassKg,
+      comWorldM: from3(comArr, bodyRoot * 3),
+      comVelocityWorldMps: from3(velArr, bodyRoot * 3),
+      left,
+      right,
+      contactCount: data.ncon,
+    });
   }
 
   dispose(): void {

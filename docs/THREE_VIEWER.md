@@ -1,13 +1,35 @@
-# Visor Three.js para MuJoCo (issue #5)
+# Visor de física MuJoCo con Three.js (#5 y #7)
 
-El visor consume las **posiciones producidas por MuJoCo**; no interpola poses inventadas ni actúa como un motor de física. En esta primera iteración, solo hay una esfera de radio 0,12 m sobre un plano: el modelo humanoide articulado llega en #7.
+La página permite elegir dos escenarios con el mismo motor MuJoCo WASM:
 
-- MuJoCo: ejes mundiales **Z vertical**. Three.js: **Y vertical**. Convertir `(x, y, z) → (x, z, -y)`.
-- Cámara: `OrbitControls` permite giro, zoom y desplazamiento con ratón/táctil.
-- Física: el reloj fijo de MuJoCo conserva `dt=0,002 s`; Three.js solo renderiza al ritmo del dispositivo. La posición se actualiza con `qpos[0..2]` del cuerpo libre del escenario de ensayo.
-- Render: pixel ratio máximo 2, luces simplificadas y suelo sin texturas privadas. `ResizeObserver` adapta el lienzo al contenedor.
-- Memoria: liberar recursos de geometría, materiales, controles, animación y contexto al desmontar.
-- Si el contexto WebGL no está disponible, se informa del fallo sin impedir que la prueba de telemetría física se ejecute.
-- **No está validada aún la compatibilidad en un Android real ni el deployment Pages**; E2E browser queda para #6/#19.
+1. **Esfera de gravedad:** cuerpo libre que cae desde 1,5 m y contacta con el suelo.
+2. **Humanoide MJCF articulado:** 14 segmentos con articulaciones y pelvis libre, sin motores, control postural ni ukemi; es un **ragdoll pasivo** y se cae al iniciarse. Archivo `public/models/humanoid_v1.xml`.
 
-Las transformaciones de rotación de cuaterniones y la representación del esqueleto humanoide llegarán con el modelo MJCF #7.
+## Contrato geométrico
+
+- El visor extrae `model.geom_type`, `geom_size` y `geom_rgba` una vez al cargar cada modelo; genera mallas primitivas de esfera (2), cápsula (3), elipsoide (4) y caja (6).
+- El plano MuJoCo (0) se dibuja como suelo y cuadrícula Three.js: no forma parte de las geometrías articuladas.
+- Cada instante recibe `data.geom_xpos` y `data.geom_xmat` calculados por MuJoCo; **no** interpola poses inventadas ni actúa como otro motor físico.
+- Coordenadas: MuJoCo **Z arriba**, Three.js **Y arriba**, con rotación global `Rx(-π/2)` y `(x, y, z) → (x, z, -y)`.
+- La cápsula Three.js se alinea de eje local Y a eje local Z para coincidir con la convención del tipo cápsula de MuJoCo.
+- La geometría y sus materiales se liberan al cambiar de escenario o cerrar. La cámara usa OrbitControls (ratón/táctil), calidad limitada por DPR y ResizeObserver.
+- Las matrices del motor y la malla solo sirven para **visualización**, nunca para actualizar `qpos`, `qvel` ni forzar el humanoide.
+
+## Interfaz web
+
+1. Abrir `https://jonamarti.github.io/humanoid-physics-lab/` (si el workflow Pages más reciente pasó).
+2. Elegir **Humanoide — ragdoll pasivo, sin equilibrio**.
+3. Pulsar **Cargar simulación**. Si no se descarga el XML, la página muestra el error de red.
+4. Pulsar **Iniciar**: el cuerpo de 75 kg cae y se mueve por gravedad/choques; puedes girar y acercar la cámara.
+5. **Pausar** y **Reiniciar** permiten observar la caída y volver a la pose inicial.
+
+**Limitaciones:** no hay control activo ni resultados de equilibrio 10 s, stepping, golpe ni ukemi. La calculadora de N·s no inyecta fuerzas físicas. Las pruebas de navegador real en móvil y E2E siguen pendientes; los tests de geometría se ejecutan en CI con el WASM real.
+
+## Tests
+
+- `tests/unit/geometry.test.ts`: enum de primitivas y arrays `geom_xpos` / `geom_xmat` del MuJoCo real.
+- `tests/unit/humanoidModel.test.ts`: humanoide físico, masas, articulaciones y movimiento pasivo.
+- `tests/unit/coordinates.test.ts`: conversión de ejes.
+- `tests/unit/mujoco.smoke.test.ts`: gravedad y contacto de la esfera.
+
+**Próximo paso:** acoplar sensores y actuadores articulares limitados, luego controlar equilibrio sin anclajes y demostrar 10 s de bipedestación (#8–#9).

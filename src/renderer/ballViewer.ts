@@ -94,29 +94,36 @@ export class BallViewer {
     this.scene.add(this.forceFlash, this.forceFlashRing);
 
     this.comMarker = new THREE.Mesh(
-      new THREE.SphereGeometry(0.034, 18, 12),
-      new THREE.MeshBasicMaterial({ color: 0x50d9f9, depthTest: false }),
+      new THREE.SphereGeometry(0.051, 18, 12),
+      new THREE.MeshBasicMaterial({ color: 0x50d9f9, depthTest: false, depthWrite: false }),
     );
     this.comGroundMarker = new THREE.Mesh(
-      new THREE.CircleGeometry(0.055, 32),
-      new THREE.MeshBasicMaterial({ color: 0x50d9f9, side: THREE.DoubleSide, depthTest: false }),
+      new THREE.CircleGeometry(0.075, 32),
+      new THREE.MeshBasicMaterial({ color: 0x50d9f9, side: THREE.DoubleSide, depthTest: false, depthWrite: false }),
     );
     this.comGroundMarker.rotation.x = -Math.PI / 2;
     const dropGeometry = new THREE.BufferGeometry();
     dropGeometry.setAttribute("position",
       new THREE.BufferAttribute(new Float32Array(6), 3).setUsage(THREE.DynamicDrawUsage));
     this.comVerticalLine = new THREE.Line(dropGeometry,
-      new THREE.LineDashedMaterial({ color: 0x5fe0f3, dashSize: 0.065, gapSize: 0.04, depthTest: false }));
+      new THREE.LineDashedMaterial({ color: 0x5fe0f3, dashSize: 0.065, gapSize: 0.04, depthTest: false, depthWrite: false }));
     const hullGeometry = new THREE.BufferGeometry();
     hullGeometry.setAttribute("position",
       new THREE.BufferAttribute(new Float32Array(24), 3).setUsage(THREE.DynamicDrawUsage));
     hullGeometry.setDrawRange(0, 0);
     this.supportOutline = new THREE.LineLoop(hullGeometry,
-      new THREE.LineBasicMaterial({ color: 0x74e0ae, depthTest: false }));
+      new THREE.LineBasicMaterial({ color: 0x74e0ae, depthTest: false, depthWrite: false }));
     this.comMarker.visible = false;
     this.comGroundMarker.visible = false;
     this.comVerticalLine.visible = false;
     this.supportOutline.visible = false;
+    // Draw these diagnostics *after* the opaque humanoid and floor.
+    // The COM often lies inside the pelvis mesh, so ordinary depth testing
+    // hid it, defeating the purpose of the projection.
+    for (const overlay of [this.comMarker, this.comGroundMarker,
+      this.comVerticalLine, this.supportOutline]) {
+      overlay.renderOrder = 90;
+    }
     this.scene.add(this.comMarker, this.comGroundMarker,
       this.comVerticalLine, this.supportOutline);
     this.setSpherePosition([0, 0, 1.5]);

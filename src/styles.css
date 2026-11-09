@@ -32,3 +32,6 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 .button-row button:disabled { opacity: .45; cursor: not-allowed; }
 .button-row button:focus-visible { outline: 3px solid #7ddbf4; outline-offset: 3px; }
 .preview .controls { border-top: 1px solid #29445b; }
+
+#physics-viewport { display: block; overflow: hidden; touch-action: none; }
+#physics-viewport canvas { display: block; width: 100%; height: 100%; }

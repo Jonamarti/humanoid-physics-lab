@@ -280,7 +280,7 @@ export class MujocoSimulation {
 
   /** Measured solved forces at actual floor-foot contacts. Unlike the
    * geometrical candidate hull this excludes airborne or unweighted feet.
-   * Force is obtained through mj_contactForce, NEVER estimated from ncon.
+   * Force is decoded from solved efc_force, NEVER estimated from ncon.
    * contact.frame[0..2] is MuJoCo's contact normal in WORLD axes; the
    * local normal force is its first contact-wrench component. Each Embind
    * proxy must be deleted, including the vector returned by data.contact.
@@ -309,8 +309,9 @@ export class MujocoSimulation {
     };
     const samples: GroundContactSample[] = [];
     const contacts = data.contact;
+    const constraintForce = data.efc_force as Float64Array;
+    const pyramidal = this.module.mj_isPyramidal(model);
     try {
-      const forceLocal = new Float64Array(6);
       for (let i = 0; i < contacts.size(); i++) {
         const contact = contacts.get(i);
         if (!contact) throw new Error("Contacto MuJoCo inaccesible");
@@ -321,18 +322,26 @@ export class MujocoSimulation {
               ![leftFootGeomId, rightFootGeomId].includes(
                 first === floorGeomId ? second : first
               )) continue;
-          if (contact.efc_address < 0) { console.log("CONTACT-DEBUG unsolved", i, first, second, contact.efc_address); continue; } // excluded / unsolved
-          forceLocal.fill(0);
-          this.module.mj_contactForce(model, data, i, forceLocal);
+          if (contact.efc_address < 0) continue; // excluded / unsolved
+          // Bindings 3.17.0 copy output arrays in mj_contactForce rather
+          // than writing them back into JS typed arrays. Decode the solved
+          // normal directly from efc_force, matching mju_decodePyramid.
+          const rows = pyramidal && contact.dim > 1 ? 2 * (contact.dim - 1) : 1;
+          const start = contact.efc_address;
+          if (start + rows > constraintForce.length) {
+            throw new Error("Índice de restricción fuera de rango");
+          }
+          let normalN = 0;
+          for (let j = 0; j < rows; j++) normalN += constraintForce[start + j]!;
+          normalN -= contact.adhesion;
           const point = contact.pos as Float64Array;
           const frame = contact.frame as Float64Array;
-          if (data.time > 0.99 && data.time < 1.01) console.log("CONTACT-DEBUG", { i, first, second, efc: contact.efc_address, force: Array.from(forceLocal), frame: Array.from(frame).slice(0,3), point: Array.from(point) });
           samples.push({
             geom1: first,
             geom2: second,
             positionWorldM: [point[0]!, point[1]!, point[2]!],
             contactNormalWorld: [frame[0]!, frame[1]!, frame[2]!],
-            contactNormalForceN: Math.max(0, forceLocal[0]!),
+            contactNormalForceN: Math.max(0, normalN),
           });
         } finally {
           contact.delete();

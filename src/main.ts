@@ -3,6 +3,7 @@ import { impulseFromConstantForce } from "./physics/impulse";
 import { GRAVITY_DEMO_MJCF } from "./physics/demoModel";
 import { FixedClock } from "./physics/fixedClock";
 import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
+import { BallViewer } from "./renderer/ballViewer";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("No existe el contenedor de la aplicacion");
@@ -16,12 +17,8 @@ app.innerHTML = `
     </header>
     <section class="columns" aria-label="Estado del laboratorio">
       <article class="panel preview">
-        <div class="viewport" role="img" aria-label="Escena 3D pendiente de integrar con MuJoCo y Three.js">
-          <div class="grid-floor"></div>
-          <div class="silhouette" aria-hidden="true">♟</div>
-          <p>Visor 3D — previsto en la issue #5</p>
-        </div>
-        <div class="status"><span class="dot"></span> Motor MuJoCo WASM — ensayo de gravedad sin visualización 3D</div>
+        <div id="physics-viewport" class="viewport" role="group" aria-label="Visor 3D: giro y zoom táctil de esfera física MuJoCo"></div>
+        <div class="status"><span class="dot"></span> MuJoCo WASM + Three.js — esfera física, no humanoide</div>
         <div class="controls" aria-label="Control de simulación">
           <p id="physics-status" role="status" aria-live="polite">Motor sin cargar.</p>
           <p id="physics-readout" class="result">t = 0.000 s · altura 1.500 m</p>
@@ -40,7 +37,7 @@ app.innerHTML = `
         <label for="duration">Duración (ms)</label>
         <input id="duration" type="number" value="100" min="0" max="5000" step="10" />
         <p class="result" id="impulse" role="status" aria-live="polite">Impulso: 30.0 N·s</p>
-        <p class="muted">Próximos hitos: visor Three.js (#5), humanoide articulado (#7), control postural y prueba de diez segundos (#8–#9).</p>
+        <p class="muted">Próximos hitos: publicación GitHub Pages (#6), humanoide articulado (#7), equilibrio 10 segundos (#8–#9).</p>
       </article>
     </section>
     <footer><a href="https://github.com/Jonamarti/humanoid-physics-lab" rel="noopener noreferrer">Código en GitHub</a> · <a href="https://github.com/Jonamarti/humanoid-physics-lab/issues/1" rel="noopener noreferrer">Hoja de ruta</a></footer>
@@ -73,6 +70,16 @@ if (!loadButton || !toggleButton || !resetButton || !physicsStatus || !physicsRe
   throw new Error("Faltan controles de MuJoCo");
 }
 
+let viewer: BallViewer | undefined;
+const viewport = document.querySelector<HTMLElement>("#physics-viewport");
+if (viewport) {
+  try {
+    viewer = new BallViewer(viewport);
+  } catch (error) {
+    physicsStatus.textContent = `No se pudo abrir WebGL: ${error instanceof Error ? error.message : String(error)}. La telemetría de física sigue disponible.`;
+  }
+}
+
 let simulation: MujocoSimulation | undefined;
 let playing = false;
 let lastFrame: number | undefined;
@@ -83,6 +90,9 @@ function present(state: PhysicsState): void {
   if (!physicsReadout) return;
   const z = state.qpos[2];
   physicsReadout.textContent = `t = ${state.time.toFixed(3)} s · altura ${z?.toFixed(3) ?? "?"} m`;
+  if (state.qpos.length >= 3) {
+    viewer?.setSpherePosition([state.qpos[0]!, state.qpos[1]!, state.qpos[2]!]);
+  }
 }
 
 function animate(timestampMs: number): void {
@@ -145,4 +155,5 @@ window.addEventListener("pagehide", () => {
   if (frameHandle !== undefined) window.cancelAnimationFrame(frameHandle);
   simulation?.dispose();
   simulation = undefined;
+  viewer?.dispose();
 }, { once: true });

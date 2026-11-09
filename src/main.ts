@@ -296,11 +296,16 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
       viewer?.setBalanceProjection(b.comWorldM, ground.loadedSupportPolygonXY);
       const label = projection.status === "inside" ? "DENTRO" :
         projection.status === "outside" ? "FUERA" : "SIN APOYO VERIFICADO";
+      const friction = (n: number | null): string =>
+        n === null ? "sin datos" : (100*n).toFixed(0)+" %";
       groundProjectionReadout.textContent =
         "Proyección del centro de masas en el suelo: " + label +
         " · carga pie izquierdo: " + ground.left.verticalLoadN.toFixed(0) +
         " N · pie derecho: " + ground.right.verticalLoadN.toFixed(0) +
-        " N. El contorno de apoyo es una aproximación geométrica de los pies cargados, no un CoP medido.";
+        " N · utilización estimada del rozamiento (I/D): " +
+        friction(ground.left.frictionUtilizationMean) + " / " +
+        friction(ground.right.frictionUtilizationMean) +
+        ". La proyección no garantiza equilibrio dinámico; la fricción es una medida del solver, no prueba por sí sola deslizamiento.";
       let previewTrial: PushTrial | undefined;
       if (mode === "standing" && !activeStepTrial) {
         try { previewTrial = activePush ?? selectedPushTrial(); }
@@ -341,8 +346,14 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             (snapshot.stepContactConfirmed ? "sí" : "no") +
             " · deriva máxima del pie de apoyo: " +
             (snapshot.maxSupportFootSlipM * 100).toFixed(1) + " cm" +
-            " · error hasta destino: " + (snapshot.targetErrorXYM * 100).toFixed(1) +
-            " cm · " + snapshot.reason;
+            " · deslizamiento tras aterrizar: " +
+            (snapshot.maxLandingSlipM * 100).toFixed(1) + " cm" +
+            " · error hasta destino: " +
+            (Number.isFinite(snapshot.targetErrorXYM) ?
+              (snapshot.targetErrorXYM * 100).toFixed(1) : "—") +
+            " cm · equilibrio continuo: " +
+            snapshot.settledDurationS.toFixed(2) + " / 1,00 s" +
+            " · " + snapshot.reason;
         }
       }
       if (mode === "standing" && activePush && initialPushCom) {

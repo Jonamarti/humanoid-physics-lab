@@ -204,9 +204,9 @@ export class ExperimentalStepSequence {
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
     const ref: XY = [referenceComXY[0],referenceComXY[1]+supportSign*0.075*fraction];
     const joints: Record<string,number> = {};
-    if (["LIFT","SWING","LAND"].includes(this.phase)) {
+    if (["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
       const dx = this.targetDeltaXY[0],dy = this.targetDeltaXY[1];
-      const lift = this.phase !== "LAND";
+      const lift = this.phase === "LIFT" || this.phase === "SWING";
       joints[`${this.swingSide}_hip_pitch`] = this.phase === "LIFT"
         ? -0.15 : Math.max(-0.5,Math.min(0.5,-dx / 0.65));
       joints[`${this.swingSide}_hip_roll`] = this.phase === "LIFT"

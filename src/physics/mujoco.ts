@@ -3,6 +3,7 @@ import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
+import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -274,6 +275,76 @@ export class MujocoSimulation {
       left,
       right,
       contactCount: data.ncon,
+    });
+  }
+
+  /** Measured solved forces at actual floor-foot contacts. Unlike the
+   * geometrical candidate hull this excludes airborne or unweighted feet.
+   * Force is obtained through mj_contactForce, NEVER estimated from ncon.
+   * contact.frame[0..2] is MuJoCo's contact normal in WORLD axes; the
+   * local normal force is its first contact-wrench component. Each Embind
+   * proxy must be deleted, including the vector returned by data.contact.
+   */
+  humanoidGroundSupportObservation(): GroundSupportObservation {
+    const { model, data } = this.ready();
+    if (model.nbody < 15) throw new Error("El escenario actual no contiene humanoid_v1");
+    const floorGeomId = model.geom("floor").id;
+    const leftFootGeomId = model.geom("left_foot_geom").id;
+    const rightFootGeomId = model.geom("right_foot_geom").id;
+    const footGeom = (geomId: number): FootGeom => {
+      const positions = data.geom_xpos as Float64Array;
+      const rotations = data.geom_xmat as Float64Array;
+      const sizes = model.geom_size as Float64Array;
+      const p = geomId * 3;
+      const r = geomId * 9;
+      return {
+        centerM: [positions[p]!, positions[p + 1]!, positions[p + 2]!],
+        rotationWorld: [
+          rotations[r]!, rotations[r + 1]!, rotations[r + 2]!,
+          rotations[r + 3]!, rotations[r + 4]!, rotations[r + 5]!,
+          rotations[r + 6]!, rotations[r + 7]!, rotations[r + 8]!,
+        ],
+        halfSizeM: [sizes[p]!, sizes[p + 1]!, sizes[p + 2]!],
+      };
+    };
+    const samples: GroundContactSample[] = [];
+    const contacts = data.contact;
+    try {
+      const forceLocal = new Float64Array(6);
+      for (let i = 0; i < contacts.size(); i++) {
+        const contact = contacts.get(i);
+        if (!contact) throw new Error("Contacto MuJoCo inaccesible");
+        try {
+          const first = contact.geom1;
+          const second = contact.geom2;
+          if ((first !== floorGeomId && second !== floorGeomId) ||
+              ![leftFootGeomId, rightFootGeomId].includes(
+                first === floorGeomId ? second : first
+              )) continue;
+          if (contact.efc_address < 0) continue; // excluded / unsolved
+          forceLocal.fill(0);
+          this.module.mj_contactForce(model, data, i, forceLocal);
+          const point = contact.pos as Float64Array;
+          const frame = contact.frame as Float64Array;
+          samples.push({
+            geom1: first,
+            geom2: second,
+            positionWorldM: [point[0]!, point[1]!, point[2]!],
+            contactNormalWorld: [frame[0]!, frame[1]!, frame[2]!],
+            contactNormalForceN: Math.max(0, forceLocal[0]!),
+          });
+        } finally {
+          contact.delete();
+        }
+      }
+    } finally {
+      contacts.delete();
+    }
+    return summarizeGroundSupport({
+      floorGeomId, leftFootGeomId, rightFootGeomId,
+      leftFoot: footGeom(leftFootGeomId),
+      rightFoot: footGeom(rightFootGeomId),
+      contacts: samples,
     });
   }
 

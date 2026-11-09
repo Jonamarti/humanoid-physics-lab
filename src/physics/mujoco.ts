@@ -1,5 +1,6 @@
 import loadMujoco from "@mujoco/mujoco";
 import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
+import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -90,6 +91,52 @@ export class MujocoSimulation {
       throw new Error("El integrador devolvió valores no finitos");
     }
     return { time: data.time, qpos, qvel, bodies: model.nbody };
+  }
+
+  /** Immutable descriptions of the currently loaded primitive collision geoms. */
+  geometrySpecs(): PhysicsGeomSpec[] {
+    const { model } = this.ready();
+    const kinds = model.geom_type as Int32Array;
+    const sizes = model.geom_size as Float64Array;
+    const colors = model.geom_rgba as Float32Array;
+    const specs: PhysicsGeomSpec[] = [];
+    for (let id = 0; id < model.ngeom; id++) {
+      const shape = renderableGeomType(kinds[id]!);
+      if (!shape) continue; // floor plane is rendered independently
+      const a = id * 3;
+      const c = id * 4;
+      specs.push({
+        id,
+        shape,
+        size: [sizes[a]!, sizes[a + 1]!, sizes[a + 2]!],
+        rgba: [colors[c]!, colors[c + 1]!, colors[c + 2]!, colors[c + 3]!],
+      });
+    }
+    return specs;
+  }
+
+  /** Dynamic world-space transforms from MuJoCo; not animation guesses. */
+  geometryPoses(): PhysicsGeomPose[] {
+    const { model, data } = this.ready();
+    const kinds = model.geom_type as Int32Array;
+    const xyz = data.geom_xpos as Float64Array;
+    const matrices = data.geom_xmat as Float64Array;
+    const poses: PhysicsGeomPose[] = [];
+    for (let id = 0; id < model.ngeom; id++) {
+      if (!renderableGeomType(kinds[id]!)) continue;
+      const p = id * 3;
+      const m = id * 9;
+      poses.push({
+        id,
+        position: [xyz[p]!, xyz[p + 1]!, xyz[p + 2]!],
+        rotation: [
+          matrices[m]!, matrices[m + 1]!, matrices[m + 2]!,
+          matrices[m + 3]!, matrices[m + 4]!, matrices[m + 5]!,
+          matrices[m + 6]!, matrices[m + 7]!, matrices[m + 8]!,
+        ],
+      });
+    }
+    return poses;
   }
 
   dispose(): void {

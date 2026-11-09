@@ -17,9 +17,14 @@ app.innerHTML = `
     </header>
     <section class="columns" aria-label="Estado del laboratorio">
       <article class="panel preview">
-        <div id="physics-viewport" class="viewport" role="group" aria-label="Visor 3D: giro y zoom táctil de esfera física MuJoCo"></div>
-        <div class="status"><span class="dot"></span> MuJoCo WASM + Three.js — esfera física, no humanoide</div>
+        <div id="physics-viewport" class="viewport" role="group" aria-label="Visor 3D: giro y zoom táctil de cuerpos físicos MuJoCo"></div>
+        <div class="status"><span class="dot"></span> MuJoCo WASM + Three.js — simulación física, sin control de equilibrio</div>
         <div class="controls" aria-label="Control de simulación">
+          <label for="physics-model">Escenario físico</label>
+          <select id="physics-model" aria-label="Escenario físico">
+            <option value="ball">Esfera — prueba de gravedad</option>
+            <option value="humanoid">Humanoide — ragdoll pasivo, sin equilibrio</option>
+          </select>
           <p id="physics-status" role="status" aria-live="polite">Motor sin cargar.</p>
           <p id="physics-readout" class="result">t = 0.000 s · altura 1.500 m</p>
           <div class="button-row">
@@ -37,7 +42,7 @@ app.innerHTML = `
         <label for="duration">Duración (ms)</label>
         <input id="duration" type="number" value="100" min="0" max="5000" step="10" />
         <p class="result" id="impulse" role="status" aria-live="polite">Impulso: 30.0 N·s</p>
-        <p class="muted">Próximos hitos: publicación GitHub Pages (#6), humanoide articulado (#7), equilibrio 10 segundos (#8–#9).</p>
+        <p class="muted">La calculadora no aplica fuerza a la simulación. Próximo hito: control postural y prueba de 10 segundos (#8–#9).</p>
       </article>
     </section>
     <footer><a href="https://github.com/Jonamarti/humanoid-physics-lab" rel="noopener noreferrer">Código en GitHub</a> · <a href="https://github.com/Jonamarti/humanoid-physics-lab/issues/1" rel="noopener noreferrer">Hoja de ruta</a></footer>
@@ -66,7 +71,8 @@ const toggleButton = document.querySelector<HTMLButtonElement>("#physics-toggle"
 const resetButton = document.querySelector<HTMLButtonElement>("#physics-reset");
 const physicsStatus = document.querySelector<HTMLElement>("#physics-status");
 const physicsReadout = document.querySelector<HTMLElement>("#physics-readout");
-if (!loadButton || !toggleButton || !resetButton || !physicsStatus || !physicsReadout) {
+const physicsModel = document.querySelector<HTMLSelectElement>("#physics-model");
+if (!loadButton || !toggleButton || !resetButton || !physicsStatus || !physicsReadout || !physicsModel) {
   throw new Error("Faltan controles de MuJoCo");
 }
 
@@ -81,6 +87,7 @@ if (viewport) {
 }
 
 let simulation: MujocoSimulation | undefined;
+let humanoidMode = false;
 let playing = false;
 let lastFrame: number | undefined;
 const clock = new FixedClock(0.002, 50);
@@ -89,8 +96,10 @@ let frameHandle: number | undefined;
 function present(state: PhysicsState): void {
   if (!physicsReadout) return;
   const z = state.qpos[2];
-  physicsReadout.textContent = `t = ${state.time.toFixed(3)} s · altura ${z?.toFixed(3) ?? "?"} m`;
-  if (state.qpos.length >= 3) {
+  physicsReadout.textContent = `t = ${state.time.toFixed(3)} s · ${humanoidMode ? "pelvis" : "altura"} ${z?.toFixed(3) ?? "?"} m`;
+  if (humanoidMode) {
+    if (simulation) viewer?.setArticulatedPoses(simulation.geometryPoses());
+  } else if (state.qpos.length >= 3) {
     viewer?.setSpherePosition([state.qpos[0]!, state.qpos[1]!, state.qpos[2]!]);
   }
 }
@@ -114,16 +123,40 @@ function animate(timestampMs: number): void {
   }
 }
 
+physicsModel.addEventListener("change", () => {
+  playing = false;
+  simulation?.dispose();
+  simulation = undefined;
+  viewer?.showSphere();
+  clock.reset();
+  toggleButton.disabled = true;
+  resetButton.disabled = true;
+  toggleButton.textContent = "Iniciar";
+  physicsStatus.textContent = "Escenario seleccionado. Pulsa Cargar simulación.";
+});
+
 loadButton.addEventListener("click", async () => {
   loadButton.disabled = true;
   physicsStatus.textContent = "Descargando e iniciando MuJoCo WASM...";
   try {
-    simulation?.dispose();
-    simulation = await MujocoSimulation.create(GRAVITY_DEMO_MJCF);
     playing = false;
+    simulation?.dispose();
+    simulation = undefined;
+    humanoidMode = physicsModel.value === "humanoid";
+    let xml = GRAVITY_DEMO_MJCF;
+    if (humanoidMode) {
+      const response = await fetch(import.meta.env.BASE_URL + "models/humanoid_v1.xml");
+      if (!response.ok) throw new Error(`No se puede cargar humanoid_v1.xml: HTTP ${response.status}`);
+      xml = await response.text();
+    }
+    simulation = await MujocoSimulation.create(xml);
     clock.reset();
+    if (humanoidMode) viewer?.showArticulated(simulation.geometrySpecs());
+    else viewer?.showSphere();
     present(simulation.state());
-    physicsStatus.textContent = "Motor físico preparado: esfera libre, gravedad y contacto real con el suelo.";
+    physicsStatus.textContent = humanoidMode
+      ? "Humanoide articulado sin actuadores: caerá bajo gravedad. El equilibrio activo aún no existe."
+      : "Esfera libre: gravedad y contacto físico real con el suelo.";
     toggleButton.disabled = false;
     resetButton.disabled = false;
     toggleButton.textContent = "Iniciar";

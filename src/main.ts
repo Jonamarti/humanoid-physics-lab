@@ -4,6 +4,7 @@ import { GRAVITY_DEMO_MJCF } from "./physics/demoModel";
 import { FixedClock } from "./physics/fixedClock";
 import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 import { BallViewer } from "./renderer/ballViewer";
+import { CYLINDER, cylinderMJCF, cylinderForceAt, cylinderForwardTiltDeg, idealPivotPrediction, localGripPoint, validateCylinderTrial, type CylinderTrial } from "./physics/cylinderBenchmark";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("No existe el contenedor de la aplicacion");
@@ -24,6 +25,7 @@ app.innerHTML = `
           <select id="physics-model" aria-label="Escenario físico">
             <option value="ball">Esfera — prueba de gravedad</option>
             <option value="humanoid">Humanoide — ragdoll pasivo, sin equilibrio</option>
+            <option value="cylinder">Cilindro + obstáculo — ensayo anterior al seoi-nage</option>
           </select>
           <p id="physics-status" role="status" aria-live="polite">Motor sin cargar.</p>
           <p id="physics-readout" class="result">t = 0.000 s · altura 1.500 m</p>
@@ -35,14 +37,32 @@ app.innerHTML = `
         </div>
       </article>
       <article class="panel controls">
-        <h2>Ensayo de impulso</h2>
-        <p class="muted">Esta calculadora verifica unidades; todavía <strong>no</strong> simula el movimiento ni predice caídas.</p>
+        <h2>Ensayo de fuerza y vuelco</h2>
+        <p class="muted" id="force-description">En el modo cilindro, estos parámetros se aplican a la física real. En los otros modos solo calculan el impulso.</p>
         <label for="force">Fuerza constante (N)</label>
-        <input id="force" type="number" value="300" min="0" max="100000" step="25" />
+        <input id="force" type="number" value="600" min="0" max="3000" step="25" />
         <label for="duration">Duración (ms)</label>
-        <input id="duration" type="number" value="100" min="0" max="5000" step="10" />
-        <p class="result" id="impulse" role="status" aria-live="polite">Impulso: 30.0 N·s</p>
-        <p class="muted">La calculadora no aplica fuerza a la simulación. Próximo hito: control postural y prueba de 10 segundos (#8–#9).</p>
+        <input id="duration" type="number" value="150" min="0" max="1000" step="10" />
+        <p class="result" id="impulse" role="status" aria-live="polite">Impulso horizontal: 90.0 N·s</p>
+        <div id="cylinder-controls" hidden>
+          <label for="obstacle-height">Altura del obstáculo</label>
+          <select id="obstacle-height">
+            <option value="0.10">10 cm — obstáculo bajo</option>
+            <option value="0.50">50 cm</option>
+            <option value="0.80" selected>80 cm — altura aproximada de cadera</option>
+            <option value="0.90">90 cm</option>
+            <option value="1.20">120 cm — encima del centro de masas</option>
+          </select>
+          <label for="upward-ratio">Componente vertical del tirón</label>
+          <select id="upward-ratio">
+            <option value="0.3">Hacia arriba: 30 % de F horizontal</option>
+            <option value="1">Hacia arriba: 100 % de F horizontal</option>
+            <option value="0">Horizontal: 0 %</option>
+          </select>
+          <p class="muted" id="pivot-prediction">Predicción analítica pendiente.</p>
+          <p class="muted">Para cambiar parámetros de una simulación ya cargada, pulsa <strong>Cargar simulación</strong> otra vez.</p>
+        </div>
+        <p class="muted">Este cilindro es un cuerpo rígido: no camina ni tiene articulaciones. La predicción de pivote es idealizada; la simulación resuelve el contacto con MuJoCo. Equilibrio humano: #8–#9.</p>
       </article>
     </section>
     <footer><a href="https://github.com/Jonamarti/humanoid-physics-lab" rel="noopener noreferrer">Código en GitHub</a> · <a href="https://github.com/Jonamarti/humanoid-physics-lab/issues/1" rel="noopener noreferrer">Hoja de ruta</a></footer>

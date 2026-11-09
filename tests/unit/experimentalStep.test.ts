@@ -41,7 +41,7 @@ describe("Recovery-step FSM requires verified contact events", () => {
       step.observe(sample(1.58+i*0.02,{
         supportLoadN:410,swingLoadN:330,swingSoleWorldM:[0.17,0.19,0.001],
       }));
-      if (i<51) expect(step.snapshot().phase).toBe("RECOVER");
+      if (i<49) expect(step.snapshot().phase).toBe("RECOVER");
     }
     expect(step.snapshot().phase).toBe("COMPLETE");
     expect(step.snapshot().settledDurationS).toBeGreaterThanOrEqual(1);

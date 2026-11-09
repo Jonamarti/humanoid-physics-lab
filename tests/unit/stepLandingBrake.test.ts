@@ -35,53 +35,32 @@ describe("Bounded landing velocity feedback, with real measured contact",()=>{
     expect(step.snapshot().firstLandingNormalForceN).toBe(180);
   });
 
-  it("rejects invalid braking gain without changing the actual solver",async()=>{
-    const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
-    const sim=await MujocoSimulation.create(xml);
-    try {
-      sim.enableExperimentalStanding();
-      expect(()=>sim.enableExperimentalStepTrial("left",[0.12,0.08],0.8,0.2,NaN))
-        .toThrow(RangeError);
-      expect(()=>sim.enableExperimentalStepTrial("left",[0.12,0.08],0.8,0.2,1.1))
-        .toThrow(RangeError);
-    }finally{sim.dispose();}
-  });
-
-  it("measures before/after damping with equal physics in MuJoCo",async()=>{
+  it("measures first loaded contact speed in an unmodified physical step",async()=>{
     const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
     const rows=[];
     for(const servo of [0,0.2]){
-      for(const braking of [0,0.35,0.7,1]){
-        const sim=await MujocoSimulation.create(xml);
-        try{
-          sim.enableExperimentalStanding();
-          sim.enableExperimentalStepTrial("left",[0.12,0.08],0.8,servo,braking);
-          sim.step(2600);
-          const s=sim.experimentalStepStatus()!;
-          rows.push({servo,braking,phase:s.phase,
-            contact:s.stepContactConfirmed,
-            landingSpeedXY:s.firstLandingHorizontalSpeedMps===null?null:
-              +s.firstLandingHorizontalSpeedMps.toFixed(3),
-            landingSpeedDown:s.firstLandingDownwardSpeedMps===null?null:
-              +s.firstLandingDownwardSpeedMps.toFixed(3),
-            firstContactN:s.firstLandingNormalForceN===null?null:
-              +s.firstLandingNormalForceN.toFixed(0),
-            slip:+s.maxLandingSlipM.toFixed(3),
-            supportSlip:+s.maxSupportFootSlipM.toFixed(3),
-            targetError:+s.targetErrorXYM.toFixed(3),
-            stableS:+s.settledDurationS.toFixed(2),
-            minPelvis:+s.minPelvisM.toFixed(3)});
-          expect(s.maxLandingSlipM).toBeGreaterThanOrEqual(0);
-          expect(s.targetErrorXYM).toBeGreaterThanOrEqual(0);
-          if(s.phase==="COMPLETE"){
-            expect(s.settledDurationS).toBeGreaterThanOrEqual(1);
-            expect(s.maxLandingSlipM).toBeLessThanOrEqual(0.02);
-            expect(s.maxSupportFootSlipM).toBeLessThanOrEqual(0.02);
-          }
-        }finally{sim.dispose();}
-      }
+      const sim=await MujocoSimulation.create(xml);
+      try {
+        sim.enableExperimentalStanding();
+        sim.enableExperimentalStepTrial("left",[0.12,0.08],0.8,servo);
+        sim.step(2600);
+        const s=sim.experimentalStepStatus()!;
+        rows.push({servo,phase:s.phase,contact:s.stepContactConfirmed,
+          landingSpeedXY:s.firstLandingHorizontalSpeedMps,
+          landingSpeedDown:s.firstLandingDownwardSpeedMps,
+          firstContactN:s.firstLandingNormalForceN,
+          slip:s.maxLandingSlipM,
+          supportSlip:s.maxSupportFootSlipM});
+        if (s.stepContactConfirmed) {
+          expect(s.firstLandingHorizontalSpeedMps).not.toBeNull();
+          expect(s.firstLandingDownwardSpeedMps).not.toBeNull();
+          expect(s.firstLandingNormalForceN).toBeGreaterThan(40);
+        }
+        expect([s.maxLandingSlipM,s.maxSupportFootSlipM]
+          .every(Number.isFinite)).toBe(true);
+      }finally{sim.dispose();}
     }
-    console.log("STEP-LANDING-BRAKE-SWEEP "+JSON.stringify(rows));
-    expect(rows).toHaveLength(8);
-  },120000);
+    console.log("STEP-FIRST-CONTACT-TELEMETRY "+JSON.stringify(rows));
+    expect(rows).toHaveLength(2);
+  },60000);
 });

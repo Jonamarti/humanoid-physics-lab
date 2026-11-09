@@ -81,6 +81,10 @@ export interface StandingState extends MuJoCoJointStateView {
 export interface StandingController {
   readonly gains: ReadonlyMap<number, JointPDSettings>;
   readonly footBodyIds: readonly [number, number];
+  /** Optional actual left/right GRF shares; only used by an opt-in step
+   * experiment. No measurement means preserve the nominal 50/50 controller.
+   */
+  readonly footLoadShares?: readonly [number, number];
   readonly anklePitchDofs: readonly [number, number];
   readonly ankleRollDofs: readonly [number, number];
   readonly referenceComXY: readonly [number, number];
@@ -149,9 +153,15 @@ export function stepActiveStanding(
   stepNeutralStandingPD(model,data,controller.gains);
   const [left,right]=controller.footBodyIds;
   const xpos=data.xpos;
+  const shares = controller.footLoadShares ?? [0.5,0.5];
+  const sum = shares[0] + shares[1];
+  if (![...shares].every(Number.isFinite) || shares.some(v => v < 0) || sum <= 0) {
+    throw new RangeError("Porcentajes de carga de pie inválidos");
+  }
+  const [wl,wr] = [shares[0]/sum,shares[1]/sum];
   const ankleXY: readonly [number,number]=[
-    (xpos[left*3]!+xpos[right*3]!)/2,
-    (xpos[left*3+1]!+xpos[right*3+1]!)/2,
+    xpos[left*3]! * wl + xpos[right*3]! * wr,
+    xpos[left*3+1]! * wl + xpos[right*3+1]! * wr,
   ];
   const [pitch,roll]=ankleBalanceTorques(
     [data.subtree_com[3]!,data.subtree_com[4]!],
@@ -159,11 +169,11 @@ export function stepActiveStanding(
     ankleXY,controller.referenceComXY,controller.totalMassKg,controller,
   );
   const clip=(v:number)=>Math.max(-controller.ankleLimitNm,Math.min(controller.ankleLimitNm,v));
-  for(const id of controller.anklePitchDofs){
-    data.qfrc_applied[id]=clip(data.qfrc_applied[id]!+pitch/2);
+  for(const [i,id] of controller.anklePitchDofs.entries()){
+    data.qfrc_applied[id]=clip(data.qfrc_applied[id]!+pitch*(i === 0 ? wl : wr));
   }
-  for(const id of controller.ankleRollDofs){
-    data.qfrc_applied[id]=clip(data.qfrc_applied[id]!+roll/2);
+  for(const [i,id] of controller.ankleRollDofs.entries()){
+    data.qfrc_applied[id]=clip(data.qfrc_applied[id]!+roll*(i === 0 ? wl : wr));
   }
   if (Array.from(data.qfrc_applied).slice(0,6).some(v=>v!==0)) {
     throw new Error("Se detectó fuerza no permitida sobre pelvis libre");

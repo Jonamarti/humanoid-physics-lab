@@ -4,7 +4,22 @@
  * The force is a half-sine pulse: J = 2 * Fpeak * duration / pi.
  * This is a test protocol, not a human-safe force prescription.
  */
-export type PushDirection = "forward" | "backward" | "left" | "right";
+/** +X forward, +Y left in world coordinates; diagonal vectors are unit length. */
+export const PUSH_DIRECTIONS = [
+  "forward", "backward", "left", "right",
+  "forward-left", "forward-right", "backward-left", "backward-right",
+] as const;
+export type PushDirection = typeof PUSH_DIRECTIONS[number];
+
+const INV_SQRT_2 = Math.SQRT1_2;
+export const PUSH_DIRECTION_VECTORS: Readonly<Record<PushDirection, readonly [number, number, number]>> = {
+  forward: [1, 0, 0], backward: [-1, 0, 0],
+  left: [0, 1, 0], right: [0, -1, 0],
+  "forward-left": [INV_SQRT_2, INV_SQRT_2, 0],
+  "forward-right": [INV_SQRT_2, -INV_SQRT_2, 0],
+  "backward-left": [-INV_SQRT_2, INV_SQRT_2, 0],
+  "backward-right": [-INV_SQRT_2, -INV_SQRT_2, 0],
+};
 
 export interface PushTrial {
   readonly direction: PushDirection;
@@ -21,7 +36,7 @@ export const DEFAULT_PUSH_TRIAL: PushTrial = Object.freeze({
 });
 
 export function validatePushTrial(trial: PushTrial): void {
-  if (!["forward", "backward", "left", "right"].includes(trial.direction) ||
+  if (!PUSH_DIRECTIONS.includes(trial.direction) ||
       ![trial.peakForceN, trial.startS, trial.durationS].every(Number.isFinite) ||
       trial.peakForceN < 0 || trial.peakForceN > 2000 ||
       trial.startS < 0 || trial.startS > 120 ||
@@ -44,12 +59,10 @@ export function pushForceAtTime(
   // Snap endpoint residuals to zero to avoid phantom external impulses.
   if (phase <= 1e-12 || phase >= 1 - 1e-12) return [0, 0, 0];
   const force = trial.peakForceN * Math.sin(Math.PI * phase);
-  switch (trial.direction) {
-    case "forward": return [force, 0, 0];
-    case "backward": return [-force, 0, 0];
-    case "left": return [0, force, 0];
-    case "right": return [0, -force, 0];
-  }
+  const direction = PUSH_DIRECTION_VECTORS[trial.direction];
+  // Direction vectors have unit magnitude; diagonal impulses carry the
+  // same total N·s as cardinal impulses, not sqrt(2) times as much.
+  return [direction[0] * force, direction[1] * force, 0];
 }
 
 export function expectedPushImpulseNs(trial: PushTrial): number {

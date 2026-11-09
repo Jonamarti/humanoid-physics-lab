@@ -98,13 +98,11 @@ const selectedScenario = (): Scenario => {
 
 function selectedTrial(): CylinderTrial {
   const trial = {
-    obstacleHeightM: obstacleInput.valueAsNumber,
+    obstacleHeightM: Number(obstacleInput.value),
     horizontalForceN: forceInput.valueAsNumber,
     upwardRatio: Number(upwardInput.value),
     durationS: durationInput.valueAsNumber / 1000,
   };
-  // HTMLSelectElement may not support valueAsNumber consistently; parse manually.
-  trial.obstacleHeightM = Number(obstacleInput.value);
   validateCylinderTrial(trial);
   return trial;
 }

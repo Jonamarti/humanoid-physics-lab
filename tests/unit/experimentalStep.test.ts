@@ -3,7 +3,9 @@ import { ExperimentalStepSequence, type StepFeedback } from "../../src/control/e
 
 const sample = (timeS: number, overrides: Partial<StepFeedback> = {}): StepFeedback => ({
   timeS, comWorldM:[0,0,0.95],pelvisHeightM:0.99,rootTiltDeg:2,
-  swingSoleWorldM:[0.065,0.105,0.001],supportLoadN:370,swingLoadN:370,
+  swingSoleWorldM:[0.065,0.105,0.001],
+  supportSoleWorldM:[0.065,-0.105,0.001],
+  supportLoadN:370,swingLoadN:370,
   ...overrides,
 });
 
@@ -32,7 +34,7 @@ describe("Recovery-step FSM requires verified contact events", () => {
       supportLoadN:590,swingLoadN:150,swingSoleWorldM:[0.17,0.19,0.003],
     }));
     expect(step.snapshot().phase).toBe("RECOVER");
-    step.observe(sample(2.04,{
+    step.observe(sample(2.15,{
       supportLoadN:410,swingLoadN:330,swingSoleWorldM:[0.17,0.19,0.001],
     }));
     expect(step.snapshot().phase).toBe("COMPLETE");

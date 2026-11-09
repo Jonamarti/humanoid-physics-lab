@@ -26,3 +26,9 @@ input:focus-visible, a:focus-visible { outline: 3px solid #7ddbf4; outline-offse
 .result { font-size: 1.35rem; font-weight: 750; color: #7bdcc7; margin: 22px 0; }
 footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 @media(max-width: 720px) { .columns { grid-template-columns: 1fr; } .viewport { height: 280px; } .controls { padding: 20px; } }
+
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.button-row button { border-radius: 8px; border: 1px solid #456981; background: #284b62; color: #fff; padding: 10px 13px; cursor: pointer; }
+.button-row button:disabled { opacity: .45; cursor: not-allowed; }
+.button-row button:focus-visible { outline: 3px solid #7ddbf4; outline-offset: 3px; }
+.preview .controls { border-top: 1px solid #29445b; }

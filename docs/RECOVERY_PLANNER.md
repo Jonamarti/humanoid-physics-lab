@@ -11,11 +11,13 @@ identificar un soporte cargado y proponer, o rechazar, un destino de paso.
 - `loadedSupportPolygonXY` es la envolvente geométrica de los pies que superan
   un umbral de carga; **no es el polígono real de puntos de contacto ni el CoP**.
   El centroide ponderado es un promedio de posiciones, no integra momentos.
-- **Todavía NO existe adaptador MuJoCo → GroundContactSample**: antes de
-  conectarlo hay que comprobar en el runtime WASM 3.17.0 la convención de
-  normales `contact.frame`, el estado del solver, `mj_contactForce` y su
-  orientación, y contrastar la suma de fuerzas con el peso nominal.
-  No derivar cargas de `data.ncon` o cercanía geométrica.
+- **Existe adaptador MuJoCo → GroundContactSample** en
+  `MujocoSimulation.humanoidGroundSupportObservation()`: se leen contactos
+  suelo/pie y fuerzas resueltas `efc_force` (cono piramidal decodificado),
+  con liberación de handles WASM. Una prueba de integración compara la
+  reacción vertical total con el peso nominal y verifica reset.
+  Aún no hay CoP 6D ni validación biomecánica externa; no derivar cargas
+  de `data.ncon` o cercanía geométrica.
 - El planificador utiliza el capture point de péndulo lineal invertido (LIPM).
   Rechaza inclinaciones acusadas, apoyos inexistentes, pasos fuera de alcance
   o posiciones sin pie de apoyo viable; es deliberadamente conservador.
@@ -34,13 +36,14 @@ sintéticos y **no constituyen integración real MuJoCo**.
 
 Siguientes entregas sugeridas, en orden:
 
-1. Integrar `mj_contactForce` / `data.contact` del WASM 3.17.0 con una
-   prueba de pie en suelo, de caída libre y de inversión de normal.
-2. Incorporar carga real por pie, puntos de contacto y giros de tronco a
-   `humanoidBalanceObservation` y registrar por timestep.
-3. Verificar decisiones en los escenarios reales de empujón publicados,
-   con sensibilidad a latencia, fuerza, rozamiento y variación de altura.
+1. Incorporar la lectura física validada de cargas por pie al panel web,
+   y probar la descarga de un pie en un ensayo controlado.
+2. Verificar las decisiones del planificador en los empujones reales,
+   con histéresis, latencia y contacto por timestep.
+3. Contrastar CoP, fuerzas y respuestas contra datasets externos de
+   `EXPERIMENTAL_CALIBRATION.md` antes de modificar ganancias.
 4. Añadir una FSM de pasos con actuadores internos y contacto medido (#13).
 
-**Importante:** esta rama incluye un nuevo cálculo de apoyo geométrico cargado,
-pero no lo muestra en la web hasta completar la integración del solver.
+**Importante:** el adaptador ya obtiene carga real del solver en Node/WASM,
+pero todavía no la muestra en la web ni controla pasos. El polígono
+sigue siendo una aproximación basada en geometría de pies *cargados*.

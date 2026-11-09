@@ -37,8 +37,8 @@ describe("Experimental 10-second neutral standing (actual MuJoCo WASM)", () => {
             const id = model.jnt(name).id;
             return Number(data.qpos[model.jnt_qposadr[id]!]?.toFixed(3) ?? 0);
           };
-          const q = Array.from(data.qpos.slice(3,7), x => Number(x.toFixed(3)));
-          const v = Array.from(data.qvel.slice(0,6), x => Number(x.toFixed(3)));
+          const q = Array.from((data.qpos as Float64Array).slice(3,7), x => Number(x.toFixed(3)));
+          const v = Array.from((data.qvel as Float64Array).slice(0,6), x => Number(x.toFixed(3)));
           const com = Array.from((data.subtree_com as Float64Array).slice(3,6), x => Number(x.toFixed(3)));
           report.push({
             t: Number(data.time.toFixed(3)),

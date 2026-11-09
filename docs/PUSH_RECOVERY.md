@@ -35,6 +35,24 @@ El caso `backward, peak=240 N` registró aproximadamente **0,124 m de pelvis mí
 
 Registro original de la matriz: [GitHub Actions — 16 experimentos](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42623670812). Ese run falló por una aserción numérica en el *endpoint* de un pulso (`~1e-13 N`, fuerza residual flotante); la física de los 16 casos sí se ejecutó y registró. El código posteriormente corrige esa tolerancia y los CI siguientes de la rama pasan.
 
+## Umbral de caída posterior observado
+
+El ensayo `tests/unit/standingBackwardThreshold.test.ts` precisó el cambio brusco de comportamiento del humanoide ante un empujón en dirección -X. Fuerzas máximas, todas con 0,12 s de duración y perfil de media onda:
+
+| Pico del pulso | Impulso aproximado | Pelvis mínima | Inclinación máxima | Clasificación |
+|---|---:|---:|---:|---|
+| 120 N | 9,17 N·s | 0,989 m | 2,22° | sigue de pie |
+| 160 N | 12,22 N·s | 0,989 m | 3,21° | sigue de pie |
+| 180 N | 13,75 N·s | 0,130 m | 88,62° | cae |
+| 200 N | 15,28 N·s | 0,134 m | 88,37° | cae |
+| 220 N | 16,81 N·s | 0,126 m | 88,15° | cae |
+| 240 N | 18,33 N·s | 0,124 m | 87,94° | cae |
+| 260 N | 19,86 N·s | 0,130 m | 89,16° | cae |
+
+El primer cambio detectado está **entre 160 y 180 N de pico** para este modelo y este perfil. No se ha probado que la frontera sea monótona entre valores no muestreados ni puede extrapolarse a otra postura, cuerpo o duración. Es precisamente el tipo de evidencia que servirá para decidir cuándo debe activarse un **paso de recuperación** en el futuro.
+
+Registro ejecutado también como parte del CI de la rama: [GitHub Actions — umbral posterior](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42624334433).
+
 ## Probar desde navegador
 
 1. Abrir [Humanoid Physics Lab](https://jonamarti.github.io/humanoid-physics-lab/).

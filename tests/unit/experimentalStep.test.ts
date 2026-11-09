@@ -66,7 +66,8 @@ describe("Recovery-step FSM requires verified contact events", () => {
     const airborne=step.command(1.2,[0,0]);
     expect(airborne.cartesianBlend).toBeCloseTo(1);
     step.observe(sample(1.3,{supportLoadN:710,swingLoadN:0,
-      swingSoleWorldM:[0.17,0.105,0.07]}));
+      swingSoleWorldM:[0.17,0.105,0.07],
+      swingSoleVelocityWorldMps:[0.38,0.16,-0.24]}));
     expect(step.snapshot().phase).toBe("LAND");
     const beforeLoad=step.command(1.31,[0,0]);
     expect(beforeLoad.cartesianBlend).toBeCloseTo(1);
@@ -75,8 +76,14 @@ describe("Recovery-step FSM requires verified contact events", () => {
     const partial=step.command(1.36,[0,0]);
     expect(partial.cartesianBlend).toBeCloseTo(0.5);
     step.observe(sample(1.40,{supportLoadN:560,swingLoadN:160,
-      swingSoleWorldM:[0.17,0.105,0.002]}));
+      swingSoleWorldM:[0.17,0.105,0.002],
+      swingFrictionUtilization:0.91}));
     expect(step.snapshot().phase).toBe("RECOVER");
+    const telemetry=step.snapshot();
+    expect(telemetry.preLandingTangentialSpeedMps).toBeCloseTo(Math.hypot(0.38,0.16),8);
+    expect(telemetry.preLandingDownwardSpeedMps).toBeCloseTo(0.24,8);
+    expect(telemetry.frictionUtilizationAtLanding).toBeCloseTo(0.91,8);
+    expect(telemetry.firstLandingTimeS).toBeCloseTo(1.40,8);
     expect(step.command(1.42,[0,0]).cartesianBlend).toBe(0);
     expect(step.command(1.42,[0,0]).soleTargetWorldM).toBeNull();
   });

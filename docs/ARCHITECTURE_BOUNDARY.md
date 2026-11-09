@@ -46,8 +46,8 @@ El motor aceptará una descripción neutral de un escenario, no una animación M
 
 ## Plan de implementación sin ruptura
 
-1. Conservar `src/physics` y `src/control` actuales y sus pruebas de bipedestación. En #10 formalizar impactos 3D por cuerpo/punto/duración y sus telemetrías.
-2. Completar medida de contactos y planificación de pasos (#11–#13). La PR #35 es un borrador: no dar por integrado su planificador ni considerar cargas sintéticas como fuerzas normales verificadas.
+1. Conservar `src/physics` y `src/control` actuales y sus pruebas de bipedestación. En #10 formalizar impactos 3D por cuerpo/punto/duración y sus telemetrías; el editor 3D multi-fuerza de la PR #47 sigue en revisión y no constituye todavía una API de intercambio versionada.
+2. Los sensores de cargas reales, el planificador de paso y la visualización del COM están integrados en `main` (PR #35 y #44). La PR #45 es **todavía experimental y no fusionada**: sus pruebas muestran transferencia, despegue y aterrizaje medidos pero no un paso estable en la dirección requerida (#13, #49). Conservar controles de fase separados del planificador automático de empujones hasta validarlo.
 3. Desarrollar caída protectora articulada (#14), seguida de agarres/contactos entre dos actores o con objetos, siempre con límites de fuerza y contacto físico.
 4. Diseñar y validar los esquemas anteriores y grabación/replay/exportación en #17, con tests de serialización, coordenadas, identificadores semánticos, determinismo en el mismo runtime y ausencia de datos privados.
 5. Añadir un escenario sintético con golpe/empujón -> reacción de Uke -> grabación -> rig sintético externo. El adaptador Blender y la aprobación visual pertenecen al consumidor.

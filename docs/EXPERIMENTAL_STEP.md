@@ -100,3 +100,53 @@ La UI experimental permite iniciar y **observar un intento**, y
 distingue `ABORT` de `FALL`. No se afirma marcha estable. El
 benchmark puede pasar sus tests técnicos aunque la maniobra de
 locomoción todavía falle: los tests registran el resultado real.
+
+## Iteración: control cartesiano y apoyo posterior — 9 nov 2026
+
+La fase de seguimiento de pie ahora dispone de:
+
+- **Jacobiano analítico real del MuJoCo WASM:** columna de bisagra
+  `axis_world × (site_world - joint_anchor_world)` y par
+  `tau = Jᵀ F`, limitado a DOFs internos autorizados, sin aplicar
+  fuerzas a la raíz ni alterar posiciones cinemáticamente.
+- **Trayectoria de pie 3D por fases:** elevación, traslación XY y
+  descenso suavizados; velocidad medida mediante diferencias por
+  timestep y filtrado, con fuerza de corrección acotada.
+- **Mediciones estrictas:** deslizamiento horizontal acumulado del pie
+  de apoyo desde la postura inicial, error del pie hasta su destino,
+  deslizamiento después del primer aterrizaje cargado, inclinación
+  del tronco, altura mínima de pelvis y fuerzas reales por pie.
+- **Referencia de equilibrio tras aterrizar:** se desplaza suavemente
+  hacia el nuevo centro de la base de apoyo, calculado con la posición
+  realmente alcanzada por el pie, en lugar de devolver instantáneamente
+  el COM a la referencia anterior.
+- **Comparación en el visor:** selector de intensidad de la impedancia
+  cartesiana 0/20/50/100 %, **valor por defecto: 0 %**. El modo
+  experimental no sustituye al controlador nominal de bipedestación.
+
+### Resultados experimentales
+
+Barrido de 12 pruebas (direcciones adelante, lateral y diagonal;
+intensidades 0, 0.2, 0.5, 1) registradas en `STEP-CARTESIAN-SWEEP`:
+
+- **0 de 12** alcanzaron `COMPLETE` con los criterios de destino,
+  apoyo y estabilidad; todas abortaron o cayeron.
+- Por ejemplo, con paso diagonal e intensidad 0.2, el error final
+  horizontal fue aprox. **6,1 cm**, pero el pie llegó a deslizarse
+  unos **15,4 cm** después del primer aterrizaje: sigue siendo fallo.
+- Con algunas intensidades altas el humanoide perdió el equilibrio.
+  No se puede inferir que subir la ganancia sea mejor.
+- También se probó mantener rígidamente los ángulos articulares
+  alcanzados al aterrizar; **aumentó las caídas y se revirtió**.
+
+El barrido extenso se conserva, pero solo se ejecuta expresamente
+con `RUN_LONG_BENCHMARKS=1 npm test`, para no duplicar en cada CI
+12 simulaciones de 5,2 s. El CI ordinario sigue comprobando
+contactos, fases y ausencia de NaN.
+
+**Conclusión:** el Jacobiano es una base matemática y de ingeniería
+verificada; la locomoción controlada no está resuelta. Siguiente
+trabajo: controlar el pie de apoyo y el centro de presión bajo
+fricción, estabilizar el nuevo soporte durante ≥1 s y luego comparar
+ambas piernas/direcciones con pruebas de aceptación **que exijan
+`COMPLETE` físico**, no simplemente un test sin excepciones.

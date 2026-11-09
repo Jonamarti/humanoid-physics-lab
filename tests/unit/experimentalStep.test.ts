@@ -70,6 +70,10 @@ describe("Recovery-step FSM requires verified contact events", () => {
     expect(step.snapshot().phase).toBe("LAND");
     const beforeLoad=step.command(1.31,[0,0]);
     expect(beforeLoad.cartesianBlend).toBeCloseTo(1);
+    expect(beforeLoad.targetsRad.left_knee).toBeLessThan(-0.59);
+    const descending=step.command(1.48,[0,0]);
+    expect(descending.targetsRad.left_knee).toBeGreaterThan(-0.59);
+    expect(descending.targetsRad.left_knee).toBeLessThan(-0.05);
     step.observe(sample(1.35,{supportLoadN:690,swingLoadN:30,
       swingSoleWorldM:[0.17,0.105,0.03]}));
     const partial=step.command(1.36,[0,0]);
@@ -79,6 +83,9 @@ describe("Recovery-step FSM requires verified contact events", () => {
     expect(step.snapshot().phase).toBe("RECOVER");
     expect(step.command(1.42,[0,0]).cartesianBlend).toBe(0);
     expect(step.command(1.42,[0,0]).soleTargetWorldM).toBeNull();
+    // Transition into RECOVER must keep the same landing knee trajectory.
+    expect(step.command(1.42,[0,0]).targetsRad.left_knee)
+      .toBeGreaterThan(-0.6);
   });
 
   it("requires consecutive measurements instead of treating a short contact as success", () => {

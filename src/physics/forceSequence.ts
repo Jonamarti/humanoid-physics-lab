@@ -15,7 +15,17 @@ export type ForceSite = typeof FORCE_SITES[number]["id"];
 export type ForceWaveform = "half-sine" | "constant";
 export type ForceVector = readonly [number, number, number];
 
+/** Body-relative COM offset, captured from a pick on the physical mesh.
+ * The body moves after the pick, but the force stays fixed on that body.
+ */
+export interface ForceBodyAttachment {
+  readonly bodyIndex: number;
+  readonly localComOffsetM: ForceVector;
+}
+
 export interface EditedForce {
+  /** Override the named site with an arbitrary, body-attached point. */
+  readonly attachment?: ForceBodyAttachment;
   readonly id: string;
   readonly site: ForceSite;
   /** Peak vector in newtons; a negative component reverses that axis. */
@@ -26,6 +36,13 @@ export interface EditedForce {
 }
 
 export function validateEditedForce(force: EditedForce): void {
+  const a = force.attachment;
+  if (a && (!Number.isSafeInteger(a.bodyIndex) || a.bodyIndex < 1 ||
+    a.bodyIndex > 128 || a.localComOffsetM.length !== 3 ||
+    !a.localComOffsetM.every(Number.isFinite) ||
+    Math.hypot(...a.localComOffsetM) > 5)) {
+    throw new RangeError("Punto de aplicación local inválido");
+  }
   if (!force.id.trim() || force.id.length > 64 ||
       !FORCE_SITES.some(site => site.id === force.site) ||
       !["half-sine", "constant"].includes(force.waveform) ||

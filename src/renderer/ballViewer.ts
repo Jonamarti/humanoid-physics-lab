@@ -23,6 +23,19 @@ export class BallViewer {
   private readonly sphere: THREE.Mesh;
   private readonly forceArrow: THREE.ArrowHelper;
   private readonly multiForceArrows = new Map<string, THREE.ArrowHelper>();
+  private readonly editableHeads = new Map<string, THREE.Mesh>();
+  private selectedForceId: string | undefined;
+  private pickBodyForForceId: string | undefined;
+  private forceInteraction?: {
+    onPicked(id: string, geomId: number, point: ForceVector): void;
+    onDragged(id: string, direction: ForceVector): void;
+  };
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly pointer = new THREE.Vector2();
+  private draggingForceId: string | undefined;
+  private readonly dragPlane = new THREE.Plane();
+  private readonly dragOrigin = new THREE.Vector3();
+  private lastDragVector?: THREE.Vector3;
   private readonly multiForceGlyphs = new Map<string, { sprite: THREE.Sprite; texture: THREE.CanvasTexture }>();
   private multiForces: readonly { id: string; point: ForceVector; force: ForceVector; active: boolean }[] = [];
   private readonly forceFlash: THREE.Mesh;
@@ -129,6 +142,11 @@ export class BallViewer {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(this.container);
     this.resize();
+    this.raycaster.params.Line = { threshold: 0.12 };
+    this.renderer.domElement.addEventListener("pointerdown", this.handleForcePointerDown);
+    this.renderer.domElement.addEventListener("pointermove", this.handleForcePointerMove);
+    this.renderer.domElement.addEventListener("pointerup", this.handleForcePointerUp);
+    this.renderer.domElement.addEventListener("pointercancel", this.handleForcePointerUp);
     this.renderer.setAnimationLoop(() => {
       if (this.disposed) return;
       this.controls.update();
@@ -257,6 +275,13 @@ export class BallViewer {
     for (const [id, arrow] of this.multiForceArrows) {
       if (visible.has(id)) continue;
       this.scene.remove(arrow);
+      const head = this.editableHeads.get(id);
+      if (head) {
+        this.scene.remove(head);
+        head.geometry.dispose();
+        (head.material as THREE.Material).dispose();
+        this.editableHeads.delete(id);
+      }
       arrow.line.geometry.dispose();
       (arrow.line.material as THREE.Material).dispose();
       arrow.cone.geometry.dispose();
@@ -278,7 +303,11 @@ export class BallViewer {
       const texture = new THREE.CanvasTexture(canvas);
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
       sprite.scale.set(0.3, 0.3, 1);
-      this.scene.add(arrow, sprite);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8),
+        new THREE.MeshBasicMaterial({ color: 0xf9f1ad, transparent: true, opacity: 0.85, depthTest: false }));
+      head.visible = false;
+      this.scene.add(arrow, sprite, head);
+      this.editableHeads.set(f.id, head);
       this.multiForceArrows.set(f.id, arrow);
       this.multiForceGlyphs.set(f.id, { sprite, texture });
     }
@@ -296,6 +325,12 @@ export class BallViewer {
       const glyph = classifyForceGlyph(f.force, [camera.x, -camera.z, camera.y]);
       arrow.position.copy(world);
       arrow.visible = glyph === "arrow";
+      const head = this.editableHeads.get(f.id);
+      if (head) {
+        head.visible = f.id === this.selectedForceId && !!this.forceInteraction && vec.length() > 0;
+        // Visible even for ⊗/⊙: allows direct dragging of a view-normal force.
+        head.position.copy(world).add(vec.clone().normalize().multiplyScalar(forceArrowLengthM(vec.length())));
+      }
       if (glyph === "arrow") {
         arrow.setDirection(vec.normalize());
         const size = forceArrowLengthM(vec.length());
@@ -323,6 +358,100 @@ export class BallViewer {
       }
     }
   }
+
+
+  /** The editor configures interactions. Geometry picks are converted to
+   * physical body-local anchors by MujocoSimulation, never by Three.js.
+   */
+  configureForceEditing(
+    selectedId: string | undefined,
+    onPicked: ((id: string, geomId: number, point: ForceVector) => void) | undefined,
+    onDragged: ((id: string, direction: ForceVector) => void) | undefined,
+  ): void {
+    this.selectedForceId = selectedId;
+    this.forceInteraction = onPicked && onDragged ? { onPicked, onDragged } : undefined;
+    if (!this.forceInteraction) this.pickBodyForForceId = undefined;
+  }
+
+  armForcePointPick(id: string): void {
+    if (!this.forceInteraction) return;
+    this.selectedForceId = id;
+    this.pickBodyForForceId = id;
+    this.renderer.domElement.style.cursor = "crosshair";
+  }
+
+  private updateForceRay(event: PointerEvent): void {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.set(
+      ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1,
+      -((event.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+  }
+
+  private readonly handleForcePointerDown = (event: PointerEvent): void => {
+    if (!this.forceInteraction || event.button !== 0) return;
+    this.updateForceRay(event);
+    if (this.pickBodyForForceId) {
+      const meshes = Array.from(this.articulated.values());
+      const picked = this.raycaster.intersectObjects(meshes, false)[0];
+      if (!picked) return;
+      const geomId = Number(picked.object.name.replace("mujoco_geom_", ""));
+      if (!Number.isSafeInteger(geomId)) return;
+      const target = this.pickBodyForForceId;
+      this.pickBodyForForceId = undefined;
+      this.renderer.domElement.style.cursor = "";
+      // The picked point belongs to a *physical* dynamic body, validated in the callback.
+      this.forceInteraction.onPicked(target, geomId,
+        [picked.point.x, -picked.point.z, picked.point.y]);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    const selected = this.selectedForceId;
+    if (!selected) return;
+    const head = this.editableHeads.get(selected);
+    const arrow = this.multiForceArrows.get(selected);
+    if (!head || !arrow) return;
+    const hits = this.raycaster.intersectObjects([head, arrow], true);
+    if (!hits.length) return;
+    const spec = this.multiForces.find(f => f.id === selected);
+    if (!spec) return;
+    this.dragOrigin.set(...mujocoToThreePosition(spec.point));
+    this.dragPlane.setFromNormalAndCoplanarPoint(
+      this.camera.getWorldDirection(new THREE.Vector3()), head.position,
+    );
+    this.lastDragVector = new THREE.Vector3(...mujocoToThreePosition(spec.force)).normalize();
+    this.draggingForceId = selected;
+    this.controls.enabled = false;
+    this.renderer.domElement.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+
+  private readonly handleForcePointerMove = (event: PointerEvent): void => {
+    if (!this.draggingForceId || !this.forceInteraction) return;
+    this.updateForceRay(event);
+    const point = new THREE.Vector3();
+    if (!this.raycaster.ray.intersectPlane(this.dragPlane, point)) return;
+    const vec = point.sub(this.dragOrigin);
+    if (vec.lengthSq() < 0.001) return;
+    vec.normalize();
+    this.lastDragVector = vec;
+    // Preserve the edited magnitude: dragging the end changes direction, not newtons.
+    this.forceInteraction.onDragged(this.draggingForceId, [vec.x, -vec.z, vec.y]);
+    event.preventDefault();
+  };
+
+  private readonly handleForcePointerUp = (event: PointerEvent): void => {
+    if (!this.draggingForceId) return;
+    this.draggingForceId = undefined;
+    this.lastDragVector = undefined;
+    this.controls.enabled = true;
+    if (this.renderer.domElement.hasPointerCapture(event.pointerId)) {
+      this.renderer.domElement.releasePointerCapture(event.pointerId);
+    }
+  };
 
   clearMultiForces(): void { this.setMultiForces([]); }
 
@@ -400,6 +529,10 @@ export class BallViewer {
     this.disposed = true;
     this.renderer.setAnimationLoop(null);
     this.observer.disconnect();
+    this.renderer.domElement.removeEventListener("pointerdown", this.handleForcePointerDown);
+    this.renderer.domElement.removeEventListener("pointermove", this.handleForcePointerMove);
+    this.renderer.domElement.removeEventListener("pointerup", this.handleForcePointerUp);
+    this.renderer.domElement.removeEventListener("pointercancel", this.handleForcePointerUp);
     this.controls.dispose();
     this.clearArticulated();
     this.clearMultiForces();

@@ -76,7 +76,6 @@ export class ExperimentalStepSequence {
   private firstLandingSole: XYZ | undefined;
   private maxContactSlipM = 0;
   private latestSwingLoadN = 0;
-  private landingBeganS: number | undefined;
   private settledSinceS: number | undefined;
   private settledDurationS = 0;
 
@@ -113,7 +112,6 @@ export class ExperimentalStepSequence {
   }
 
   private transition(phase: StepPhase, timeS: number, reason: string): void {
-    if (phase === "LAND") this.landingBeganS = timeS;
     this.phase = phase;
     this.phaseStartedAtS = timeS;
     this.reason = reason;
@@ -224,14 +222,10 @@ export class ExperimentalStepSequence {
         }
         break;
       case "SWING":
-        // Do not lower the sole when it only passed an arbitrary 5cm:
-        // get near the requested destination while actually airborne.
-        if (travel > 0.055 && progress > desired * 0.55 &&
-            this.targetErrorXYM <= Math.max(0.045,desired * 0.35) &&
-            rise > 0.02 && info.swingLoadN < 25) {
-          this.transition("LAND",info.timeS,"Pie en vuelo cerca de destino; iniciar descenso");
+        if (travel > 0.055 && progress > minProgress * 0.8 && rise > 0.02) {
+          this.transition("LAND",info.timeS,"Avance medido en dirección del objetivo");
         } else if (elapsed > 0.85) {
-          this.transition("ABORT",info.timeS,"No alcanzó el destino antes del aterrizaje");
+          this.transition("ABORT",info.timeS,"No avanzó físicamente hacia el destino");
         }
         break;
       case "LAND":
@@ -289,11 +283,6 @@ export class ExperimentalStepSequence {
         (referenceComXY[1]+supportSign*0.075)*(1-w)+newStandingRef[1]*w,
       ];
     }
-    const ease=(elapsedS: number,durationS: number): number => {
-      const u=Math.max(0,Math.min(1,elapsedS/durationS));
-      return u*u*(3-2*u);
-    };
-    const t=(durationS:number): number => ease(elapsed,durationS);
     const joints: Record<string,number> = {};
     if (["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
       const dx = this.targetDeltaXY[0],dy = this.targetDeltaXY[1];
@@ -302,15 +291,13 @@ export class ExperimentalStepSequence {
         ? -0.15 : Math.max(-0.5,Math.min(0.5,-dx / 0.65));
       joints[`${this.swingSide}_hip_roll`] = this.phase === "LIFT"
         ? moveSign * 0.09 : Math.max(-0.4,Math.min(0.4,dy / 0.65));
-      // A 0.55 rad instantaneous knee extension at the LAND transition
-      // drove a large touchdown impulse. Smoothly flex and extend through
-      // the entire landing-to-recovery transition, no target discontinuity.
-      const sinceLanding=Math.max(0,timeS-(this.landingBeganS??timeS));
-      joints[`${this.swingSide}_knee`] = this.phase === "LIFT"
-        ? -0.6*t(0.25) : this.phase === "SWING" ? -0.6 :
-          -0.6+0.55*ease(sinceLanding,0.55);
+      joints[`${this.swingSide}_knee`] = lift ? -0.6 : -0.05;
       joints[`${this.swingSide}_ankle_pitch`] = lift ? 0.12 : 0;
     }
+    const t = (duration: number): number => {
+      const u=Math.max(0,Math.min(1,elapsed/duration));
+      return u*u*(3-2*u);
+    };
     const initial=this.originalSole;
     let soleTargetWorldM: XYZ | null = null;
     let cartesianBlend=0;

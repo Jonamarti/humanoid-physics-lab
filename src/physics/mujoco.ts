@@ -124,12 +124,14 @@ export class MujocoSimulation {
     targetDeltaXY: XY = [0.10, 0],
     startTimeS = 0.8,
     cartesianStepScale = 0,
+    landingJointReleaseS = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
-    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
+    this.stepExperiment = new ExperimentalStepSequence(
+      swingFoot, targetDeltaXY, startTimeS, landingJointReleaseS);
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");

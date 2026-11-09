@@ -13,7 +13,8 @@ Hasta que GitHub indique un deploy satisfactorio, **no debe afirmarse que la pá
 
 ## Cómo se publica
 
-- Cada push a `main` inicia `.github/workflows/pages.yml`.
+- Cada push a `main` de una persona o integración autorizada inicia `.github/workflows/pages.yml`.
+- Si una PR la fusiona automáticamente el workflow con `GITHUB_TOKEN`, GitHub **no dispara otro workflow por `push`**. Por eso el workflow `auto-merge.yml` envía **`repository_dispatch` (evento `pages-after-auto-merge`)** solo después de la fusión verificada; `pages.yml` escucha ese evento, vuelve a comprobar tests y publica el `main` más reciente.
 - El job de build ejecuta `npm ci`, TypeScript, ESLint, Vitest y Vite; cualquier fallo impide el despliegue.
 - El segundo job utiliza `actions/deploy-pages` con `pages:write` e `id-token:write`; solo despliega el artefacto `dist` del primer job.
 - Vite utiliza `base: '/humanoid-physics-lab/'` para que JavaScript y el módulo MuJoCo WASM carguen desde la ruta correcta.

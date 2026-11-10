@@ -10,6 +10,8 @@ import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce } from "./contactForces";
+import { estimateContactPatchSlip, type MeasuredFootPose } from "./contactPatchSlip";
+import { planStanceContactCommand, applyStanceContactCommand, type StanceContactCommand } from "../control/stanceContact";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -52,6 +54,10 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  private stanceContactScale = 0;
+  private priorStancePose: MeasuredFootPose | undefined;
+  private priorStancePoseTimeS = 0;
+  private stanceContactDiagnostic: StanceContactCommand | null = null;
 
   private constructor(module: Module) {
     this.module = module;
@@ -88,6 +94,9 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
+    this.stanceContactScale = 0;
+    this.priorStancePose = undefined;
+    this.stanceContactDiagnostic = null;
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -105,6 +114,9 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
+    this.stanceContactScale = 0;
+    this.priorStancePose = undefined;
+    this.stanceContactDiagnostic = null;
   }
 
   /** Enables bounded internal-joint torque control on the public humanoid.
@@ -126,6 +138,7 @@ export class MujocoSimulation {
     cartesianStepScale = 0,
     coordinatedGaitProfile = 0,
     swingExtensionGuard = 0,
+    stanceContactScale = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -134,6 +147,9 @@ export class MujocoSimulation {
         coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
+    if (!Number.isFinite(stanceContactScale) || stanceContactScale<0 || stanceContactScale>1) {
+      throw new RangeError("Control de contacto fuera de 0..1");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
@@ -141,6 +157,9 @@ export class MujocoSimulation {
     );
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
+    this.stanceContactScale = stanceContactScale;
+    this.priorStancePose = undefined;
+    this.stanceContactDiagnostic = null;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
     this.footSpeedWorldMps = [0,0,0];
@@ -148,6 +167,22 @@ export class MujocoSimulation {
 
   experimentalStepStatus(): StepSnapshot | null {
     return this.stepExperiment?.snapshot() ?? null;
+  }
+
+  /** Measured reaction/intent for the opt-in stance experiment, not proof of forward propulsion. */
+  experimentalStanceContactStatus(): StanceContactCommand | null {
+    return this.stanceContactDiagnostic;
+  }
+
+  private measuredFootPose(side: FootSide): MeasuredFootPose {
+    const {model,data}=this.ready();
+    const id=model.geom(side+"_foot_geom").id;
+    const p=(data.geom_xpos as Float64Array).subarray(id*3,id*3+3);
+    const r=(data.geom_xmat as Float64Array).subarray(id*9,id*9+9);
+    return {
+      centerWorldM:[p[0]!,p[1]!,p[2]!],
+      rotationWorld:Array.from(r),
+    };
   }
 
   private sampleStepExperiment(): void {
@@ -218,6 +253,39 @@ export class MujocoSimulation {
                 maxFootForceN:150,
                 blend:command.cartesianBlend*this.cartesianStepScale,
               });
+          }
+          // NEW opt-in contact experiment. Record the *material point* slip,
+          // not the rigid sole marker speed. The measured floor reaction is
+          // independent of the intended virtual foot force below.
+          this.stanceContactDiagnostic=null;
+          if (this.stanceContactScale>0 && this.stepExperiment &&
+              ["LIFT","SWING","LAND"].includes(command.phase)) {
+            const side:FootSide=this.stepExperiment.swingSide==="left"?"right":"left";
+            const pose=this.measuredFootPose(side);
+            const foot=this.humanoidGroundSupportObservation()[side];
+            const contact=foot.verticalLoadCentroidWorldM;
+            const dt=data.time-this.priorStancePoseTimeS;
+            if (this.priorStancePose && contact && dt>0 && dt<=0.025) {
+              const slip=estimateContactPatchSlip(this.priorStancePose,pose,contact,dt);
+              const com=data.subtree_com as Float64Array;
+              const requested=this.stepExperiment.targetDeltaXY;
+              const plan=planStanceContactCommand({
+                phase:command.phase,
+                requestedStepXY:requested,
+                comWorldM:[com[3]!,com[4]!,com[5]!],
+                contactWorldM:contact,
+                foot,
+                materialSlipXYMps:slip.tangentialVelocityWorldMps,
+                strength:this.stanceContactScale,
+              });
+              if (plan) {
+                applyStanceContactCommand(model,data,this.standingController.gains,
+                  side,contact,plan.virtualForceWorldN);
+                this.stanceContactDiagnostic=plan;
+              }
+            }
+            this.priorStancePose=pose;
+            this.priorStancePoseTimeS=data.time;
           }
         }
       }
@@ -563,6 +631,9 @@ export class MujocoSimulation {
             contactNormalForceN: Math.max(0, solved.normalN),
             tangentForceWorldN: tangentWorld,
             frictionUtilization: solved.frictionUtilization,
+            contactSlideFrictionMin: contact.dim>1 ?
+              Math.min((contact.friction as Float64Array)[0]!,
+                (contact.friction as Float64Array)[1]!) : 0,
           });
         } finally {
           contact.delete();

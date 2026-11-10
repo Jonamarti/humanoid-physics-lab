@@ -111,6 +111,13 @@ app.innerHTML = `
               <option value="1">100 % — retención máxima (puede provocar caída)</option>
             </select>
             <p class="muted">Configuración de referencia: paso hacia delante de 12 cm, rodilla coordinada, 52 % de servo y 48 % de retención, sobre el suelo nominal del modelo de 75 kg. Ha completado un paso con ambos pies en las pruebas; no está calibrada para otras direcciones, suelos ni personas reales. No se activa al recibir un empujón.</p>
+            <label for="step-model">Modelo físico de los pies (solo experimental)</label>
+            <select id="step-model">
+              <option value="v2" selected>v2 — pie rígido, referencia previamente medida</option>
+              <option value="v3">v3 — retropié y dedos articulados, sin validar</option>
+            </select>
+            <button id="v3-stand-run" type="button" disabled>Probar bipedestación con v3 (10 s)</button>
+            <p id="v3-contact-readout" class="muted" role="status" aria-live="off" hidden></p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
             <p id="step-gates-readout" class="muted">Condiciones pendientes: primero debe despegar y apoyar físicamente.</p>
@@ -188,6 +195,9 @@ const stepCartesian = required<HTMLSelectElement>("#step-cartesian");
 const stepExtensionGuard = required<HTMLSelectElement>("#step-extension-guard");
 const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
+const stepModel = required<HTMLSelectElement>("#step-model");
+const v3StandRun = required<HTMLButtonElement>("#v3-stand-run");
+const v3ContactReadout = required<HTMLElement>("#v3-contact-readout");
 const stepReadout = required<HTMLElement>("#step-readout");
 const stepGatesReadout = required<HTMLElement>("#step-gates-readout");
 
@@ -242,6 +252,7 @@ function updateCalculation(): void {
   rigidPanel.hidden = standingSelected;
   pushRun.disabled = !!forceEditor?.enabled || !simulation || mode !== "standing" || !validPushInputs();
   stepRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
+  v3StandRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -276,7 +287,8 @@ if (viewport) {
 }
 
 let simulation: MujocoSimulation | undefined;
-let loadedStandingModel: "nominal" | "gait" = "nominal";
+type StandingModelVariant = "nominal" | "gait" | "gait_v3";
+let loadedStandingModel: StandingModelVariant = "nominal";
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
@@ -298,6 +310,7 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
   const z = state.qpos[2];
   balanceReadout.hidden = mode !== "humanoid" && mode !== "standing";
   groundProjectionReadout.hidden = balanceReadout.hidden;
+  v3ContactReadout.hidden = mode !== "standing" || loadedStandingModel !== "gait_v3";
   if (mode === "cylinder") {
     maxSampledForwardTiltDeg = Math.max(maxSampledForwardTiltDeg, cylinderForwardTiltDeg(state.qpos));
     physicsReadout.textContent = "t = " + state.time.toFixed(3) +
@@ -316,6 +329,21 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
       viewer?.setArticulatedPoses(simulation.geometryPoses());
       const b = simulation.humanoidBalanceObservation();
       const ground = simulation.humanoidGroundSupportObservation();
+      if (mode === "standing" && loadedStandingModel === "gait_v3") {
+        const left=ground.left.segments, right=ground.right.segments;
+        if (!left || !right) throw new Error("Modelo v3 sin sensores de antepié");
+        const percent=(toe:number,total:number):string=>
+          total>1 ? (100*toe/total).toFixed(1)+" %" : "sin apoyo";
+        v3ContactReadout.textContent =
+          "v3 experimental — cargas resueltas en MuJoCo (N). Izquierdo: talón " +
+          left.rearfoot.verticalLoadN.toFixed(0) + ", antepié " +
+          left.forefoot.verticalLoadN.toFixed(0) + " (" +
+          percent(left.forefoot.verticalLoadN,ground.left.verticalLoadN) +
+          "). Derecho: talón " + right.rearfoot.verticalLoadN.toFixed(0) +
+          ", antepié " + right.forefoot.verticalLoadN.toFixed(0) + " (" +
+          percent(right.forefoot.verticalLoadN,ground.right.verticalLoadN) +
+          "). Centroide y carga no prueban por sí solos propulsión ni ausencia de deslizamiento.";
+      }
       const projection = projectBalanceToGround(b.comWorldM, ground.loadedSupportPolygonXY);
       viewer?.setBalanceProjection(b.comWorldM, ground.loadedSupportPolygonXY);
       const label = projection.status === "inside" ? "DENTRO" :
@@ -508,7 +536,9 @@ function animate(timestampMs: number): void {
       toggleButton.textContent = "Iniciar";
       const status = activeSimulation.experimentalStepStatus();
       physicsStatus.textContent = status?.phase === "COMPLETE"
-        ? "Paso físico comprobado: despegue, avance hacia objetivo y aterrizaje cargado."
+        ? (loadedStandingModel === "gait_v3"
+          ? "FSM COMPLETE en v3: evaluar cargas de antepié, fricción y deslizamiento antes de llamarlo marcha validada."
+          : "Paso físico comprobado: despegue, avance hacia objetivo y aterrizaje cargado.")
         : status?.phase === "FALL"
         ? "El intento de paso terminó en una caída física."
         : "Paso experimental no completado: " + (status?.reason ?? "sin diagnóstico");
@@ -516,7 +546,9 @@ function animate(timestampMs: number): void {
     if (mode === "standing" && !activePush && !activeStepTrial && !forceEditor?.running && state.time >= 10) {
       playing = false;
       toggleButton.textContent = "Iniciar";
-      physicsStatus.textContent = state.qpos[2]! >= 0.79
+      physicsStatus.textContent = loadedStandingModel === "gait_v3"
+        ? "v3: 10 segundos integrados. La altura final y las cargas visibles no garantizan postura estable; pendiente análisis de inclinación, apoyos y deslizamiento."
+        : state.qpos[2]! >= 0.79
         ? "Diez segundos simulados: pelvis alta y controlador activo. Ensayo nominal sin empujones; la recuperación aún no está validada."
         : "Diez segundos simulados, pero el humanoide perdió altura: el escenario no superó la evaluación.";
     }
@@ -544,6 +576,9 @@ function clearLoadedScenario(): void {
   activePush = undefined;
   activeStepTrial = false;
   stepRun.disabled = true;
+  v3StandRun.disabled = true;
+  v3ContactReadout.hidden = true;
+  v3ContactReadout.textContent = "";
   stepReadout.textContent = "El paso todavía no se ha ensayado.";
   stepGatesReadout.textContent = "Condiciones pendientes: primero debe despegar y apoyar físicamente.";
   initialPushCom = undefined;
@@ -625,6 +660,7 @@ loadButton.addEventListener("click", async () => {
     pushRun.disabled = !!forceEditor?.enabled || mode !== "standing" || !validPushInputs();
     forceEditor?.refresh();
     stepRun.disabled = mode !== "standing" || !!forceEditor?.enabled;
+    v3StandRun.disabled = mode !== "standing" || !!forceEditor?.enabled;
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -648,12 +684,14 @@ for (const control of [pushPeak, pushDuration, pushDirection]) {
  * Recreate the MuJoCo model, rather than patching its compiled joint axes
  * in-place (which could invalidate precomputed contact structures).
  */
-async function ensureStandingModel(requested: "nominal" | "gait"): Promise<void> {
+async function ensureStandingModel(requested: StandingModelVariant): Promise<void> {
   if (!simulation || mode !== "standing" || loadedStandingModel===requested) return;
   const previous=simulation;
-  const file=requested==="gait" ? "models/humanoid_step_v2.xml" : "models/humanoid_v1.xml";
+  const file=requested==="gait_v3" ? "models/humanoid_gait_v3.xml" :
+    requested==="gait" ? "models/humanoid_step_v2.xml" : "models/humanoid_v1.xml";
   physicsStatus.textContent = "Preparando modelo " +
-    (requested==="gait" ? "de marcha con flexión anatómica" : "de equilibrio original") + "...";
+    (requested==="gait_v3" ? "v3 con antepié articulado" :
+      requested==="gait" ? "de marcha con flexión anatómica" : "de equilibrio original") + "...";
   const response=await fetch(import.meta.env.BASE_URL + file);
   if (!response.ok) throw new Error("No se pudo cargar "+file+": HTTP "+response.status);
   const next=await MujocoSimulation.create(await response.text());
@@ -714,6 +752,29 @@ pushRun.addEventListener("click", async () => {
   }
 });
 
+v3StandRun.addEventListener("click", async () => {
+  if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
+  try {
+    playing = false;
+    await ensureStandingModel("gait_v3");
+    if (!simulation || mode !== "standing") return;
+    simulation.reset();
+    activeStepTrial = false;
+    stepReadout.textContent = "Sin paso: ensayo de bipedestación del modelo articulado v3.";
+    clock.reset(); lastFrame = undefined;
+    activePush = undefined;
+    initialPushCom = undefined; initialPushFeet = undefined;
+    playing = true;
+    toggleButton.textContent = "Pausar";
+    physicsStatus.textContent = "Ensayo v3 de 10 s en marcha; no equivale a validación de estabilidad.";
+    present(simulation.state());
+  } catch (error) {
+    playing = false;
+    physicsStatus.textContent = "Error preparando bipedestación v3: " +
+      (error instanceof Error ? error.message : String(error));
+  }
+});
+
 stepRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
   try {
@@ -724,7 +785,8 @@ stepRun.addEventListener("click", async () => {
       ? [0, 0.12*sign] : direction === "forward" ? [0.12,0] :
         direction === "backward" ? [-0.10,0] : [0.12,0.08*sign];
     playing = false;
-    await ensureStandingModel(Number(stepProfile.value)>0 ? "gait" : "nominal");
+    await ensureStandingModel(Number(stepProfile.value)>0 ?
+      (stepModel.value==="v3" ? "gait_v3" : "gait") : "nominal");
     if (!simulation || mode !== "standing") return;
     simulation.reset();
     simulation.enableExperimentalStepTrial(side, delta, 0.8,
@@ -739,7 +801,9 @@ stepRun.addEventListener("click", async () => {
     activeStepTrial = true;
     playing = true;
     toggleButton.textContent = "Pausar";
-    physicsStatus.textContent = Number(stepProfile.value) > 0 ?
+    physicsStatus.textContent = loadedStandingModel === "gait_v3" ?
+      "Paso v3 experimental con articulación MTP pasiva. No hay validación de marcha ni propulsión; medir fuerzas y estabilidad." :
+      Number(stepProfile.value) > 0 ?
       "Ensayo de paso coordinado: la extensión de rodilla depende del avance real. El perfil calibrado solo ha superado pruebas para 12 cm hacia delante en el modelo nominal de 75 kg." :
       "Ensayo anterior de paso físico; los fallos se mostrarán como fallos.";
     present(simulation.state());

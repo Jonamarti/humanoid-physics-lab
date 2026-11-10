@@ -42,6 +42,29 @@ is not material sliding.
 - Left/right COMPLETE steps across friction 0.9, 1.0 and 1.1: **not tested**.
 - No changes to the baseline v2 controller or acceptance thresholds.
 
+## Browser inspection workflow (experimental)
+
+In the existing **Humanoide — equilibrio activo** scenario, load the
+nominal humanoid first. The new **Modelo físico de los pies** selector
+defaults to the previously measured **v2** model. Select **v3** only to
+run a voluntary step with articulated toes, or press **Probar
+bipedestación con v3 (10 s)** to load the v3 model and run 10 seconds
+of physical integration.
+
+The viewer displays separate MuJoCo solved normal loads for each
+rearfoot and forefoot and the fraction of each total foot load borne
+by the toes. There are no added motors, toe constraints, inverse-kinematic
+corrections, or hidden stabilizers in the UI.
+
+**Interpretation:** visible toe load is only contact evidence. It does
+not prove static friction, roll-over, support impulse, viable recovery,
+or stable walking. The old v2 step remains the default. The push
+button switches back to nominal v1 to avoid invalid comparison between
+the newly articulated gait model and prior push benchmarks.
+
+This UI route is source-level implemented but still needs an actual
+browser/WebAssembly smoke test before being treated as working.
+
 ## Repeatable benchmark protocol (added, not yet executed)
 
 The optional `tests/manual/articulatedForefootV3Bench.test.ts` records:

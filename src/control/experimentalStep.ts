@@ -100,7 +100,6 @@ export class ExperimentalStepSequence {
   private firstLandingTimeS: number | null = null;
   private stableTransferSinceS: number | undefined;
   private latestSupportFraction = 0;
-  private latestCaptureInside = false;
 
   constructor(
     readonly swingSide: FootSide,
@@ -209,7 +208,6 @@ export class ExperimentalStepSequence {
     const supportFraction = loadTotal > 10 ? info.supportLoadN/loadTotal : 0;
     this.maxSupportLoadFraction = Math.max(this.maxSupportLoadFraction,supportFraction);
     this.latestSupportFraction = supportFraction;
-    this.latestCaptureInside = info.capturePointInsideLoadedSupport;
     if (this.articulatedSupportTransfer && this.phase === "SHIFT_WEIGHT") {
       // A single 50 Hz load spike is insufficient to release the swing leg.
       // The capture point must remain in *solved loaded* support and the

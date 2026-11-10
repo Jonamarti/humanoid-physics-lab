@@ -39,7 +39,7 @@ describe("Opt-in landing friction torque relief - real 75kg MuJoCo A/B", () => {
             minPelvisM:+status.minPelvisM.toFixed(3),
           };
           results.push(row);
-          expect(Object.values(row).every(x=>x===null || typeof x==="string" || Number.isFinite(x))).toBe(true);
+          expect(Object.values(row).every(x=>x===null || typeof x==="string" || typeof x==="boolean" || Number.isFinite(x))).toBe(true);
           if(status.phase==="COMPLETE") {
             expect(status.maxLandingSlipM).toBeLessThanOrEqual(0.02);
             expect(status.maxSupportFootSlipM).toBeLessThanOrEqual(0.02);

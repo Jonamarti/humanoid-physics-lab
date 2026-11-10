@@ -79,12 +79,8 @@ export class MujocoSimulation {
       // optional-access probe: it can corrupt the WASM runtime. Only resolve
       // both toe names when the XML explicitly declares both physical geoms.
       const declared = xml.replace(/<!--[\s\S]*?-->/g,"");
-      const hasGeom = (name:string):boolean => {
-        const tag = new RegExp(String.raw\`<geom\\b[^>]*\\bname\\s*=\\s*["']\${name}["']\`);
-        return tag.test(declared);
-      };
-      const hasLeftToe = hasGeom("left_toe_geom");
-      const hasRightToe = hasGeom("right_toe_geom");
+      const hasLeftToe = /<geom\b[^>]*\bname\s*=\s*["']left_toe_geom["']/.test(declared);
+      const hasRightToe = /<geom\b[^>]*\bname\s*=\s*["']right_toe_geom["']/.test(declared);
       if (hasLeftToe !== hasRightToe) throw new Error("Modelo con antepié incompleto");
       if (hasLeftToe) {
         const left = nextModel.geom("left_toe_geom").id;

@@ -97,11 +97,20 @@ app.innerHTML = `
             <label for="step-cartesian">Control cartesiano de pie (experimental)</label>
             <select id="step-cartesian">
               <option value="0">Desactivado — control articular anterior</option>
-              <option value="0.2" selected>20 % — corrección leve (mejor ensayo observado)</option>
+              <option value="0.2">20 % — versión previa (ABORT en paso frontal 12 cm)</option>
               <option value="0.5">50 % — corrección media</option>
+              <option value="0.52" selected>52 % — ensayo calibrado de paso frontal 12 cm</option>
               <option value="1">100 % — corrección máxima experimental</option>
             </select>
-            <p class="muted">El 20 % es el ensayo con rodilla corregida que consigue adelantar y apoyar el pie sin caerse; todavía acaba en ABORT por precisión y deslizamiento. Otras ganancias pueden provocar caídas.</p>
+            <label for="step-extension-guard">Retención de rodilla flexionada hasta acercarse al destino</label>
+            <select id="step-extension-guard">
+              <option value="0">0 % — extender según el tiempo (versión anterior)</option>
+              <option value="0.35">35 % — retención ligera</option>
+              <option value="0.48" selected>48 % — retención calibrada para 12 cm hacia delante</option>
+              <option value="0.5">50 % — retención intensa</option>
+              <option value="1">100 % — retención máxima (puede provocar caída)</option>
+            </select>
+            <p class="muted">Configuración de referencia: paso hacia delante de 12 cm, rodilla coordinada, 52 % de servo y 48 % de retención, sobre el suelo nominal del modelo de 75 kg. Ha completado un paso con ambos pies en las pruebas; no está calibrada para otras direcciones, suelos ni personas reales. No se activa al recibir un empujón.</p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
             <p id="step-gates-readout" class="muted">Condiciones pendientes: primero debe despegar y apoyar físicamente.</p>
@@ -176,6 +185,7 @@ const pushReadout = required<HTMLElement>("#push-readout");
 const stepFoot = required<HTMLSelectElement>("#step-foot");
 const stepDirection = required<HTMLSelectElement>("#step-direction");
 const stepCartesian = required<HTMLSelectElement>("#step-cartesian");
+const stepExtensionGuard = required<HTMLSelectElement>("#step-extension-guard");
 const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
 const stepReadout = required<HTMLElement>("#step-readout");
@@ -717,7 +727,9 @@ stepRun.addEventListener("click", async () => {
     await ensureStandingModel(Number(stepProfile.value)>0 ? "gait" : "nominal");
     if (!simulation || mode !== "standing") return;
     simulation.reset();
-    simulation.enableExperimentalStepTrial(side, delta, 0.8, Number(stepCartesian.value), Number(stepProfile.value));
+    simulation.enableExperimentalStepTrial(side, delta, 0.8,
+      Number(stepCartesian.value), Number(stepProfile.value),
+      Number(stepExtensionGuard.value));
     activeStepFoot = side;
     clock.reset();
     lastFrame = undefined;
@@ -728,7 +740,7 @@ stepRun.addEventListener("click", async () => {
     playing = true;
     toggleButton.textContent = "Pausar";
     physicsStatus.textContent = Number(stepProfile.value) > 0 ?
-      "Ensayo de marcha coordinada: transferencia del COM, inclinación de tronco, elevación del muslo y flexión de rodilla. Resultados físicos sin garantías de estabilidad." :
+      "Ensayo de paso coordinado: la extensión de rodilla depende del avance real. El perfil calibrado solo ha superado pruebas para 12 cm hacia delante en el modelo nominal de 75 kg." :
       "Ensayo anterior de paso físico; los fallos se mostrarán como fallos.";
     present(simulation.state());
   } catch (error) {

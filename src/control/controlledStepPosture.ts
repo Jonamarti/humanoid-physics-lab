@@ -38,11 +38,19 @@ export function controlledStepPosture(input: {
   readonly swingSide: FootSide;
   readonly targetDeltaXY: XY;
   readonly intensity?: number;
+  /** Actual signed progress of swing sole toward requested goal, divided
+   * by the goal distance. Measured by MuJoCo, not a prescribed curve. */
+  readonly swingProgress01?: number;
+  /** 0=legacy timed extension; 1=hold knee flexion until reaching goal. */
+  readonly swingExtensionGuard?: number;
 }): GaitPosture {
   const {phase,elapsedS,swingSide,targetDeltaXY} = input;
   const intensity=input.intensity??1;
-  if (![elapsedS,...targetDeltaXY,intensity].every(Number.isFinite) ||
+  const progress=input.swingProgress01??1;
+  const guard=input.swingExtensionGuard??0;
+  if (![elapsedS,...targetDeltaXY,intensity,progress,guard].every(Number.isFinite) ||
       elapsedS < 0 || intensity < 0 || intensity > 1 ||
+      guard < 0 || guard > 1 ||
       Math.hypot(...targetDeltaXY)>0.38) {
     throw new RangeError("Plan de marcha inválido");
   }
@@ -64,11 +72,17 @@ export function controlledStepPosture(input: {
     targets.lumbar_pitch=trunkPitch*0.72;
     targets.thorax_pitch=trunkPitch*0.28;
   }
+  // A pure clock-driven knee extension has been lowering the foot
+  // ~6cm into a requested 12cm step. Delay extension *only when enabled*
+  // until the actually observed sole progresses toward the landing goal.
+  const timedExtension=smoothStep(elapsedS,0.34);
+  const progressExtension=smoothStep(Math.max(0,progress-0.35),0.45);
+  const extension=timedExtension*
+    (1-guard+guard*progressExtension);
   const flex=phase==="LIFT" ? smoothStep(elapsedS,0.26) :
-    // Swing must *extend the knee* before the foot can move forward:
-    // retaining ~40° flexion throughout swing left the shoe behind pelvis.
-    // At the end of swing keep a small bend (~20°) for toe clearance.
-    phase==="SWING" ? 1-0.65*smoothStep(elapsedS,0.34) :
+    // Positive extension fraction reduces negative knee flexion,
+    // without changing the physical MuJoCo integration.
+    phase==="SWING" ? 1-0.65*extension :
     phase==="LAND" ? 0.35*(1-smoothStep(elapsedS,0.40))+0.06 :
     phase==="RECOVER" ? 0.07*(1-smoothStep(elapsedS,0.6)) :
     0;

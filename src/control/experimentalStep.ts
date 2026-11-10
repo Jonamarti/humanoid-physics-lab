@@ -55,6 +55,8 @@ export interface StepSnapshot {
   readonly targetErrorXYM: number;
   /** Consecutive seconds of verified stability, sampled at physics cadence. */
   readonly settledDurationS: number;
+  /** Every physics gate required for sustained step completion. */
+  readonly stability: StepStabilityAssessment | null;
   /** Last unloaded-foot velocity sampled BEFORE the loaded landing frame.
    * This is a ~20ms-cadence proxy, not an exact contact-time impact velocity.
    */
@@ -62,8 +64,6 @@ export interface StepSnapshot {
   readonly preLandingDownwardSpeedMps: number | null;
   readonly frictionUtilizationAtLanding: number | null;
   readonly firstLandingTimeS: number | null;
-  /** Every physics gate required for sustained step completion. */
-  readonly stability: StepStabilityAssessment | null;
 }
 
 /** One voluntary step attempt, useful for testing the controller in real
@@ -93,22 +93,25 @@ export class ExperimentalStepSequence {
   private latestSwingLoadN = 0;
   private settledSinceS: number | undefined;
   private settledDurationS = 0;
+  private stability: StepStabilityAssessment | null = null;
   private lastUnloadedFootVelocityWorldMps: XYZ | undefined;
   private firstLandingVelocityEstimate: XYZ | undefined;
   private frictionUtilizationAtLanding: number | null = null;
   private firstLandingTimeS: number | null = null;
-  private stability: StepStabilityAssessment | null = null;
 
   constructor(
     readonly swingSide: FootSide,
     readonly targetDeltaXY: XY,
     readonly startTimeS = 0.8,
     readonly coordinatedGaitProfile = 0,
+    /** Opt-in measured-foot-progress gate for swing knee extension. */
+    readonly swingExtensionGuard = 0,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
       Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
-      !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
+      !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1 ||
+      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -130,6 +133,7 @@ export class ExperimentalStepSequence {
       maxSupportFootSlipM: this.maxSupportFootSlipM,
       targetErrorXYM: this.targetErrorXYM,
       settledDurationS: this.settledDurationS,
+      stability: this.stability,
       preLandingTangentialSpeedMps: this.firstLandingVelocityEstimate
         ? Math.hypot(this.firstLandingVelocityEstimate[0],
           this.firstLandingVelocityEstimate[1]) : null,
@@ -137,7 +141,6 @@ export class ExperimentalStepSequence {
         ? Math.max(0,-this.firstLandingVelocityEstimate[2]) : null,
       frictionUtilizationAtLanding: this.frictionUtilizationAtLanding,
       firstLandingTimeS: this.firstLandingTimeS,
-      stability: this.stability,
     };
   }
 
@@ -323,6 +326,9 @@ export class ExperimentalStepSequence {
         phase:this.phase, elapsedS:elapsed,
         swingSide:this.swingSide, targetDeltaXY:this.targetDeltaXY,
         intensity:this.coordinatedGaitProfile,
+        swingProgress01:this.currentTargetProgressM /
+          Math.hypot(...this.targetDeltaXY),
+        swingExtensionGuard:this.swingExtensionGuard,
       }) : null;
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"

@@ -34,7 +34,7 @@ async function captureShot(page,folder,name) {
   await page.screenshot({path:path.join(folder,name+".png")});
 }
 
-async function scenario({name,type,direction,peak,duration}) {
+async function scenario({name,type,direction,peak,duration,foot="left"}) {
   const folder = path.join(out,name);
   await mkdir(folder,{recursive:true});
   const context = await browser.newContext({
@@ -64,9 +64,10 @@ async function scenario({name,type,direction,peak,duration}) {
       await waitTime(page,5.95);
       await captureShot(page,folder,"03-resultado");
     } else {
-      await page.locator("#step-foot").selectOption("left");
+      await page.locator("#step-foot").selectOption(foot);
       await page.locator("#step-direction").selectOption("forward");
-      await page.locator("#step-cartesian").selectOption("0.2");
+      await page.locator("#step-cartesian").selectOption("0.52");
+      await page.locator("#step-extension-guard").selectOption("0.48");
       await page.locator("#step-profile").selectOption("1");
       await page.locator("#step-run").click();
       await page.locator("#physics-viewport").scrollIntoViewIfNeeded();
@@ -77,6 +78,11 @@ async function scenario({name,type,direction,peak,duration}) {
     }
     const stepStatus=type==="step" ? await page.locator("#step-readout").innerText() : null;
     if(type==="step") {
+      if(!stepStatus?.includes("Fase: COMPLETE")) {
+        throw new Error("La grabación del paso no alcanzó COMPLETE: "+stepStatus);
+      }
+    }
+    if(type==="step" && foot==="left") {
       // Regression check: a user can immediately perform a 500N nominal
       // push after seeing the knee-corrected gait trial. The app should
       // automatically reload the original balanced humanoid.
@@ -117,7 +123,8 @@ async function scenario({name,type,direction,peak,duration}) {
 
 try {
   await scenario({name:"empujon-frontal-500N-original",type:"push",direction:"forward",peak:500,duration:120});
-  await scenario({name:"paso-frontal-rodilla-tronco-y-restauracion",type:"step"});
+  await scenario({name:"paso-calibrado-frontal-pie-izquierdo",type:"step",foot:"left"});
+  await scenario({name:"paso-calibrado-frontal-pie-derecho",type:"step",foot:"right"});
 } finally {
   await writeFile(path.join(out,"results.json"),JSON.stringify(results,null,2));
   await browser.close();

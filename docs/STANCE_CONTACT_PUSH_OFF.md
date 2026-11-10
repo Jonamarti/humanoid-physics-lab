@@ -36,13 +36,19 @@ For enabled isolated steps, the 2 ms physics loop:
    In late **forward** SWING/LAND only, with COM beyond the contact, it also requests a modest
    **rearward** foot effort. During RECOVER it uses slip-only feedback on **both loaded feet**,
    so the newly landed foot can roll or stabilize without any programmed push-off.
+   New `MaterialContactTracker` requires continuous loaded samples, engages at 60 N,
+   releases below 35 N, smooths the *material-point* tangential velocity and ramps the
+   requested force over ten simulation ticks; the planner also fades torque between
+   40 and 100 N of normal load. This avoids full correction on first impact.
    A small load-dependent aggregate friction-reserve *proxy* clips that request; the true
    solver still determines stick, slip and ground reaction.
 4. Converts the virtual contact effort to clipped **internal** hip/knee/ankle torques via `J^T F`.
    No external pelvis/root force, no repositioning the foot, no constraint welding and no
    modification of collision or surface friction.
 5. The UI separates **actual signed forward GRF** from the **virtual rearward request**, and displays
-   estimated contact-material sliding speed.
+   estimated contact-material sliding speed. `materialContactLocalM` additionally measures the
+   force-weighted contact position in the foot reference frame, so heel-to-toe contact migration
+   can be reported **separately** from true material-point sliding.
 
 **Limits:** a finite-difference material-point speed can be noisy near impact; a centroid is not
 a full pressure center/6D wrench; the aggregate friction margin is not a per-contact cone
@@ -53,8 +59,10 @@ virtual effort. All thresholds in the existing step-completion FSM remain unchan
 
 **Execution note (10 Nov 2026):** the edits have been published to an isolated GitHub branch,
 with unit and opt-in MuJoCo benchmark source. A local complete TypeScript/ESLint/Vitest/MuJoCo
-run has **not yet been executed** in this environment (repository dependencies and GitHub Actions
-credits are unavailable). No physical performance results or stability gains are claimed for this branch.
+run has **not yet been executed** in this environment: attempting to clone the public repository
+from the container failed because GitHub DNS is inaccessible. GitHub Actions remain disabled
+for this experiment to avoid consuming credits. No physical performance results or stability
+gains are claimed for this branch.
 
 
 Run existing tests/build locally with `npm run check`. The extra real-physics A/B is **opt-in**
@@ -62,6 +70,7 @@ to avoid CI credit consumption:
 
 ```bash
 RUN_LONG_BENCHMARKS=1 npx vitest run tests/unit/stanceContactMujoco.test.ts
+RUN_STANCE_FRICTION_SWEEP=1 npx vitest run tests/unit/stanceFrictionSensitivityMujoco.test.ts
 ```
 
 This experiment measures for **both legs**, on identical 75 kg MuJoCo
@@ -71,7 +80,8 @@ with stance-contact strength 0 and 0.35.
 The recorded evidence includes:
 - Positive and negative longitudinal **measured** GRF impulses on the rear foot (N s).
 - Backward contact-force **intent** integrated separately (NOT a GRF measurement).
-- Cumulative material-patch path and peak tangential material-contact speed at 2 ms sampling.
+- Cumulative material-patch path and peak tangential material-contact speed **for both the rear support foot and the newly landed foot** at 2 ms sampling.
+- Contact migration range in foot-local X (heel to toe), separate from material slip.
 - Site-marker displacement, placement error, loads and final physical FSM result.
 - Strict `COMPLETE` requirements: true bilateral contact, <=2 cm sole drift,
   <=5 cm target error and >=1 s of stable balance.

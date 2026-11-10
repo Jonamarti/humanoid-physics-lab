@@ -8,7 +8,7 @@ const input=(phase:"SHIFT_WEIGHT"|"LIFT"|"SWING"|"LAND"|"RECOVER",elapsedS:numbe
 });
 describe("Corrected knee anatomy and controlled step postures",()=>{
   it("makes knee folding biomechanically posterior with the existing negative-q targets",async()=>{
-    const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
+    const xml=await readFile(new URL("../../public/models/humanoid_step_v2.xml",import.meta.url),"utf8");
     for (const side of ["left","right"]) {
       expect(xml).toContain(`<joint name="${side}_knee" type="hinge" axis="0 -1 0" range="-2.45 0"/>`);
     }

@@ -38,6 +38,21 @@ export interface StepCommand {
   readonly cartesianBlend: number;
 }
 
+/** Strict gates that must ALL be true continuously for a certified step.
+ * Exposed for diagnostics; not used to relax pass/fail criteria.
+ */
+export interface StepStabilityGates {
+  readonly comInside: boolean;
+  readonly captureInside: boolean;
+  readonly comSpeedSlow: boolean;
+  readonly pelvisHigh: boolean;
+  readonly rootUpright: boolean;
+  readonly footAtTarget: boolean;
+  readonly supportFootStable: boolean;
+  readonly landedFootStable: boolean;
+  readonly bilateralLoad: boolean;
+}
+
 export interface StepSnapshot {
   readonly phase: StepPhase;
   readonly reason: string;
@@ -54,6 +69,7 @@ export interface StepSnapshot {
   readonly targetErrorXYM: number;
   /** Consecutive seconds of verified stability, sampled at physics cadence. */
   readonly settledDurationS: number;
+  readonly stabilityGates: StepStabilityGates | null;
   /** Last unloaded-foot velocity sampled BEFORE the loaded landing frame.
    * This is a ~20ms-cadence proxy, not an exact contact-time impact velocity.
    */
@@ -90,6 +106,7 @@ export class ExperimentalStepSequence {
   private latestSwingLoadN = 0;
   private settledSinceS: number | undefined;
   private settledDurationS = 0;
+  private stabilityGates: StepStabilityGates | null = null;
   private lastUnloadedFootVelocityWorldMps: XYZ | undefined;
   private firstLandingVelocityEstimate: XYZ | undefined;
   private frictionUtilizationAtLanding: number | null = null;
@@ -129,6 +146,7 @@ export class ExperimentalStepSequence {
       maxSupportFootSlipM: this.maxSupportFootSlipM,
       targetErrorXYM: this.targetErrorXYM,
       settledDurationS: this.settledDurationS,
+      stabilityGates: this.stabilityGates,
       preLandingTangentialSpeedMps: this.firstLandingVelocityEstimate
         ? Math.hypot(this.firstLandingVelocityEstimate[0],
           this.firstLandingVelocityEstimate[1]) : null,
@@ -220,15 +238,20 @@ export class ExperimentalStepSequence {
     // interval of physically loaded bilateral support and a stationary COM.
     // Missing/late samples invalidate the interval rather than pretending
     // there was support throughout the gap.
-    const stableNow =
-      info.comProjectionInsideLoadedSupport &&
-      info.capturePointInsideLoadedSupport &&
-      Math.hypot(info.comVelocityWorldMps[0],info.comVelocityWorldMps[1]) < 0.12 &&
-      info.pelvisHeightM > 0.82 && info.rootTiltDeg < 10 &&
-      this.targetErrorXYM <= 0.05 &&
-      this.maxSupportFootSlipM <= 0.02 &&
-      this.maxContactSlipM <= 0.02 &&
-      info.supportLoadN > 40 && info.swingLoadN > 40;
+    const gates: StepStabilityGates = {
+      comInside: info.comProjectionInsideLoadedSupport,
+      captureInside: info.capturePointInsideLoadedSupport,
+      comSpeedSlow: Math.hypot(info.comVelocityWorldMps[0],
+        info.comVelocityWorldMps[1]) < 0.12,
+      pelvisHigh: info.pelvisHeightM > 0.82,
+      rootUpright: info.rootTiltDeg < 10,
+      footAtTarget: this.targetErrorXYM <= 0.05,
+      supportFootStable: this.maxSupportFootSlipM <= 0.02,
+      landedFootStable: this.maxContactSlipM <= 0.02,
+      bilateralLoad: info.supportLoadN > 40 && info.swingLoadN > 40,
+    };
+    this.stabilityGates = gates;
+    const stableNow = Object.values(gates).every(Boolean);
     if ((this.phase === "RECOVER" || this.phase === "COMPLETE") &&
         stableNow && sampleGapS <= 0.06) {
       this.settledSinceS ??= info.timeS;

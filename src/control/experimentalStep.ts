@@ -98,6 +98,9 @@ export class ExperimentalStepSequence {
   private firstLandingVelocityEstimate: XYZ | undefined;
   private frictionUtilizationAtLanding: number | null = null;
   private firstLandingTimeS: number | null = null;
+  private stableTransferSinceS: number | undefined;
+  private latestSupportFraction = 0;
+  private latestCaptureInside = false;
 
   constructor(
     readonly swingSide: FootSide,
@@ -106,6 +109,8 @@ export class ExperimentalStepSequence {
     readonly coordinatedGaitProfile = 0,
     /** Opt-in measured-foot-progress gate for swing knee extension. */
     readonly swingExtensionGuard = 0,
+    /** Guarded support transfer; opt-in only for articulated-foot v3. */
+    readonly articulatedSupportTransfer = false,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
@@ -203,6 +208,19 @@ export class ExperimentalStepSequence {
     const loadTotal = info.supportLoadN + info.swingLoadN;
     const supportFraction = loadTotal > 10 ? info.supportLoadN/loadTotal : 0;
     this.maxSupportLoadFraction = Math.max(this.maxSupportLoadFraction,supportFraction);
+    this.latestSupportFraction = supportFraction;
+    this.latestCaptureInside = info.capturePointInsideLoadedSupport;
+    if (this.articulatedSupportTransfer && this.phase === "SHIFT_WEIGHT") {
+      // A single 50 Hz load spike is insufficient to release the swing leg.
+      // The capture point must remain in *solved loaded* support and the
+      // support leg must carry its share continuously before LIFT.
+      const steady = supportFraction >= 0.80 && info.swingLoadN < loadTotal*0.20 &&
+        info.capturePointInsideLoadedSupport &&
+        info.comProjectionInsideLoadedSupport &&
+        Math.hypot(info.comVelocityWorldMps[0],info.comVelocityWorldMps[1]) < 0.18;
+      if (steady && sampleGapS <= 0.06) this.stableTransferSinceS ??= info.timeS;
+      else this.stableTransferSinceS = undefined;
+    }
     if (this.phase === "FALL") return;
     if (info.pelvisHeightM < 0.65 || info.rootTiltDeg > 50) {
       this.transition("FALL",info.timeS,"Pelvis baja o tronco demasiado inclinado");
@@ -257,13 +275,22 @@ export class ExperimentalStepSequence {
       case "STAND":
         if (info.timeS >= this.startTimeS) this.transition("SHIFT_WEIGHT",info.timeS,"Transferencia de peso inicial");
         break;
-      case "SHIFT_WEIGHT":
-        if (elapsed >= 0.25 && supportFraction >= 0.7 && info.swingLoadN < loadTotal * 0.3) {
-          this.transition("LIFT",info.timeS,"Pie de apoyo con al menos 70 % de la carga");
+      case "SHIFT_WEIGHT": {
+        const legacyReady=elapsed >= 0.25 && supportFraction >= 0.7 &&
+          info.swingLoadN < loadTotal * 0.3;
+        const v3Ready=legacyReady && this.stableTransferSinceS !== undefined &&
+          info.timeS-this.stableTransferSinceS >= 0.12;
+        if (this.articulatedSupportTransfer ? v3Ready : legacyReady) {
+          this.transition("LIFT",info.timeS,this.articulatedSupportTransfer ?
+            "Apoyo articulado cargado de forma continua y punto de captura dentro" :
+            "Pie de apoyo con al menos 70 % de la carga");
         } else if (elapsed > 1.2) {
-          this.transition("ABORT",info.timeS,"No consiguió transferir peso al apoyo");
+          this.transition("ABORT",info.timeS,this.articulatedSupportTransfer ?
+            "Apoyo articulado no estabilizado para el despegue" :
+            "No consiguió transferir peso al apoyo");
         }
         break;
+      }
       case "LIFT":
         if (rise > 0.03 && info.swingLoadN < 25) {
           this.transition("SWING",info.timeS,"Despegue físico y descarga medidos");
@@ -333,9 +360,14 @@ export class ExperimentalStepSequence {
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
+    // For v3, do not inject more and more lateral bias once loads have
+    // reached their target; keep the reference bounded. v1/v2 stay exact.
+    const shiftM=this.articulatedSupportTransfer && this.phase==="SHIFT_WEIGHT"
+      ? 0.075*fraction*Math.max(0.55,Math.min(1.10,1.10-this.latestSupportFraction*0.20))
+      : 0.075*fraction;
     const weightShiftRef: XY = [
       referenceComXY[0]+(gait?.forwardComBiasM ?? 0),
-      referenceComXY[1]+supportSign*0.075*fraction,
+      referenceComXY[1]+supportSign*shiftM,
     ];
     let ref: XY = weightShiftRef;
     if (this.firstLandingSole && this.originalSole &&

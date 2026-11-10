@@ -7,7 +7,7 @@ import { MujocoSimulation } from "../../src/physics/mujoco";
  */
 describe("Knee/trunk landing sensitivity on fixed 75kg MuJoCo model",()=>{
   it("compares foot target and bounded Cartesian swing corrections",async()=>{
-    const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
+    const xml=await readFile(new URL("../../public/models/humanoid_step_v2.xml",import.meta.url),"utf8");
     const rows=[];
     for(const stepLength of [0.10,0.12]){
       for(const servo of [0.2,0.35,0.5,0.75]){

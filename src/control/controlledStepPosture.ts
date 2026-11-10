@@ -65,8 +65,11 @@ export function controlledStepPosture(input: {
     targets.thorax_pitch=trunkPitch*0.28;
   }
   const flex=phase==="LIFT" ? smoothStep(elapsedS,0.26) :
-    phase==="SWING" ? 1-0.28*smoothStep(elapsedS,0.38) :
-    phase==="LAND" ? 0.72*(1-smoothStep(elapsedS,0.40))+0.07 :
+    // Swing must *extend the knee* before the foot can move forward:
+    // retaining ~40° flexion throughout swing left the shoe behind pelvis.
+    // At the end of swing keep a small bend (~20°) for toe clearance.
+    phase==="SWING" ? 1-0.65*smoothStep(elapsedS,0.34) :
+    phase==="LAND" ? 0.35*(1-smoothStep(elapsedS,0.40))+0.06 :
     phase==="RECOVER" ? 0.07*(1-smoothStep(elapsedS,0.6)) :
     0;
   const hipForward=phase==="LIFT" ? smoothStep(elapsedS,0.28) :

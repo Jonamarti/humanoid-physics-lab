@@ -18,12 +18,18 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
       new URL("../../public/models/humanoid_step_v2.xml", import.meta.url), "utf8");
     const rows = [];
     for (const swing of ["left", "right"] as const) {
-      for (const stanceGain of [0, 0.35]) {
+      for (const {stanceGain,mode} of [
+        {stanceGain:0,mode:"combined"},
+        {stanceGain:0.35,mode:"combined"},
+        {stanceGain:0.35,mode:"push-only"},
+        {stanceGain:0.35,mode:"slip-only"},
+        {stanceGain:0.35,mode:"recovery-only"},
+      ] as const) {
         const sim = await MujocoSimulation.create(xml);
         try {
           sim.enableExperimentalStanding();
           sim.enableExperimentalStepTrial(swing, [0.12, 0], 0.8,
-            0.52, 1, 0.48, stanceGain);
+            0.52, 1, 0.48, stanceGain, mode);
           const support = swing === "left" ? "right" : "left";
           const specs = sim.geometrySpecs().filter(spec =>
             spec.shape === "box" && Math.abs(spec.size[2] - 0.035) < 1e-6);
@@ -93,7 +99,7 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
 
           const status = sim.experimentalStepStatus()!;
           const row = {
-            swing, stanceGain, phase: status.phase,
+            swing, stanceGain, mode, phase: status.phase,
             sampledForwardImpulseNs: +sampledForwardImpulseNs.toFixed(4),
             sampledBrakingImpulseNs: +sampledBrakingImpulseNs.toFixed(4),
             requestedPushImpulseNs: +requestedPushImpulseNs.toFixed(4),
@@ -126,7 +132,7 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
         }
       }
     }
-    console.log("STANCE-CONTACT-AB-SMOKE " + JSON.stringify(rows));
-    expect(rows).toHaveLength(4);
+    console.log("STANCE-CONTACT-ABLATION " + JSON.stringify(rows));
+    expect(rows).toHaveLength(10);
   }, 120000);
 });

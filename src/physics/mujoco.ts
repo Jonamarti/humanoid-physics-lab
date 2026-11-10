@@ -12,7 +12,7 @@ import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObs
 import { decodeSolvedContactForce } from "./contactForces";
 import type { MeasuredFootPose } from "./contactPatchSlip";
 import { MaterialContactTracker } from "./materialContactTracker";
-import { planStanceContactCommand, applyStanceContactCommand, type StanceContactCommand } from "../control/stanceContact";
+import { planStanceContactCommand, applyStanceContactCommand, type StanceContactCommand, type StanceContactMode } from "../control/stanceContact";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -56,6 +56,7 @@ export class MujocoSimulation {
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
   private stanceContactScale = 0;
+  private stanceContactMode: StanceContactMode = "combined";
   private readonly materialContactTrackers: Record<FootSide,MaterialContactTracker> = {
     left:new MaterialContactTracker(),right:new MaterialContactTracker(),
   };
@@ -97,6 +98,7 @@ export class MujocoSimulation {
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
     this.stanceContactScale = 0;
+    this.stanceContactMode = "combined";
     this.materialContactTrackers.left.reset();
     this.materialContactTrackers.right.reset();
     this.stanceContactDiagnostic = null;
@@ -118,6 +120,7 @@ export class MujocoSimulation {
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
     this.stanceContactScale = 0;
+    this.stanceContactMode = "combined";
     this.materialContactTrackers.left.reset();
     this.materialContactTrackers.right.reset();
     this.stanceContactDiagnostic = null;
@@ -143,6 +146,7 @@ export class MujocoSimulation {
     coordinatedGaitProfile = 0,
     swingExtensionGuard = 0,
     stanceContactScale = 0,
+    stanceContactMode: StanceContactMode = "combined",
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -154,6 +158,9 @@ export class MujocoSimulation {
     if (!Number.isFinite(stanceContactScale) || stanceContactScale<0 || stanceContactScale>1) {
       throw new RangeError("Control de contacto fuera de 0..1");
     }
+    if (!["combined","push-only","slip-only","recovery-only"].includes(stanceContactMode)) {
+      throw new RangeError("Modo de control de contacto desconocido");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
@@ -162,6 +169,7 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.stanceContactScale = stanceContactScale;
+    this.stanceContactMode = stanceContactMode;
     this.materialContactTrackers.left.reset();
     this.materialContactTrackers.right.reset();
     this.stanceContactDiagnostic = null;
@@ -266,8 +274,11 @@ export class MujocoSimulation {
           this.stanceContactDiagnostic=null;
           if (this.stanceContactScale>0 && this.stepExperiment) {
             const supportSide:FootSide=this.stepExperiment.swingSide==="left"?"right":"left";
-            const contactSides:FootSide[]=["LIFT","SWING","LAND"].includes(command.phase)
-              ? [supportSide] : command.phase==="RECOVER"
+            const rearContactEnabled=this.stanceContactMode!=="recovery-only";
+            const recoveryEnabled=this.stanceContactMode!=="push-only";
+            const contactSides:FootSide[]=rearContactEnabled &&
+              ["LIFT","SWING","LAND"].includes(command.phase)
+              ? [supportSide] : recoveryEnabled && command.phase==="RECOVER"
                 ? [supportSide,this.stepExperiment.swingSide] : [];
             if (contactSides.length>0) {
               const ground=this.humanoidGroundSupportObservation();
@@ -294,6 +305,7 @@ export class MujocoSimulation {
                   foot,
                   materialSlipXYMps:measured.materialSlipXYMps,
                   strength:this.stanceContactScale*measured.feedbackRamp01,
+                  mode:this.stanceContactMode,
                 });
                 if (plan) {
                   applyStanceContactCommand(model,data,this.standingController.gains,

@@ -50,6 +50,22 @@ describe("Experimental ground-contact feedback, not a welded foot",()=>{
     expect(recovery.intendedPushOffN).toBe(0);
     expect(recovery.virtualForceWorldN[0]).toBeLessThan(0);
   });
+  it("isolates posterior impulse from slip and recovery torques",()=>{
+    const push=sample({mode:"push-only",materialSlipXYMps:[0.25,0]})!;
+    expect(push.virtualForceWorldN[0]).toBeCloseTo(-12);
+    expect(push.intendedPushOffN).toBeCloseTo(12);
+    expect(sample({mode:"push-only",phase:"RECOVER",
+      materialSlipXYMps:[0.25,0]})).toBeNull();
+    const damping=sample({mode:"slip-only",materialSlipXYMps:[0.25,0]})!;
+    expect(damping.intendedPushOffN).toBe(0);
+    expect(damping.virtualForceWorldN[0]).toBeLessThan(0);
+    expect(sample({mode:"slip-only",materialSlipXYMps:[0,0]})).toBeNull();
+    const recovery=sample({mode:"recovery-only",phase:"RECOVER",
+      materialSlipXYMps:[0.25,0]})!;
+    expect(recovery.intendedPushOffN).toBe(0);
+    expect(recovery.virtualForceWorldN[0]).toBeLessThan(0);
+    expect(sample({mode:"recovery-only",materialSlipXYMps:[0.25,0]})).toBeNull();
+  });
   it("caps virtual correction conservatively by loaded friction headroom",()=>{
     const low=sample({foot:{...foot,verticalLoadN:50,
       tangentialReactionXYN:[20,0],effectiveSlideFrictionMin:0.5,

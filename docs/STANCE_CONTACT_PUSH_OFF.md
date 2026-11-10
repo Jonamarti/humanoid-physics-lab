@@ -95,3 +95,18 @@ the safe default, and do **not** merge into `main` or wire to 500 N perturbation
 Known prior baseline (without this change): both feet reached `COMPLETE` at friction 1.0
 in an isolated calibrated scenario; the same controller failed at friction 0.9 and 1.1.
 See `docs/GAIT_FIRST_COMPLETE.md`.
+
+## First physical A/B results and ablation (10 November 2026)
+
+The **regular CI physical smoke** (run [42905193334](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42905193334)) reproduced the baseline `COMPLETE` on both feet at gain 0, but **combined feedback at gain 0.35 worsened** the experiment:
+
+| Swing foot | Gain 0 | Combined gain 0.35 |
+|---|---|---|
+| Left | COMPLETE, landing patch path 1.613 cm | **FALL**, landing patch path 35.56 cm |
+| Right | COMPLETE, landing patch path 1.604 cm | **ABORT**, landing patch path 4.539 cm |
+
+Measured positive rear-foot ground-reaction impulse dropped from about 14.74 N·s to 10.70 N·s on both legs, despite the additional requested virtual posterior push. These figures are time-sampled reaction diagnostics, **not** proof of continuous push-off mechanics or improved gait. The feature remains in DRAFT and is disabled by default.
+
+To isolate the cause, `StanceContactMode` now offers four **headless experiment modes** at the same gain: `combined` (previous behavior), `push-only` (posterior requested impulse without slip damping), `slip-only` (contact slip damping without propulsion), `recovery-only` (both-foot landing damping only). The short physical smoke now logs all four modes for both feet, plus the calibrated zero-gain baseline. These modes are for diagnosis; the web UI still uses the combined path and defaults to zero.
+
+**Do not consider any variant successful solely because the test suite completes.** Inspect the ten recorded physics outcomes and reject variants that increase patch slip, fall risk or invalidate the original stability gates.

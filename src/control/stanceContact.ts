@@ -5,6 +5,8 @@ import type { NamedHingeModel } from "./standingBaseline";
 import type { StepPhase } from "./experimentalStep";
 import type { FootSupport } from "./footContacts";
 
+export type StanceContactMode = "combined" | "push-only" | "slip-only" | "recovery-only";
+
 /** An opt-in research controller. The requested virtual foot force is NOT
  * the measured ground reaction. Only the MuJoCo contact solver determines
  * whether the rear foot actually propels the body or slips.
@@ -38,19 +40,26 @@ export function planStanceContactCommand(input: {
   readonly materialSlipXYMps: XY;
   /** 0 preserves the old controller exactly; opt-in experimental strength. */
   readonly strength: number;
+  /** Ablation mode: separate rear push, slip damping and landing recovery. */
+  readonly mode?: StanceContactMode;
 }): StanceContactCommand | null {
   const {phase,requestedStepXY,comWorldM,contactWorldM,foot,
     materialSlipXYMps:slip,strength}=input;
+  const mode=input.mode??"combined";
   const friction=foot.effectiveSlideFrictionMin;
   const utilization=foot.frictionUtilizationPeak;
   const raw=[...requestedStepXY,...comWorldM,...contactWorldM,...slip,
     foot.verticalLoadN,...foot.tangentialReactionXYN,strength];
   if (raw.some(x=>!Number.isFinite(x)) || strength<0 || strength>1 ||
       (friction!==null && (!Number.isFinite(friction) || friction<0)) ||
-      (utilization!==null && (!Number.isFinite(utilization) || utilization<0))) {
+      (utilization!==null && (!Number.isFinite(utilization) || utilization<0)) ||
+      !["combined","push-only","slip-only","recovery-only"].includes(mode)) {
     throw new RangeError("Medida de apoyo o intensidad de contacto inválida");
   }
-  if (strength===0 || !["LIFT","SWING","LAND","RECOVER"].includes(phase) ||
+  const enabledPhase=mode==="recovery-only" ? phase==="RECOVER" :
+    mode==="push-only" ? (phase==="SWING" || phase==="LAND") :
+      ["LIFT","SWING","LAND","RECOVER"].includes(phase);
+  if (strength===0 || !enabledPhase ||
       foot.verticalLoadN<40 || !foot.verticalLoadCentroidWorldM ||
       friction===null || utilization===null || friction<=0) return null;
 
@@ -68,10 +77,11 @@ export function planStanceContactCommand(input: {
   // forward propulsion; the contact damping can still suppress slip.
   const forward=requestedStepXY[0]>0.03 && Math.abs(requestedStepXY[1])<0.20;
   const comLeadX=comWorldM[0]-contactWorldM[0];
-  const pushRamp=forward && (phase==="SWING" || phase==="LAND") ?
+  const pushRamp=(mode==="combined" || mode==="push-only") && forward &&
+    (phase==="SWING" || phase==="LAND") ?
     Math.max(0,Math.min(1,(comLeadX-0.015)/0.045)) : 0;
   const pushOffN=12*strength*pushRamp;
-  const damping=55*strength;
+  const damping=mode==="push-only" ? 0 : 55*strength;
   const desiredX=-pushOffN-damping*slip[0];
   const desiredY=-damping*slip[1];
   const requestedMagnitude=Math.hypot(desiredX,desiredY);

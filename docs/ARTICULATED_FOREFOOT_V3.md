@@ -117,6 +117,16 @@ sacrificing the 6 s fall-free result. This has **not** been implemented or
 validated in the current revision. Do not relax the 80% gate to manufacture
 lift, and do not add propulsive toe torque before stable support transfer.
 
+## Separate optional whole-body angular-momentum controller
+
+The v3-only, **disabled-by-default** arm/hip/spine momentum response is
+documented in [WHOLE_BODY_BALANCE.md](WHOLE_BODY_BALANCE.md). The measured
+eight-pair push comparison recovered 7/8 with both baseline and proposed
+control: slightly lower sagittal peak tilt, slightly higher lateral peak
+tilt, and an unrecovered 240 N backward fall in both policies.
+This does **not** change the current gait ABORTs, nor authorize enabling
+whole-body compensation simultaneously with the voluntary-step FSM.
+
 ## Browser inspection workflow (experimental)
 
 In the existing **Humanoide — equilibrio activo** scenario, load the

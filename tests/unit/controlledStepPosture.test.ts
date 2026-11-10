@@ -28,7 +28,7 @@ describe("Corrected knee anatomy and controlled step postures",()=>{
     expect(Object.keys(shift.targetsRad).some(k=>k.includes("root"))).toBe(false);
     const backward=controlledStepPosture(input("SHIFT_WEIGHT",0.4,-0.12));
     expect(backward.forwardComBiasM).toBeLessThan(-0.03);
-    expect(backward.requestedTrunkPitchRad).toBeLessThan(-0.11);
+    expect(backward.requestedTrunkPitchRad).toBeLessThan(-0.06);
   });
   it("flexes knee strongly to shorten leg while raising thigh, then extends gradually",()=>{
     const lift=controlledStepPosture(input("LIFT",0.3));

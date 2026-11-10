@@ -32,15 +32,50 @@ if used for v3, feed the world pose of the *actual contacting segment*
 rather than the parent foot pose. A migrating contact point by itself
 is not material sliding.
 
-## Current acceptance status
+## Validated benchmark outcomes (2026-11-10)
 
-- Model structure and segment telemetry implemented; numerical smoke tests and isolated force-aggregation tests
-  added, **not yet executed** for this branch.
-- 10-second standing stability with free root: **not tested**.
-- Loaded heel-to-toe roll: **not tested**.
-- Physically measured push-off impulse with no material sliding: **not tested**.
-- Left/right COMPLETE steps across friction 0.9, 1.0 and 1.1: **not tested**.
-- No changes to the baseline v2 controller or acceptance thresholds.
+The [one-off v3 MuJoCo benchmark](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42919217443)
+executed 10 seconds of unperturbed standing and six 12 cm forward-step trials
+using the unchanged v2 controller gains. The temporary workflow step was
+removed afterwards, leaving the benchmark opt-in.
+
+### V3 standing, 10 simulated seconds (2 ms integration)
+
+| Metric | Measured |
+| --- | ---: |
+| Final and minimum pelvis height | 0.9896 m |
+| Maximum sampled free-root tilt | 0.0494 degrees |
+| Bilateral foot-loaded duration | 10 s |
+| Final total upward ground reaction | 735.75 N |
+| Rearfoot vertical force on each side | 328.1472 N |
+| Forefoot vertical force on each side | 39.7278 N |
+| Standing diagnostic candidate | true |
+
+These observations support **unperturbed nominal standing**, not push
+recovery, rolling toe-off or walking. Forefoot load at the final instant is
+below the slip estimator's **40 N** loaded-sample gate; its reported zero
+slip covers only 6 consecutive qualifying samples, not the entire stance.
+
+### V3 steps, both sides and three ground-friction settings
+
+| Friction | Left step | Right step |
+| --- | --- | --- |
+| 0.9 | FALL, no confirmed landing | FALL, no confirmed landing |
+| 1.0 | FALL, no confirmed landing | FALL, no confirmed landing |
+| 1.1 | FALL, no confirmed landing | FALL, no confirmed landing |
+
+All **six tests failed biomechanical acceptance**: no sustained landing and
+zero settled duration in every trial. Some support toes carried up to 100%
+of instantaneous foot load, but this does not establish controlled toe-off.
+Segment-local material slip estimates reached >10 cm in several tests.
+The zero-valued sole-marker landing-slip metric on cases with *no confirmed
+landing* is **not evidence of zero sliding**.
+
+The benchmark exits with a successful software-test status because it
+records failure outcomes as valid measurements, without asserting gait
+success. Do **not** interpret green CI as biomechanical success.
+The previous v2 controls remain unchanged and cannot be reused on
+articulated feet without further closed-loop support-transfer work.
 
 ## Browser inspection workflow (experimental)
 
@@ -65,7 +100,7 @@ the newly articulated gait model and prior push benchmarks.
 This UI route is source-level implemented but still needs an actual
 browser/WebAssembly smoke test before being treated as working.
 
-## Repeatable benchmark protocol (added, not yet executed)
+## Repeatable benchmark protocol (executed once, still opt-in)
 
 The optional `tests/manual/articulatedForefootV3Bench.test.ts` records:
 
@@ -92,10 +127,10 @@ segment's own pose, while sole-marker displacement is a different metric.
 No control forces are applied directly to the free root. Friction sweeps
 are actual model changes, not threshold changes.
 
-The local execution environment used to prepare the PR did not have
-MuJoCo/npm dependencies or external network access, so this run has **not
-been performed**. Structural XML and mass/box geometry checks are not
-substitutes for numerical MuJoCo compilation or integration.
+The benchmark was executed on GitHub Actions once (run 42919217443).
+The local container still has no network access to npm dependencies, but
+the physical MuJoCo outcomes are captured above. Ordinary CI does not
+re-run the opt-in benchmark after removal of the temporary step.
 
 ## Next steps
 
@@ -103,9 +138,11 @@ substitutes for numerical MuJoCo compilation or integration.
    locally, with separate long-running v3 scenarios if CPU budget allows.
 2. Measure first-contact load per segment, foot pose and segment-local
    contact material velocities (not the rearfoot's site displacement).
-3. Verify 10 seconds of bipedal stance before attempting any gait.
-4. Tune hip/knee/ankle COM transfer for a genuinely loaded forefoot,
-   then consider a bounded additional toe/ankle joint torque.
-5. Compare both sides and friction sweep. Keep FALL/ABORT as actual outcomes.
+3. Preserve the successful 10-second unperturbed standing baseline.
+4. Instrument failure onset: MTP angle, solved toe load, heel-to-toe
+   load-center movement and COM/capture-point position per gait phase.
+5. Adapt hip/knee/ankle feedback for closed-loop support transfer before
+   considering bounded toe or ankle propulsion.
+6. Re-run both legs and friction sweep, keeping FALL/ABORT/COMPLETE gates.
 
 This model is a **research prototype** and not a validated human gait.

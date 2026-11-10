@@ -8,7 +8,7 @@ import { MujocoSimulation } from "../../src/physics/mujoco";
  */
 describe("Sagittal walking controlled-fall intensity sweep",()=>{
   it("measures actual COM, trunk pitch, knee bend and landing without faking success",async()=>{
-    const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
+    const xml=await readFile(new URL("../../public/models/humanoid_step_v2.xml",import.meta.url),"utf8");
     const result=[];
     for(const servo of [0,0.2]) {
       for(const intensity of [0.25,0.5,0.75,1]) {

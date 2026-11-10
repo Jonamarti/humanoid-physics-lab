@@ -3,7 +3,13 @@ import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
+import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
+import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
+import { rootTiltDegrees } from "./standingPush";
+import type { FootSide } from "../control/recoveryPlanner";
+import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
+import { decodeSolvedContactForce } from "./contactForces";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -40,6 +46,12 @@ export class MujocoSimulation {
   private model: InstanceType<Module["MjModel"]> | undefined;
   private data: InstanceType<Module["MjData"]> | undefined;
   private standingController: StandingController | undefined;
+  private stepExperiment: ExperimentalStepSequence | undefined;
+  private stepExperimentTicks = 0;
+  private lastStepFootWorld: XYZ | undefined;
+  private lastStepFootTimeS = 0;
+  private footSpeedWorldMps: XYZ = [0,0,0];
+  private cartesianStepScale = 0;
 
   private constructor(module: Module) {
     this.module = module;
@@ -72,6 +84,10 @@ export class MujocoSimulation {
     this.model = nextModel;
     this.data = nextData;
     this.standingController = undefined;
+    this.stepExperiment = undefined;
+    this.stepExperimentTicks = 0;
+    this.lastStepFootWorld = undefined;
+    this.footSpeedWorldMps = [0,0,0];
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -85,6 +101,10 @@ export class MujocoSimulation {
     this.module.mj_resetData(model, data);
     this.module.mj_forward(model, data);
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
+    this.stepExperiment = undefined;
+    this.stepExperimentTicks = 0;
+    this.lastStepFootWorld = undefined;
+    this.footSpeedWorldMps = [0,0,0];
   }
 
   /** Enables bounded internal-joint torque control on the public humanoid.
@@ -94,6 +114,64 @@ export class MujocoSimulation {
     const { model, data } = this.ready();
     this.module.mj_forward(model, data);
     this.standingController = makeStandingController(model, data);
+  }
+
+  /** Opt-in voluntary recovery-step test. Not a validated walking controller.
+   * Foot trajectories and contacts are all determined by real MuJoCo dynamics.
+   */
+  enableExperimentalStepTrial(
+    swingFoot: FootSide,
+    targetDeltaXY: XY = [0.10, 0],
+    startTimeS = 0.8,
+    cartesianStepScale = 0,
+  ): void {
+    if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
+      throw new RangeError("Escala de control de pie fuera de 0..1");
+    }
+    if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
+    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
+    this.stepExperimentTicks = 0;
+    this.cartesianStepScale = cartesianStepScale;
+    this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
+    this.lastStepFootTimeS = this.ready().data.time;
+    this.footSpeedWorldMps = [0,0,0];
+  }
+
+  experimentalStepStatus(): StepSnapshot | null {
+    return this.stepExperiment?.snapshot() ?? null;
+  }
+
+  private sampleStepExperiment(): void {
+    if (!this.stepExperiment) return;
+    const { model, data } = this.ready();
+    const side = this.stepExperiment.swingSide;
+    this.module.mj_subtreeVel(model,data);
+    const ground = this.humanoidGroundSupportObservation();
+    const com = data.subtree_com as Float64Array;
+    const vel = data.subtree_linvel as Float64Array;
+    const comWorldM: XYZ = [com[3]!,com[4]!,com[5]!];
+    const comVelocityWorldMps: XYZ = [vel[3]!,vel[4]!,vel[5]!];
+    const loaded = ground.loadedSupportPolygonXY;
+    const captureXY = capturePointXY([comWorldM[0],comWorldM[1]],
+      [comVelocityWorldMps[0],comVelocityWorldMps[1]],
+      Math.max(0.01,comWorldM[2]));
+    const pelvis = data.qpos as Float64Array;
+    this.stepExperiment.observe({
+      timeS: data.time,
+      comWorldM,
+      comVelocityWorldMps,
+      comProjectionInsideLoadedSupport: insideConvexHullXY(
+        [comWorldM[0],comWorldM[1]],loaded),
+      capturePointInsideLoadedSupport: insideConvexHullXY(captureXY,loaded),
+      pelvisHeightM: pelvis[2]!,
+      rootTiltDeg: rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
+      swingSoleWorldM: this.siteWorldPosition(side+"_sole"),
+      swingSoleVelocityWorldMps: this.footSpeedWorldMps,
+      swingFrictionUtilization: ground[side].frictionUtilizationMean,
+      supportSoleWorldM: this.siteWorldPosition((side==="left"?"right":"left")+"_sole"),
+      swingLoadN: ground[side].verticalLoadN,
+      supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,
+    });
   }
 
   /** Advances count physical steps. Each optional callback runs immediately
@@ -109,10 +187,57 @@ export class MujocoSimulation {
       (data.xfrc_applied as Float64Array).fill(0);
       if (this.standingController) {
         this.module.mj_subtreeVel(model, data);
-        stepActiveStanding(model, data, this.standingController);
+        const command = this.stepExperiment?.command(
+          data.time, this.standingController.referenceComXY);
+        const controller = command ? {
+          ...this.standingController,
+          referenceComXY: command.referenceComXY,
+        } : this.standingController;
+        stepActiveStanding(model, data, controller);
+        if (command) {
+          applyStepJointTargets(model,data,
+            this.standingController.gains,command.targetsRad);
+          if (command.soleTargetWorldM && this.stepExperiment &&
+              this.cartesianStepScale > 0) {
+            applyCartesianFootImpedance(model,data,this.standingController.gains,
+              this.stepExperiment.swingSide,{
+                targetWorldM:command.soleTargetWorldM,
+                currentWorldM:this.siteWorldPosition(this.stepExperiment.swingSide+"_sole"),
+                measuredVelocityWorldMps:this.footSpeedWorldMps,
+                gainsNPerM:[780,780,900],
+                dampingNsPerM:[90,90,80],
+                maxFootForceN:150,
+                blend:command.cartesianBlend*this.cartesianStepScale,
+              });
+          }
+        }
       }
       beforeStep?.(data.time);
       this.module.mj_step(model, data);
+      if (this.stepExperiment) {
+        const point = this.siteWorldPosition(this.stepExperiment.swingSide+"_sole");
+        const dt = data.time-this.lastStepFootTimeS;
+        if (this.lastStepFootWorld && dt > 0) {
+          const instant:XYZ = [
+            (point[0]-this.lastStepFootWorld[0])/dt,
+            (point[1]-this.lastStepFootWorld[1])/dt,
+            (point[2]-this.lastStepFootWorld[2])/dt,
+          ];
+          const prev = this.footSpeedWorldMps;
+          this.footSpeedWorldMps = [
+            0.75*prev[0]+0.25*instant[0],
+            0.75*prev[1]+0.25*instant[1],
+            0.75*prev[2]+0.25*instant[2],
+          ];
+        }
+        this.lastStepFootWorld = point;
+        this.lastStepFootTimeS = data.time;
+      }
+      if (this.stepExperiment && ++this.stepExperimentTicks % 10 === 0) {
+        // Read solved loads at 50 Hz, with the prior physical step's
+        // contact solution (a <=2ms lag), not on render frames.
+        this.sampleStepExperiment();
+      }
     }
     return this.state();
   }
@@ -389,25 +514,33 @@ export class MujocoSimulation {
                 first === floorGeomId ? second : first
               )) continue;
           if (contact.efc_address < 0) continue; // excluded / unsolved
-          // Bindings 3.17.0 copy output arrays in mj_contactForce rather
-          // than writing them back into JS typed arrays. Decode the solved
-          // normal directly from efc_force, matching mju_decodePyramid.
-          const rows = pyramidal && contact.dim > 1 ? 2 * (contact.dim - 1) : 1;
-          const start = contact.efc_address;
-          if (start + rows > constraintForce.length) {
-            throw new Error("Índice de restricción fuera de rango");
-          }
-          let normalN = 0;
-          for (let j = 0; j < rows; j++) normalN += constraintForce[start + j]!;
-          normalN -= contact.adhesion;
+          // Decode the solved normal *and* tangents from efc_force with
+          // the same pyramid formula as MuJoCo's mju_decodePyramid.
+          // This avoids the WASM mj_contactForce output-buffer bug.
+          const solved = decodeSolvedContactForce({
+            solverRows: constraintForce,
+            efcAddress: contact.efc_address,
+            dim: contact.dim,
+            pyramidal: Boolean(pyramidal),
+            friction: contact.friction as Float64Array,
+            adhesionN: contact.adhesion,
+          });
           const point = contact.pos as Float64Array;
           const frame = contact.frame as Float64Array;
+          const [u,v] = solved.tangentN;
+          const tangentWorld: XYZ = [
+            u*frame[3]!+v*frame[6]!,
+            u*frame[4]!+v*frame[7]!,
+            u*frame[5]!+v*frame[8]!,
+          ];
           samples.push({
             geom1: first,
             geom2: second,
             positionWorldM: [point[0]!, point[1]!, point[2]!],
             contactNormalWorld: [frame[0]!, frame[1]!, frame[2]!],
-            contactNormalForceN: Math.max(0, normalN),
+            contactNormalForceN: Math.max(0, solved.normalN),
+            tangentForceWorldN: tangentWorld,
+            frictionUtilization: solved.frictionUtilization,
           });
         } finally {
           contact.delete();
@@ -425,6 +558,7 @@ export class MujocoSimulation {
   }
 
   dispose(): void {
+    this.stepExperiment = undefined;
     this.standingController = undefined;
     this.data?.delete();
     this.model?.delete();

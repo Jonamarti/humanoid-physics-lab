@@ -78,14 +78,19 @@ export function planRecovery(input: RecoveryInput): RecoveryPlan {
     return result("FALL", "Falta soporte bilateral para transferir peso de forma segura");
   }
 
-  // Step with the lighter foot, but reject the option if the single support
-  // footprint cannot support the COM projection when that foot is unloaded.
-  const candidates: { support: FootSide; swing: FootSide; target: XY; score: number }[] = [];
+  // An initially centered COM is BETWEEN feet, not inside either sole.
+  // Do not declare inevitable FALL: plan a weight-transfer phase first,
+  // and only allow a real foot to lift once support is verified physically.
+  const candidates: { support: FootSide; swing: FootSide; target: XY;
+    score: number; needsTransfer: boolean }[] = [];
   for (const [supportSide, swingSide] of
     [["left", "right"], ["right", "left"]] as const) {
     const support = ground[supportSide];
     const swing = ground[swingSide];
-    if (!insideConvexHullXY(comXY, convexHullXY(support.footprintXY), margin)) continue;
+    const supportHull = convexHullXY(support.footprintXY);
+    const needsTransfer = !insideConvexHullXY(comXY, supportHull, margin);
+    // Reject implausibly large shifts even if a distant step target exists.
+    if (needsTransfer && distance(comXY, support.centerXY) > 0.3) continue;
     // Predict velocity growth during a simple reaction delay.
     const desired: XY = [
       capture[0] + comVelocityXY[0] * delay,
@@ -111,13 +116,18 @@ export function planRecovery(input: RecoveryInput): RecoveryPlan {
     ]);
     if (!insideConvHullWithMargin(capture, future, margin)) continue;
     const score = distance(target, desired) +
-      swing.verticalLoadN / Math.max(ground.totalVerticalLoadN, 1);
-    candidates.push({ support: supportSide, swing: swingSide, target, score });
+      swing.verticalLoadN / Math.max(ground.totalVerticalLoadN, 1) +
+      (needsTransfer ? 0.12 : 0);
+    candidates.push({ support: supportSide, swing: swingSide, target, score, needsTransfer });
   }
   candidates.sort((a, b) => a.score - b.score);
   const best = candidates[0];
   if (!best) return result("FALL", "No hay paso alcanzable con apoyo único viable");
-  return result("STEP", "Objetivo de paso candidato, aún sin ejecución física",
+  if (best.needsTransfer) {
+    return result("SHIFT_WEIGHT", "Debe transferir carga al pie de soporte antes de levantar",
+      best.support, best.swing, best.target);
+  }
+  return result("STEP", "Objetivo de paso candidato; exigir despegue y aterrizaje físicos",
     best.support, best.swing, best.target);
 }
 

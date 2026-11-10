@@ -2,6 +2,7 @@ import type { XY, XYZ } from "./balanceSensors";
 import { limitedJointTorque, type JointPDSettings, type MuJoCoJointStateView } from "./jointPD";
 import type { NamedHingeModel } from "./standingBaseline";
 import type { FootSide } from "./recoveryPlanner";
+import { controlledStepPosture } from "./controlledStepPosture";
 
 /** EXPERIMENTAL: physical joints only. No root actuation, foot teleportation
  * or fake contact. An aborted attempt is NOT a simulated fall.
@@ -98,10 +99,12 @@ export class ExperimentalStepSequence {
     readonly swingSide: FootSide,
     readonly targetDeltaXY: XY,
     readonly startTimeS = 0.8,
+    readonly coordinatedGaitProfile = 0,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
-      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS)) {
+      Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
+      !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -254,13 +257,23 @@ export class ExperimentalStepSequence {
           this.transition("ABORT",info.timeS,"No despegó el pie libre");
         }
         break;
-      case "SWING":
-        if (travel > 0.055 && progress > minProgress * 0.8 && rise > 0.02) {
-          this.transition("LAND",info.timeS,"Avance medido en dirección del objetivo");
+      case "SWING": {
+        // Late-swing knee extension can lower the foot before the next
+        // 20ms observation. A valid loaded touchdown after a verified lift
+        // also counts as end of SWING; requiring >2cm clearance *at that
+        // same instant* incorrectly marked such steps ABORT.
+        const forwardArrival = travel > 0.055 && progress > minProgress * 0.8;
+        const stillAirborne = rise > 0.012;
+        const alreadyTouching = info.swingLoadN > 40;
+        if (forwardArrival && (stillAirborne || alreadyTouching)) {
+          this.transition("LAND",info.timeS,
+            alreadyTouching ? "Vuelo completado: contacto físico anticipado" :
+              "Avance medido hacia el objetivo y pie aún elevado");
         } else if (elapsed > 0.85) {
           this.transition("ABORT",info.timeS,"No avanzó físicamente hacia el destino");
         }
         break;
+      }
       case "LAND":
         if (elapsed > 0.05 && progress > minProgress && rise < 0.02 &&
             info.swingLoadN > 40) {
@@ -293,11 +306,18 @@ export class ExperimentalStepSequence {
     const elapsed = Math.max(0,timeS - this.phaseStartedAtS);
     const supportSign = this.supportSide === "left" ? 1 : -1;
     const moveSign = this.swingSide === "left" ? 1 : -1;
+    const gait = this.coordinatedGaitProfile > 0
+      ? controlledStepPosture({
+        phase:this.phase, elapsedS:elapsed,
+        swingSide:this.swingSide, targetDeltaXY:this.targetDeltaXY,
+        intensity:this.coordinatedGaitProfile,
+      }) : null;
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
     const weightShiftRef: XY = [
-      referenceComXY[0],referenceComXY[1]+supportSign*0.075*fraction,
+      referenceComXY[0]+(gait?.forwardComBiasM ?? 0),
+      referenceComXY[1]+supportSign*0.075*fraction,
     ];
     let ref: XY = weightShiftRef;
     if (this.firstLandingSole && this.originalSole &&
@@ -330,6 +350,9 @@ export class ExperimentalStepSequence {
       joints[`${this.swingSide}_knee`] = lift ? -0.6 : -0.05;
       joints[`${this.swingSide}_ankle_pitch`] = lift ? 0.12 : 0;
     }
+    // Only experimental gait mode replaces the leg pose and adds spine
+    // commands. Neutral standing and legacy step behavior remain separate.
+    if (gait) Object.assign(joints,gait.targetsRad);
     const t = (duration: number): number => {
       const u=Math.max(0,Math.min(1,elapsed/duration));
       return u*u*(3-2*u);

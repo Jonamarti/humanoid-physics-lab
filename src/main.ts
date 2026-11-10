@@ -83,18 +83,24 @@ app.innerHTML = `
             <label for="step-direction">Dirección del paso</label>
             <select id="step-direction">
               <option value="outward">Hacia fuera, lateral</option>
-              <option value="forward">Hacia delante</option>
+              <option value="forward" selected>Hacia delante</option>
               <option value="backward">Hacia atrás</option>
-              <option value="diagonal" selected>Diagonal hacia delante y fuera</option>
+              <option value="diagonal">Diagonal hacia delante y fuera</option>
             </select>
+            <label for="step-profile">Coordinación de tronco, cadera y rodilla</label>
+            <select id="step-profile">
+              <option value="0">Anterior — sin inclinación coordinada</option>
+              <option value="1" selected>Experimental — tronco adelante, elevar muslo, flexionar rodilla</option>
+            </select>
+            <p class="muted">El perfil experimental adelanta ligeramente el centro de masas y flexiona la rodilla hacia atrás al levantar el muslo; los contactos y las caídas siguen siendo físicos. No es todavía una marcha estable ni una reacción automática al empujón.</p>
             <label for="step-cartesian">Control cartesiano de pie (experimental)</label>
             <select id="step-cartesian">
-              <option value="0" selected>Desactivado — control articular anterior</option>
-              <option value="0.2">20 % — corrección leve</option>
+              <option value="0">Desactivado — control articular anterior</option>
+              <option value="0.2" selected>20 % — corrección leve (mejor ensayo observado)</option>
               <option value="0.5">50 % — corrección media</option>
               <option value="1">100 % — corrección máxima experimental</option>
             </select>
-            <p class="muted">Aún no está calibrado: las pruebas actuales han mostrado más caídas al aumentar esta corrección. Se conserva desactivado por defecto.</p>
+            <p class="muted">El 20 % es el ensayo con rodilla corregida que consigue adelantar y apoyar el pie sin caerse; todavía acaba en ABORT por precisión y deslizamiento. Otras ganancias pueden provocar caídas.</p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
           </section>
@@ -168,6 +174,7 @@ const pushReadout = required<HTMLElement>("#push-readout");
 const stepFoot = required<HTMLSelectElement>("#step-foot");
 const stepDirection = required<HTMLSelectElement>("#step-direction");
 const stepCartesian = required<HTMLSelectElement>("#step-cartesian");
+const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
 const stepReadout = required<HTMLElement>("#step-readout");
 
@@ -256,10 +263,12 @@ if (viewport) {
 }
 
 let simulation: MujocoSimulation | undefined;
+let loadedStandingModel: "nominal" | "gait" = "nominal";
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
 let activeStepTrial = false;
+let activeStepFoot: "left" | "right" = "left";
 let initialPushCom: readonly [number, number] | undefined;
 let initialPushFeet: Map<number, readonly number[]> | undefined;
 let minimumPushPelvisM = Infinity;
@@ -367,6 +376,11 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             " · fricción del contacto inicial: " +
             (snapshot.frictionUtilizationAtLanding === null ? "sin medir" :
               (snapshot.frictionUtilizationAtLanding*100).toFixed(0) + " %") +
+            " · flexión de rodilla REAL: " +
+            (-simulation.jointAngleRad(activeStepFoot+"_knee")*180/Math.PI).toFixed(1) + "°" +
+            " · inclinación articular del tronco REAL: " +
+            ((simulation.jointAngleRad("lumbar_pitch") +
+              simulation.jointAngleRad("thorax_pitch"))*180/Math.PI).toFixed(1) + "°" +
             " · " + snapshot.reason;
         }
       }
@@ -504,6 +518,7 @@ function clearLoadedScenario(): void {
   playing = false;
   simulation?.dispose();
   simulation = undefined;
+  loadedStandingModel = "nominal";
   activeTrial = undefined;
   activePush = undefined;
   activeStepTrial = false;
@@ -606,11 +621,52 @@ for (const control of [pushPeak, pushDuration, pushDirection]) {
   });
 }
 
-pushRun.addEventListener("click", () => {
+/** Keep the published balance/push humanoid unchanged. The corrected
+ * knee-axis model is opt-in ONLY for the experimental gait test.
+ * Recreate the MuJoCo model, rather than patching its compiled joint axes
+ * in-place (which could invalidate precomputed contact structures).
+ */
+async function ensureStandingModel(requested: "nominal" | "gait"): Promise<void> {
+  if (!simulation || mode !== "standing" || loadedStandingModel===requested) return;
+  const previous=simulation;
+  const file=requested==="gait" ? "models/humanoid_step_v2.xml" : "models/humanoid_v1.xml";
+  physicsStatus.textContent = "Preparando modelo " +
+    (requested==="gait" ? "de marcha con flexión anatómica" : "de equilibrio original") + "...";
+  const response=await fetch(import.meta.env.BASE_URL + file);
+  if (!response.ok) throw new Error("No se pudo cargar "+file+": HTTP "+response.status);
+  const next=await MujocoSimulation.create(await response.text());
+  if (simulation!==previous || mode!=="standing") {
+    next.dispose();
+    throw new Error("El escenario cambió durante la carga del modelo");
+  }
+  try {
+    next.enableExperimentalStanding();
+    viewer?.showArticulated(next.geometrySpecs());
+  } catch(error) {
+    next.dispose();
+    throw error;
+  }
+  playing=false;
+  simulation=next;
+  previous.dispose();
+  loadedStandingModel=requested;
+  activePush=undefined;
+  activeStepTrial=false;
+  clock.reset();
+  lastFrame=undefined;
+  toggleButton.textContent="Iniciar";
+  forceEditor?.reset();
+}
+
+pushRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
   try {
     const trial = selectedPushTrial();
     playing = false;
+    // User may have just inspected a knee-corrected gait trial. Always
+    // restore the unchanged standard model for push comparisons.
+    await ensureStandingModel("nominal");
+    if (!simulation || mode !== "standing") return;
     activeStepTrial = false;
     stepReadout.textContent = "El paso todavía no se ha ensayado.";
     simulation.reset();
@@ -636,7 +692,7 @@ pushRun.addEventListener("click", () => {
   }
 });
 
-stepRun.addEventListener("click", () => {
+stepRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
   try {
     const side = stepFoot.value === "right" ? "right" : "left";
@@ -646,8 +702,11 @@ stepRun.addEventListener("click", () => {
       ? [0, 0.12*sign] : direction === "forward" ? [0.12,0] :
         direction === "backward" ? [-0.10,0] : [0.12,0.08*sign];
     playing = false;
+    await ensureStandingModel(Number(stepProfile.value)>0 ? "gait" : "nominal");
+    if (!simulation || mode !== "standing") return;
     simulation.reset();
-    simulation.enableExperimentalStepTrial(side, delta, 0.8, Number(stepCartesian.value));
+    simulation.enableExperimentalStepTrial(side, delta, 0.8, Number(stepCartesian.value), Number(stepProfile.value));
+    activeStepFoot = side;
     clock.reset();
     lastFrame = undefined;
     activePush = undefined;
@@ -656,7 +715,9 @@ stepRun.addEventListener("click", () => {
     activeStepTrial = true;
     playing = true;
     toggleButton.textContent = "Pausar";
-    physicsStatus.textContent = "Ensayo voluntario de paso físico en marcha; los fallos se mostrarán como fallos.";
+    physicsStatus.textContent = Number(stepProfile.value) > 0 ?
+      "Ensayo de marcha coordinada: transferencia del COM, inclinación de tronco, elevación del muslo y flexión de rodilla. Resultados físicos sin garantías de estabilidad." :
+      "Ensayo anterior de paso físico; los fallos se mostrarán como fallos.";
     present(simulation.state());
   } catch (error) {
     playing = false;

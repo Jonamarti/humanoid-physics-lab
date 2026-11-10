@@ -124,12 +124,17 @@ export class MujocoSimulation {
     targetDeltaXY: XY = [0.10, 0],
     startTimeS = 0.8,
     cartesianStepScale = 0,
+    coordinatedGaitProfile = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
     }
+    if (!Number.isFinite(coordinatedGaitProfile) ||
+        coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
+      throw new RangeError("Perfil de marcha fuera de 0..1");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
-    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
+    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile);
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
@@ -323,6 +328,19 @@ export class MujocoSimulation {
       com[bi + 1]! + rotation[ri + 3]! * x + rotation[ri + 4]! * y + rotation[ri + 5]! * z,
       com[bi + 2]! + rotation[ri + 6]! * x + rotation[ri + 7]! * y + rotation[ri + 8]! * z,
     ];
+  }
+
+  /** Measured joint angle from actual MuJoCo qpos (never the commanded PD target). */
+  jointAngleRad(jointName: string): number {
+    const {model,data}=this.ready();
+    if (!jointName) throw new RangeError("Nombre de articulación vacío");
+    const id=model.jnt(jointName).id;
+    if (id<1 || id>=model.njnt || model.jnt_type[id]!==3) {
+      throw new RangeError("Se solicita un ángulo a un joint no bisagra");
+    }
+    const rad=(data.qpos as Float64Array)[model.jnt_qposadr[id]!]!;
+    if (!Number.isFinite(rad)) throw new RangeError("Ángulo no finito");
+    return rad;
   }
 
   /** Current physical world position of a named MuJoCo site (copied). */

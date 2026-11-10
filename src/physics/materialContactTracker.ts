@@ -23,8 +23,8 @@ export class MaterialContactTracker {
   private loadedSamples = 0;
   private filteredVelocityXYMps: XY = [0,0];
 
-  /** At least three consecutive physics samples after initial loading (~6ms
-   * for 2ms MuJoCo steps) before contact feedback becomes active.
+  /** At least three consecutive loaded physics samples (spanning ~4ms
+   * at a 2ms MuJoCo timestep) before contact feedback becomes active.
    */
   constructor(
     readonly engageLoadN = 60,

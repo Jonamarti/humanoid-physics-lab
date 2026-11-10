@@ -57,8 +57,12 @@ export class MaterialContactTracker {
     readonly verticalLoadN: number;
   }): LoadedMaterialContact | null {
     const {timeS,footPose,contactWorldM,verticalLoadN}=input;
-    if (!Number.isFinite(timeS) || !Number.isFinite(verticalLoadN) ||
-      verticalLoadN<0) throw new RangeError("Tiempo/carga de contacto no válido");
+    if (!Number.isFinite(timeS) || timeS<0 || !Number.isFinite(verticalLoadN) ||
+      verticalLoadN<0 || footPose.rotationWorld.length!==9 ||
+      ![...footPose.centerWorldM,...footPose.rotationWorld,
+        ...(contactWorldM??[])].every(Number.isFinite)) {
+      throw new RangeError("Tiempo, pose o carga de contacto no válido");
+    }
     if (this.previousTimeS!==undefined && timeS<=this.previousTimeS) {
       throw new RangeError("Contacto sin avance de tiempo físico");
     }

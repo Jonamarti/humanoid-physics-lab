@@ -52,6 +52,9 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  /** Cached IDs only for a model with both declared toe geometries.
+   * Never ask the WASM named accessor for missing v1/v2 geoms. */
+  private articulatedToeGeomIds: Readonly<{left:number;right:number}> | undefined;
 
   private constructor(module: Module) {
     this.module = module;
@@ -70,7 +73,24 @@ export class MujocoSimulation {
     const nextModel = this.module.MjModel.from_xml_string(xml);
     if (!nextModel) throw new Error("No se pudo compilar MJCF");
     let nextData: InstanceType<Module["MjData"]> | undefined;
+    let nextToeGeomIds: Readonly<{left:number;right:number}> | undefined;
     try {
+      // In this Embind build a failed model.geom(name) lookup is not a safe
+      // optional-access probe: it can corrupt the WASM runtime. Only resolve
+      // both toe names when the XML explicitly declares both physical geoms.
+      const declared = xml.replace(/<!--[\\s\\S]*?-->/g,"");
+      const hasGeom = (name:string):boolean => new RegExp(`<geom\\\\b[^>]*\\\\bname\\\\s*=\\\\s*["']${name}["']`).test(declared);
+      const hasLeftToe = hasGeom("left_toe_geom");
+      const hasRightToe = hasGeom("right_toe_geom");
+      if (hasLeftToe !== hasRightToe) throw new Error("Modelo con antepié incompleto");
+      if (hasLeftToe) {
+        const left = nextModel.geom("left_toe_geom").id;
+        const right = nextModel.geom("right_toe_geom").id;
+        if (![left,right].every(id => Number.isSafeInteger(id) && id>=0 && id<nextModel.ngeom) || left === right) {
+          throw new Error("Geometrías de antepié inválidas");
+        }
+        nextToeGeomIds = {left,right};
+      }
       nextData = new this.module.MjData(nextModel);
       if (!nextData) throw new Error("No se pudo crear MjData");
       this.module.mj_forward(nextModel, nextData);
@@ -83,6 +103,7 @@ export class MujocoSimulation {
     this.model?.delete();
     this.model = nextModel;
     this.data = nextData;
+    this.articulatedToeGeomIds = nextToeGeomIds;
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
@@ -504,19 +525,9 @@ export class MujocoSimulation {
     const floorGeomId = model.geom("floor").id;
     const leftFootGeomId = model.geom("left_foot_geom").id;
     const rightFootGeomId = model.geom("right_foot_geom").id;
-    // Detect articulated toes from the loaded model; v1/v2 retain the legacy path.
-    // Missing named geoms are not valid in v1/v2; resolve safely by ID lookup.
-    const optionalGeomId = (name:string):number|undefined => {
-      try { const id=model.geom(name).id; return id>=0 ? id : undefined; }
-      catch { return undefined; }
-    };
-    const leftToeGeomId = optionalGeomId("left_toe_geom");
-    const rightToeGeomId = optionalGeomId("right_toe_geom");
-    const hasLeftToe = leftToeGeomId !== undefined;
-    const hasRightToe = rightToeGeomId !== undefined;
-    if (hasLeftToe !== hasRightToe) throw new Error("Modelo v3 con antepié incompleto");
+    const toes = this.articulatedToeGeomIds;
     const eligible = [leftFootGeomId,rightFootGeomId,
-      ...(hasLeftToe ? [leftToeGeomId!,rightToeGeomId!] : [])];
+      ...(toes ? [toes.left,toes.right] : [])];
     const footGeom = (geomId: number): FootGeom => {
       const positions = data.geom_xpos as Float64Array;
       const rotations = data.geom_xmat as Float64Array;
@@ -586,9 +597,9 @@ export class MujocoSimulation {
     }
     return summarizeGroundSupport({
       floorGeomId, leftFootGeomId, rightFootGeomId,
-      ...(hasLeftToe ? {
-        leftToeGeomId:leftToeGeomId!,rightToeGeomId:rightToeGeomId!,
-        leftToe:footGeom(leftToeGeomId!),rightToe:footGeom(rightToeGeomId!),
+      ...(toes ? {
+        leftToeGeomId:toes.left,rightToeGeomId:toes.right,
+        leftToe:footGeom(toes.left),rightToe:footGeom(toes.right),
       } : {}),
       leftFoot: footGeom(leftFootGeomId),
       rightFoot: footGeom(rightFootGeomId),
@@ -603,5 +614,6 @@ export class MujocoSimulation {
     this.model?.delete();
     this.data = undefined;
     this.model = undefined;
+    this.articulatedToeGeomIds = undefined;
   }
 }

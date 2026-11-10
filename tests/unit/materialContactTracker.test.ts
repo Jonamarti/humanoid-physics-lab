@@ -65,6 +65,8 @@ describe("Stance contact hysteresis, first-impact guard and material-point rolli
     expect(()=>new MaterialContactTracker(60,35,0)).toThrow(RangeError);
     expect(()=>obs(tracker,0,pose(),-5)).toThrow(RangeError);
     expect(()=>obs(tracker,Number.NaN,pose(),50)).toThrow(RangeError);
+    expect(()=>obs(tracker,0,pose(Number.NaN),80)).toThrow(RangeError);
+    expect(()=>obs(tracker,0,pose(),80,[Number.POSITIVE_INFINITY,0,0])).toThrow(RangeError);
     obs(tracker,0,pose());
     expect(()=>obs(tracker,0,pose())).toThrow(RangeError);
   });

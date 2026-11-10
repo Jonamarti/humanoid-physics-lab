@@ -19,6 +19,7 @@ describe("Actual knee bend, trunk lean and COM progression under MuJoCo",()=>{
           const initial=sim.humanoidBalanceObservation().comWorldM;
           let maxKneeFlexRad=0,maxTrunkPitchRad=0,maxComForwardM=-Infinity;
           let maxActualFootRiseM=0;
+          let maxForwardSwingM=0;
           const startFoot=sim.siteWorldPosition(side+"_sole");
           let phaseDuringKneeMax="";
           for(let sample=0;sample<260;sample++) {
@@ -35,6 +36,10 @@ describe("Actual knee bend, trunk lean and COM progression under MuJoCo",()=>{
             maxTrunkPitchRad=Math.max(maxTrunkPitchRad,actualTrunk);
             maxComForwardM=Math.max(maxComForwardM,com[0]-initial[0]);
             maxActualFootRiseM=Math.max(maxActualFootRiseM,foot[2]-startFoot[2]);
+            const phase=sim.experimentalStepStatus()!.phase;
+            if(phase==="SWING" || phase==="LAND") {
+              maxForwardSwingM=Math.max(maxForwardSwingM,foot[0]-startFoot[0]);
+            }
           }
           const state=sim.state(),status=sim.experimentalStepStatus()!;
           const row={
@@ -43,6 +48,7 @@ describe("Actual knee bend, trunk lean and COM progression under MuJoCo",()=>{
             maxTrunkPitchDeg:+(maxTrunkPitchRad*180/Math.PI).toFixed(2),
             maxComForwardM:+maxComForwardM.toFixed(4),
             maxSoleRiseM:+maxActualFootRiseM.toFixed(4),
+            maxForwardSwingM:+maxForwardSwingM.toFixed(4),
             phaseDuringKneeMax,
             contact:status.stepContactConfirmed,
             maxLandingSlipM:+status.maxLandingSlipM.toFixed(4),
@@ -56,6 +62,11 @@ describe("Actual knee bend, trunk lean and COM progression under MuJoCo",()=>{
             // Actual solved joint motion, not just command settings.
             expect(maxKneeFlexRad).toBeGreaterThan(0.08);
             expect(maxTrunkPitchRad).toBeGreaterThan(0.015);
+            // A forward step should actually bring the foot forward BEFORE
+            // any collapse or post-abort motion. Heel/toe clearances remain
+            // measured, and the landing must still meet strict FSM criteria.
+            expect(maxForwardSwingM).toBeGreaterThan(0.05);
+            expect(status.phase).not.toBe("FALL");
           }
           // A completed trial is still subject to strict measured contact
           // and stability requirements elsewhere; a fall is not ignored.

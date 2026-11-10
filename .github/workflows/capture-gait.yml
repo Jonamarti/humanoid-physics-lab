@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - feat/forward-gait-knee-trunk-balance
-      - feat/contact-aware-swing-extension
   workflow_dispatch:
 
 permissions:

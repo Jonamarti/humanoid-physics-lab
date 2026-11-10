@@ -1,0 +1,118 @@
+<mujoco model="humanoid_gait_v3">
+  <!-- EXPERIMENTAL, isolated 75 kg gait v3 with passive articulated forefeet.
+       Baseline v1/v2 remain untouched. Rearfoot 0.8 kg + toes 0.3 kg
+       per side preserve the original 1.1 kg foot mass. No root actuator. -->
+  <compiler angle="radian"/>
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast"/>
+  <default>
+    <joint limited="true" damping="1.6" armature="0.015"/>
+    <geom friction="1.0 0.025 0.002" condim="3" solref="0.015 1" solimp="0.9 0.95 0.001"/>
+  </default>
+  <worldbody>
+    <geom name="floor" type="plane" size="5 5 0.1" friction="1.0 0.025 0.002" rgba="0.18 0.26 0.32 1"/>
+
+    <!-- Pelvis starts 0.99 m above ground: feet touch the floor at neutral pose. -->
+    <body name="pelvis" pos="0 0 0.99">
+      <freejoint name="pelvis_root"/>
+      <geom name="pelvis_geom" type="ellipsoid" size="0.14 0.15 0.11" mass="14.0" rgba="0.50 0.72 0.86 1"/>
+      <site name="pelvis_origin" pos="0 0 0" size="0.012" rgba="0 1 0 1"/>
+
+      <body name="abdomen" pos="0 0 0.11">
+        <joint name="lumbar_pitch" type="hinge" axis="0 1 0" range="-0.50 0.50"/>
+        <joint name="lumbar_roll" type="hinge" axis="1 0 0" range="-0.35 0.35"/>
+        <geom name="abdomen_geom" type="capsule" fromto="0 0 0 0 0 0.23" size="0.12" mass="9.0" rgba="0.38 0.65 0.82 1"/>
+
+        <body name="chest" pos="0 0 0.23">
+          <joint name="thorax_pitch" type="hinge" axis="0 1 0" range="-0.45 0.45"/>
+          <joint name="thorax_roll" type="hinge" axis="1 0 0" range="-0.35 0.35"/>
+          <joint name="thorax_yaw" type="hinge" axis="0 0 1" range="-0.55 0.55"/>
+          <geom name="chest_geom" type="ellipsoid" pos="0 0 0.105" size="0.155 0.215 0.18" mass="16.0" rgba="0.46 0.77 0.92 1"/>
+          <site name="sternum_impact" pos="0.16 0 0.12" size="0.022" rgba="1 0.5 0.1 1"/>
+
+          <body name="head" pos="0 0 0.24">
+            <joint name="neck_pitch" type="hinge" axis="0 1 0" range="-0.60 0.55"/>
+            <joint name="neck_roll" type="hinge" axis="1 0 0" range="-0.35 0.35"/>
+            <geom name="head_geom" type="ellipsoid" pos="0.005 0 0.065" size="0.105 0.09 0.13" mass="5.0" rgba="0.79 0.85 0.88 1"/>
+          </body>
+
+          <body name="left_upperarm" pos="0 0.225 0.145">
+            <joint name="left_shoulder_pitch" type="hinge" axis="0 1 0" range="-1.9 1.9"/>
+            <joint name="left_shoulder_roll" type="hinge" axis="1 0 0" range="-1.5 1.5"/>
+            <joint name="left_shoulder_yaw" type="hinge" axis="0 0 1" range="-1.6 1.6"/>
+            <site name="left_shoulder_impact" pos="0 0 -0.04" size="0.015" rgba="1 0.5 0.1 1"/>
+          <geom name="left_upperarm_geom" type="capsule" fromto="0 0 0 0 0 -0.29" size="0.048" mass="2.1" rgba="0.53 0.74 0.84 1"/>
+            <body name="left_forearm" pos="0 0 -0.29">
+              <joint name="left_elbow" type="hinge" axis="0 1 0" range="-2.4 0.0"/>
+              <site name="left_forearm_impact" pos="0 0 -0.13" size="0.015" rgba="1 0.5 0.1 1"/>
+              <geom name="left_forearm_geom" type="capsule" fromto="0 0 0 0 0 -0.26" size="0.041" mass="1.3" rgba="0.68 0.8 0.86 1"/>
+            </body>
+          </body>
+          <body name="right_upperarm" pos="0 -0.225 0.145">
+            <joint name="right_shoulder_pitch" type="hinge" axis="0 1 0" range="-1.9 1.9"/>
+            <joint name="right_shoulder_roll" type="hinge" axis="1 0 0" range="-1.5 1.5"/>
+            <joint name="right_shoulder_yaw" type="hinge" axis="0 0 1" range="-1.6 1.6"/>
+            <site name="right_shoulder_impact" pos="0 0 -0.04" size="0.015" rgba="1 0.5 0.1 1"/>
+          <geom name="right_upperarm_geom" type="capsule" fromto="0 0 0 0 0 -0.29" size="0.048" mass="2.1" rgba="0.53 0.74 0.84 1"/>
+            <body name="right_forearm" pos="0 0 -0.29">
+              <joint name="right_elbow" type="hinge" axis="0 1 0" range="-2.4 0.0"/>
+              <site name="right_forearm_impact" pos="0 0 -0.13" size="0.015" rgba="1 0.5 0.1 1"/>
+              <geom name="right_forearm_geom" type="capsule" fromto="0 0 0 0 0 -0.26" size="0.041" mass="1.3" rgba="0.68 0.8 0.86 1"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <!-- Legs: hip 0.91 m, thigh 0.42 m, shin 0.42 m, ankle 0.07 m.
+       Knee axis is -Y: negative q flexes the shin BACK relative to thigh,
+       unlike the original +Y which folded it forward. Neutral q=0 unchanged. -->
+      <body name="left_thigh" pos="0 0.105 -0.08">
+        <joint name="left_hip_pitch" type="hinge" axis="0 1 0" range="-1.65 1.25"/>
+        <joint name="left_hip_roll" type="hinge" axis="1 0 0" range="-0.70 0.70"/>
+        <joint name="left_hip_yaw" type="hinge" axis="0 0 1" range="-0.75 0.75"/>
+        <geom name="left_thigh_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.072" mass="7.5" rgba="0.39 0.62 0.78 1"/>
+        <body name="left_shin" pos="0 0 -0.42">
+          <joint name="left_knee" type="hinge" axis="0 -1 0" range="-2.45 0"/>
+          <geom name="left_shin_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.053" mass="3.5" rgba="0.51 0.72 0.85 1"/>
+          <body name="left_foot" pos="0 0 -0.42">
+            <joint name="left_ankle_pitch" type="hinge" axis="0 1 0" range="-0.65 0.65"/>
+            <joint name="left_ankle_roll" type="hinge" axis="1 0 0" range="-0.38 0.38"/>
+            <!-- Rearfoot ends at x=0.095 m; the toe box starts there.
+                 Both bottom faces are at z=-0.070 m in neutral stance. -->
+            <geom name="left_foot_geom" type="box" pos="0.0125 0 -0.035" size="0.0825 0.055 0.035" mass="0.8" rgba="0.28 0.77 0.81 1"/>
+            <site name="left_sole" pos="0.065 0 -0.068" size="0.012" rgba="0.96 0.77 0.3 1"/>
+            <body name="left_toes" pos="0.095 0 -0.035">
+              <!-- Positive rotation raises the toe tip around the MTP joint. -->
+              <joint name="left_mtp" type="hinge" axis="0 -1 0" range="0 0.60" damping="0.8" stiffness="4" armature="0.002"/>
+              <geom name="left_toe_geom" type="box" pos="0.0525 0 0" size="0.0525 0.055 0.035" mass="0.3" rgba="0.22 0.65 0.63 1"/>
+              <site name="left_toe_sole" pos="0.07 0 -0.033" size="0.010" rgba="1 0.45 0.2 1"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="right_thigh" pos="0 -0.105 -0.08">
+        <joint name="right_hip_pitch" type="hinge" axis="0 1 0" range="-1.65 1.25"/>
+        <joint name="right_hip_roll" type="hinge" axis="1 0 0" range="-0.70 0.70"/>
+        <joint name="right_hip_yaw" type="hinge" axis="0 0 1" range="-0.75 0.75"/>
+        <geom name="right_thigh_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.072" mass="7.5" rgba="0.39 0.62 0.78 1"/>
+        <body name="right_shin" pos="0 0 -0.42">
+          <joint name="right_knee" type="hinge" axis="0 -1 0" range="-2.45 0"/>
+          <geom name="right_shin_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.053" mass="3.5" rgba="0.51 0.72 0.85 1"/>
+          <body name="right_foot" pos="0 0 -0.42">
+            <joint name="right_ankle_pitch" type="hinge" axis="0 1 0" range="-0.65 0.65"/>
+            <joint name="right_ankle_roll" type="hinge" axis="1 0 0" range="-0.38 0.38"/>
+            <!-- Rearfoot ends at x=0.095 m; the toe box starts there.
+                 Both bottom faces are at z=-0.070 m in neutral stance. -->
+            <geom name="right_foot_geom" type="box" pos="0.0125 0 -0.035" size="0.0825 0.055 0.035" mass="0.8" rgba="0.28 0.77 0.81 1"/>
+            <site name="right_sole" pos="0.065 0 -0.068" size="0.012" rgba="0.96 0.77 0.3 1"/>
+            <body name="right_toes" pos="0.095 0 -0.035">
+              <!-- Positive rotation raises the toe tip around the MTP joint. -->
+              <joint name="right_mtp" type="hinge" axis="0 -1 0" range="0 0.60" damping="0.8" stiffness="4" armature="0.002"/>
+              <geom name="right_toe_geom" type="box" pos="0.0525 0 0" size="0.0525 0.055 0.035" mass="0.3" rgba="0.22 0.65 0.63 1"/>
+              <site name="right_toe_sole" pos="0.07 0 -0.033" size="0.010" rgba="1 0.45 0.2 1"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

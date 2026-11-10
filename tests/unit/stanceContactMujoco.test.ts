@@ -26,17 +26,26 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
           const poses0=sim.geometryPoses();
           const geom=footGeoms.find(g=>Math.sign(poses0.find(p=>p.id===g.id)!.position[1])===targetY);
           expect(geom).toBeDefined();
+          const swingGeom=footGeoms.find(g=>Math.sign(
+            poses0.find(p=>p.id===g.id)!.position[1])===-targetY);
+          expect(swingGeom).toBeDefined();
           const pose=():MeasuredFootPose=>{
             const p=sim.geometryPoses().find(x=>x.id===geom!.id)!;
             return {centerWorldM:p.position,rotationWorld:p.rotation};
           };
-          let previous=pose(),previousTime=sim.state().time;
+          const swingPose=():MeasuredFootPose=>{
+            const p=sim.geometryPoses().find(x=>x.id===swingGeom!.id)!;
+            return {centerWorldM:p.position,rotationWorld:p.rotation};
+          };
+          let previous=pose(),previousSwing=swingPose(),previousTime=sim.state().time;
           let actualPositiveImpulseNs=0,actualNegativeImpulseNs=0;
           let measuredMaterialPathM=0,maxMaterialSpeedMps=0;
+          let landingMaterialPathM=0,landingPeakMaterialSpeedMps=0;
+          let loadedLandingSamples=0;
           let loadedSamples=0,controlSamples=0,requestedBackwardImpulseNs=0;
           for(let tick=0;tick<2600;tick++){
             const state=sim.step(1);
-            const current=pose();
+            const current=pose(),currentSwing=swingPose();
             const ground=sim.humanoidGroundSupportObservation();
             const support=ground[supportSide];
             const fsm=sim.experimentalStepStatus()!;
@@ -57,7 +66,18 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
                 requestedBackwardImpulseNs+=command.intendedPushOffN*dt;
               }
             }
+            const receiving=ground[side];
+            if(fsm.stepContactConfirmed && receiving.verticalLoadN>40 &&
+                receiving.verticalLoadCentroidWorldM && dt>0){
+              const landingPatch=estimateContactPatchSlip(previousSwing,currentSwing,
+                receiving.verticalLoadCentroidWorldM,dt);
+              landingMaterialPathM+=landingPatch.estimatedSlipDistanceThisSampleM;
+              landingPeakMaterialSpeedMps=Math.max(landingPeakMaterialSpeedMps,
+                landingPatch.tangentialSpeedMps);
+              loadedLandingSamples++;
+            }
             previous=current;
+            previousSwing=currentSwing;
             previousTime=state.time;
           }
           const status=sim.experimentalStepStatus()!;
@@ -66,6 +86,9 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
             actualBackwardGRFImpulseNs:+actualNegativeImpulseNs.toFixed(4),
             intendedBackwardFootImpulseNs:+requestedBackwardImpulseNs.toFixed(4),
             measuredContactMaterialPathM:+measuredMaterialPathM.toFixed(4),
+            receivingContactMaterialPathM:+landingMaterialPathM.toFixed(4),
+            receivingPeakMaterialSpeedMps:+landingPeakMaterialSpeedMps.toFixed(4),
+            loadedLandingSamples,
             maxMaterialSpeedMps:+maxMaterialSpeedMps.toFixed(4),
             supportSoleMarkerDriftM:+status.maxSupportFootSlipM.toFixed(4),
             landingSoleMarkerDriftM:+status.maxLandingSlipM.toFixed(4),
@@ -82,11 +105,12 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
           }
           expect([row.actualForwardGRFImpulseNs,row.actualBackwardGRFImpulseNs,
             row.measuredContactMaterialPathM,row.maxMaterialSpeedMps,
+            row.receivingContactMaterialPathM,row.receivingPeakMaterialSpeedMps,
             row.targetErrorM].every(Number.isFinite)).toBe(true);
         } finally {sim.dispose();}
       }
     }
     console.log("REAR-FOOT-CONTACT-A-B "+JSON.stringify(results));
     expect(results).toHaveLength(4);
-  },180000);
+  },240000);
 });

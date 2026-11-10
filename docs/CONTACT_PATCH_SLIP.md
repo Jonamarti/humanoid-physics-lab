@@ -53,3 +53,33 @@ without changing any dynamics. Outputs the time of first re-contact,
 measured contact-patch sliding-path estimate, peak tangential contact
 speed, sole-site drift, friction and final target error. Tests *record*
 actual success or failure rather than forcing passes.
+
+## Measured results (MuJoCo 75 kg, CI 42775437755, 10 Nov 2026)
+
+The new 3D material-contact-point estimator provides a second measure,
+not a replacement for the movement of the sole marker:
+
+| Swing servo | Outcome | Loaded re-contact time | Estimated integrated tangential contact motion | Sole-site drift | Peak patch speed |
+| --- | --- | --- | --- | --- | --- |
+| 0% | ABORT | 2.14 s | **16.01 cm** | 12.67 cm | 0.796 m/s |
+| 20% | ABORT | 1.82 s | **17.46 cm** | 11.05 cm | 0.791 m/s |
+
+Both runs reach friction utilization ~1.00 at some sampled contacts.
+The integral uses a 20 ms fixed cadence, starts at the first *verified*
+landing and accumulates speed only while the receiving foot carries >40 N.
+
+**Interpretation:** in these scenarios, foot rotation does *not* explain
+away the observed problem. The contact material velocity is nonzero and
+the integrated path estimate is actually *larger* than the net drift of
+the sole marker. The latter is a maximum displacement relative to the
+first landing, whereas the integral sums the absolute path along the
+contact and can exceed any net displacement. They are not interchangeable
+metrics and should not be subtracted to infer a rolling contribution.
+
+These measurements strengthen the evidence of unwanted tangential
+motion, but they are not a ground-truth high-frequency optical slip
+measurement. Therefore **leave the step-acceptance criteria and the
+physical controller unchanged** until a jointly controlled step meets
+contact and COM stability conditions.
+
+CI: https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42775437755

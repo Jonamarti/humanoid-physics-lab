@@ -10,7 +10,7 @@ import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce } from "./contactForces";
-import type { MeasuredFootPose } from "./contactPatchSlip";
+import { materialContactLocalM, type MeasuredFootPose } from "./contactPatchSlip";
 import { MaterialContactTracker } from "./materialContactTracker";
 import { planStanceContactCommand, applyStanceContactCommand, type StanceContactCommand, type StanceContactMode } from "../control/stanceContact";
 
@@ -158,7 +158,7 @@ export class MujocoSimulation {
     if (!Number.isFinite(stanceContactScale) || stanceContactScale<0 || stanceContactScale>1) {
       throw new RangeError("Control de contacto fuera de 0..1");
     }
-    if (!["combined","push-only","slip-only","recovery-only"].includes(stanceContactMode)) {
+    if (!["combined","push-only","slip-only","recovery-only","toe-gated"].includes(stanceContactMode)) {
       throw new RangeError("Modo de control de contacto desconocido");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
@@ -306,6 +306,9 @@ export class MujocoSimulation {
                   materialSlipXYMps:measured.materialSlipXYMps,
                   strength:this.stanceContactScale*measured.feedbackRamp01,
                   mode:this.stanceContactMode,
+                  contactLocalXM:materialContactLocalM(pose,contact)[0],
+                  swingProgress01:this.stepExperiment.snapshot().currentTargetProgressM /
+                    Math.hypot(...this.stepExperiment.targetDeltaXY),
                 });
                 if (plan) {
                   applyStanceContactCommand(model,data,this.standingController.gains,

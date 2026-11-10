@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { MujocoSimulation } from "../../src/physics/mujoco";
-import { estimateContactPatchSlip, type MeasuredFootPose } from "../../src/physics/contactPatchSlip";
+import { estimateContactPatchSlip, materialContactLocalM, type MeasuredFootPose } from "../../src/physics/contactPatchSlip";
 
 /**
  * Short, real-physics A/B smoke test. This does NOT certify walking, but
@@ -24,6 +24,7 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
         {stanceGain:0.35,mode:"push-only"},
         {stanceGain:0.35,mode:"slip-only"},
         {stanceGain:0.35,mode:"recovery-only"},
+        {stanceGain:0.35,mode:"toe-gated"},
       ] as const) {
         const sim = await MujocoSimulation.create(xml);
         try {
@@ -59,6 +60,7 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
           let loadedSupportSamples = 0;
           let loadedLandingSamples = 0;
           let activeControllerSamples = 0;
+          let minSupportLocalXM = Infinity, maxSupportLocalXM = -Infinity;
 
           for (let i = 0; i < 260; i++) {
             const state = sim.step(10);
@@ -79,6 +81,10 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
                 currentSupport, rear.verticalLoadCentroidWorldM, dt)
                 .estimatedSlipDistanceThisSampleM;
               loadedSupportSamples++;
+              const localX=materialContactLocalM(currentSupport,
+                rear.verticalLoadCentroidWorldM)[0];
+              minSupportLocalXM=Math.min(minSupportLocalXM,localX);
+              maxSupportLocalXM=Math.max(maxSupportLocalXM,localX);
               const controller = sim.experimentalStanceContactStatus();
               if (controller) {
                 activeControllerSamples++;
@@ -110,6 +116,10 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
             targetErrorCm: +(status.targetErrorXYM * 100).toFixed(3),
             settledS: +status.settledDurationS.toFixed(3),
             loadedSupportSamples, loadedLandingSamples, activeControllerSamples,
+            maxRearContactLocalXCm:loadedSupportSamples>0 ?
+              +(maxSupportLocalXM*100).toFixed(3) : null,
+            rearContactMigrationCm:loadedSupportSamples>0 ?
+              +((maxSupportLocalXM-minSupportLocalXM)*100).toFixed(3) : null,
           };
           rows.push(row);
           expect([row.sampledForwardImpulseNs, row.sampledBrakingImpulseNs,
@@ -133,6 +143,6 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
       }
     }
     console.log("STANCE-CONTACT-ABLATION " + JSON.stringify(rows));
-    expect(rows).toHaveLength(10);
+    expect(rows).toHaveLength(12);
   }, 120000);
 });

@@ -66,6 +66,22 @@ describe("Experimental ground-contact feedback, not a welded foot",()=>{
     expect(recovery.virtualForceWorldN[0]).toBeLessThan(0);
     expect(sample({mode:"recovery-only",materialSlipXYMps:[0.25,0]})).toBeNull();
   });
+  it("gates terminal propulsion behind a forefoot contact and measured swing",()=>{
+    expect(sample({mode:"toe-gated",contactLocalXM:0.02,
+      swingProgress01:0.9,materialSlipXYMps:[0,0]})).toBeNull();
+    expect(sample({mode:"toe-gated",contactLocalXM:0.10,
+      swingProgress01:0.3,materialSlipXYMps:[0,0]})).toBeNull();
+    const toe=sample({mode:"toe-gated",contactLocalXM:0.10,
+      swingProgress01:0.9,materialSlipXYMps:[0,0]})!;
+    expect(toe.intendedPushOffN).toBeCloseTo(3);
+    expect(toe.virtualForceWorldN[0]).toBeCloseTo(-3);
+    const sliding=sample({mode:"toe-gated",contactLocalXM:0.10,
+      swingProgress01:0.9,materialSlipXYMps:[0.07,0]})!;
+    expect(sliding.intendedPushOffN).toBe(0); // never push through sliding toes
+    expect(sliding.virtualForceWorldN[0]).toBeLessThan(0);
+    expect(Math.abs(sliding.virtualForceWorldN[0])).toBeLessThanOrEqual(2);
+    expect(()=>sample({mode:"toe-gated",contactLocalXM:Number.NaN})).toThrow(RangeError);
+  });
   it("caps virtual correction conservatively by loaded friction headroom",()=>{
     const low=sample({foot:{...foot,verticalLoadN:50,
       tangentialReactionXYN:[20,0],effectiveSlideFrictionMin:0.5,

@@ -5,7 +5,7 @@ import type { NamedHingeModel } from "./standingBaseline";
 import type { StepPhase } from "./experimentalStep";
 import type { FootSupport } from "./footContacts";
 
-export type StanceContactMode = "combined" | "push-only" | "slip-only" | "recovery-only";
+export type StanceContactMode = "combined" | "push-only" | "slip-only" | "recovery-only" | "toe-gated";
 
 /** An opt-in research controller. The requested virtual foot force is NOT
  * the measured ground reaction. Only the MuJoCo contact solver determines
@@ -42,6 +42,10 @@ export function planStanceContactCommand(input: {
   readonly strength: number;
   /** Ablation mode: separate rear push, slip damping and landing recovery. */
   readonly mode?: StanceContactMode;
+  /** Foot-material X of the loaded contact (from actual MuJoCo geometry). */
+  readonly contactLocalXM?: number;
+  /** Measured travel of the other foot toward the requested target. */
+  readonly swingProgress01?: number;
 }): StanceContactCommand | null {
   const {phase,requestedStepXY,comWorldM,contactWorldM,foot,
     materialSlipXYMps:slip,strength}=input;
@@ -53,7 +57,9 @@ export function planStanceContactCommand(input: {
   if (raw.some(x=>!Number.isFinite(x)) || strength<0 || strength>1 ||
       (friction!==null && (!Number.isFinite(friction) || friction<0)) ||
       (utilization!==null && (!Number.isFinite(utilization) || utilization<0)) ||
-      !["combined","push-only","slip-only","recovery-only"].includes(mode)) {
+      !["combined","push-only","slip-only","recovery-only","toe-gated"].includes(mode) ||
+      (input.contactLocalXM!==undefined && !Number.isFinite(input.contactLocalXM)) ||
+      (input.swingProgress01!==undefined && !Number.isFinite(input.swingProgress01))) {
     throw new RangeError("Medida de apoyo o intensidad de contacto inválida");
   }
   const enabledPhase=mode==="recovery-only" ? phase==="RECOVER" :
@@ -77,11 +83,25 @@ export function planStanceContactCommand(input: {
   // forward propulsion; the contact damping can still suppress slip.
   const forward=requestedStepXY[0]>0.03 && Math.abs(requestedStepXY[1])<0.20;
   const comLeadX=comWorldM[0]-contactWorldM[0];
-  const pushRamp=(mode==="combined" || mode==="push-only") && forward &&
-    (phase==="SWING" || phase==="LAND") ?
+  // The first A/B proved that unconditional backward effort can destabilize
+  // an otherwise planted support. Toe-gated mode therefore requires a
+  // forefoot-loaded *material* contact, genuine measured swing progress,
+  // and near-static contact BEFORE requesting a small terminal push-off.
+  const slipSpeed=Math.hypot(...slip);
+  const toeGated=mode==="toe-gated";
+  const toeReady=toeGated && (input.contactLocalXM??-Infinity)>0.06 &&
+    (input.swingProgress01??0)>=0.50 && slipSpeed<0.03;
+  const canPush=mode==="combined" || mode==="push-only" || toeReady;
+  const pushRamp=canPush && forward && (phase==="SWING" || phase==="LAND") ?
     Math.max(0,Math.min(1,(comLeadX-0.015)/0.045)) : 0;
-  const pushOffN=12*strength*pushRamp;
-  const damping=mode==="push-only" ? 0 : 55*strength;
+  const pushOffN=(toeGated?3:12)*strength*pushRamp;
+  // The baseline already has ~1.7 mm of rear-foot material movement.
+  // A deadband prevents fighting static friction that is working correctly.
+  // Even beyond it, this mode requests at most 2 N, never a rigid anchor.
+  const damping=mode==="push-only" ? 0 : toeGated ?
+    (utilization<0.65 && slipSpeed>0.03 ?
+      Math.min(2,8*strength*(slipSpeed-0.03))/slipSpeed : 0) :
+    55*strength;
   const desiredX=-pushOffN-damping*slip[0];
   const desiredY=-damping*slip[1];
   const requestedMagnitude=Math.hypot(desiredX,desiredY);

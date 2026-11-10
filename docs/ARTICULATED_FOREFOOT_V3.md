@@ -110,6 +110,10 @@ The optional `tests/manual/articulatedForefootV3Bench.test.ts` records:
 - **Steps:** 12 cm forward, left and right, friction 0.9 / 1.0 / 1.1,
   existing v2 posture/Cartesian/guard gains (0.52/0.48), with physical
   final state reported verbatim: COMPLETE, ABORT or FALL.
+- **Failure onset:** timestamp of first FALL, minimum pelvis height,
+  maximum free-root tilt and per-phase transition snapshots, including
+  the solved rearfoot/forefoot loads and support-toe fraction. Added
+  after the initial six-case run; these extra columns require an opt-in rerun.
 - **Contact:** peak load fraction carried by rearfoot vs toes,
   loaded centroid migration, solved tangential reaction integrated in
   N·s and the separate rigid-segment slip estimates. A missing loaded

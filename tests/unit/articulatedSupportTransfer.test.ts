@@ -66,5 +66,10 @@ describe("V3 solved support-load/capture gate, opt-in only",()=>{
     expect(Math.abs(a.referenceComXY[1])).toBeLessThan(0.075);
     expect(b.referenceComXY[1]).toBeCloseTo(-0.075*0.2/0.35,8);
     expect(a.targetsRad.pelvis_root).toBeUndefined();
+    expect(a.referenceComXY[0]).toBeCloseTo(0,10);
+    expect(a.targetsRad.lumbar_pitch).toBe(0);
+    expect(a.targetsRad.thorax_pitch).toBe(0);
+    expect(b.referenceComXY[0]).toBeGreaterThan(0);
+    expect(b.targetsRad.lumbar_pitch).toBeGreaterThan(0);
   });
 });

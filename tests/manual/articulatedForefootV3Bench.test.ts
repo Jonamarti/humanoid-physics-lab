@@ -135,6 +135,15 @@ async function stepTrial(xml:string,side:Side,friction:number){
     let peakForefootLoadN=0,peakForefootFraction=0;
     let maxLoadedCentroidForwardM=Number.NEGATIVE_INFINITY;
     let bilateralLoadedAfterLandingS=0;
+    let minPelvisHeightM=Infinity;
+    let maxRootTiltDeg=0;
+    let firstFallTimeS:number|null=null;
+    const phaseChanges:Array<{
+      timeS:number;phase:string;pelvisHeightM:number;rootTiltDeg:number;
+      leftRearN:number;leftToeN:number;rightRearN:number;rightToeN:number;
+      supportToeFraction:number|null;
+    }>=[];
+    let lastPhase="";
     for(let n=0;n<300;n++){
       sim.step(10);
       const ground=sim.humanoidGroundSupportObservation();
@@ -150,6 +159,24 @@ async function stepTrial(xml:string,side:Side,friction:number){
         maxLoadedCentroidForwardM=Math.max(maxLoadedCentroidForwardM,f.verticalLoadCentroidXY[0]);
       }
       const snapshot=sim.experimentalStepStatus()!;
+      const tiltDeg=rootTiltDegrees(state.qpos.slice(0,7));
+      minPelvisHeightM=Math.min(minPelvisHeightM,state.qpos[2]!);
+      maxRootTiltDeg=Math.max(maxRootTiltDeg,tiltDeg);
+      if(snapshot.phase==="FALL" && firstFallTimeS===null)firstFallTimeS=state.time;
+      if(snapshot.phase!==lastPhase){
+        lastPhase=snapshot.phase;
+        phaseChanges.push({
+          timeS:round(state.time)!,phase:snapshot.phase,
+          pelvisHeightM:round(state.qpos[2]!)!,
+          rootTiltDeg:round(tiltDeg)!,
+          leftRearN:round(ground.left.segments!.rearfoot.verticalLoadN)!,
+          leftToeN:round(ground.left.segments!.forefoot.verticalLoadN)!,
+          rightRearN:round(ground.right.segments!.rearfoot.verticalLoadN)!,
+          rightToeN:round(ground.right.segments!.forefoot.verticalLoadN)!,
+          supportToeFraction:f.verticalLoadN>40 ?
+            round(toe.verticalLoadN/f.verticalLoadN) : null,
+        });
+      }
       if(snapshot.stepContactConfirmed && ground.left.verticalLoadN>40 &&
           ground.right.verticalLoadN>40)bilateralLoadedAfterLandingS+=0.02;
       meter.sample(sim,ground,state.time);
@@ -165,6 +192,10 @@ async function stepTrial(xml:string,side:Side,friction:number){
       maxLoadedCentroidForwardWorldX:round(Number.isFinite(maxLoadedCentroidForwardM) ?
         maxLoadedCentroidForwardM:null),
       bilateralLoadedAfterLandingS:round(bilateralLoadedAfterLandingS),
+      minPelvisHeightM:round(minPelvisHeightM),
+      maxRootTiltDeg:round(maxRootTiltDeg),
+      firstFallTimeS:round(firstFallTimeS),
+      phaseChanges,
       segmentMaterialSlip:meter.report(),
     };
   } finally { sim.dispose(); }

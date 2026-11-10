@@ -76,7 +76,12 @@ export function planStanceContactCommand(input: {
   const desiredY=-damping*slip[1];
   const requestedMagnitude=Math.hypot(desiredX,desiredY);
   if(requestedMagnitude<1e-9) return null;
-  const scale=Math.min(1,headroom/requestedMagnitude);
+  // Contact force must also fade in smoothly as vertical load grows.
+  // A newly touching foot must never receive a full corrective impulse
+  // just because the previous frame crossed the 40 N cutoff.
+  const loadRamp=Math.max(0,Math.min(1,(foot.verticalLoadN-40)/60));
+  const scale=Math.min(1,headroom/requestedMagnitude)*loadRamp;
+  if (scale<=0) return null;
   const normalizedStepMagnitude=Math.hypot(...requestedStepXY);
   const reactionForwardN=normalizedStepMagnitude>0 ?
     (foot.tangentialReactionXYN[0]*requestedStepXY[0]+

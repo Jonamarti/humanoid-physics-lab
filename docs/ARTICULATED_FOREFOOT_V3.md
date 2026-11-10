@@ -34,13 +34,45 @@ is not material sliding.
 
 ## Current acceptance status
 
-- Model structure and segment telemetry implemented; numerical smoke tests
+- Model structure and segment telemetry implemented; numerical smoke tests and isolated force-aggregation tests
   added, **not yet executed** for this branch.
 - 10-second standing stability with free root: **not tested**.
 - Loaded heel-to-toe roll: **not tested**.
 - Physically measured push-off impulse with no material sliding: **not tested**.
 - Left/right COMPLETE steps across friction 0.9, 1.0 and 1.1: **not tested**.
 - No changes to the baseline v2 controller or acceptance thresholds.
+
+## Repeatable benchmark protocol (added, not yet executed)
+
+The optional `tests/manual/articulatedForefootV3Bench.test.ts` records:
+
+- **Standing:** 10 s at 2 ms solver timestep, pelvis minimum/end height,
+  maximum root tilt, bilateral load duration, final rearfoot/forefoot loads,
+  and segment-local material-point slip estimate.
+- **Steps:** 12 cm forward, left and right, friction 0.9 / 1.0 / 1.1,
+  existing v2 posture/Cartesian/guard gains (0.52/0.48), with physical
+  final state reported verbatim: COMPLETE, ABORT or FALL.
+- **Contact:** peak load fraction carried by rearfoot vs toes,
+  loaded centroid migration, solved tangential reaction integrated in
+  N·s and the separate rigid-segment slip estimates. A missing loaded
+  sample is `null`, not interpreted as zero slip.
+
+Run only with an explicit opt-in (not in ordinary CI):
+
+```sh
+HPL_RUN_V3_BENCH=1 npx vitest run tests/manual/articulatedForefootV3Bench.test.ts
+```
+
+These diagnostics are **not** biomechanical validation. The estimated
+material-point slip uses the currently loaded contact centroid and each
+segment's own pose, while sole-marker displacement is a different metric.
+No control forces are applied directly to the free root. Friction sweeps
+are actual model changes, not threshold changes.
+
+The local execution environment used to prepare the PR did not have
+MuJoCo/npm dependencies or external network access, so this run has **not
+been performed**. Structural XML and mass/box geometry checks are not
+substitutes for numerical MuJoCo compilation or integration.
 
 ## Next steps
 

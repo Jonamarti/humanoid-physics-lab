@@ -100,11 +100,14 @@ export class ExperimentalStepSequence {
     readonly targetDeltaXY: XY,
     readonly startTimeS = 0.8,
     readonly coordinatedGaitProfile = 0,
+    /** Opt-in measured-foot-progress gate for swing knee extension. */
+    readonly swingExtensionGuard = 0,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
       Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
-      !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
+      !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1 ||
+      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -311,6 +314,9 @@ export class ExperimentalStepSequence {
         phase:this.phase, elapsedS:elapsed,
         swingSide:this.swingSide, targetDeltaXY:this.targetDeltaXY,
         intensity:this.coordinatedGaitProfile,
+        swingProgress01:this.currentTargetProgressM /
+          Math.hypot(...this.targetDeltaXY),
+        swingExtensionGuard:this.swingExtensionGuard,
       }) : null;
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"

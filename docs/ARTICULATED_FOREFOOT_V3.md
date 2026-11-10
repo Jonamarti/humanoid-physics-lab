@@ -77,6 +77,46 @@ success. Do **not** interpret green CI as biomechanical success.
 The previous v2 controls remain unchanged and cannot be reused on
 articulated feet without further closed-loop support-transfer work.
 
+## V3 support transfer: two measured controller revisions (2026-11-11)
+
+Experiments were run with the same 75 kg v3 model and the original six-case
+friction/side sweep. The existing v1/v2 controller and all step-acceptance
+gates remain unchanged.
+
+| Controller | Left 0.9/1.0/1.1 | Right 0.9/1.0/1.1 | Stability |
+| --- | --- | --- | --- |
+| Original timed pre-lift sagittal + lateral shift | FALL / FALL / FALL | FALL / FALL / FALL | Loses balance after abort |
+| V3 sustained load + capture gate, still forward lean | FALL / FALL / FALL | FALL / FALL / FALL | Abort at 2 s, subsequent fall at ~3.54–3.66 s |
+| V3 gated **lateral-first** shift, no sagittal pre-lift lean | ABORT / ABORT / ABORT | ABORT / ABORT / ABORT | **No physical fall** in 6 s |
+
+Source for the guarded but still forward-leaning revision:
+[GitHub Actions #42924050956](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42924050956).
+Source for the lateral-first revision:
+[GitHub Actions #42924297003](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42924297003).
+
+The lateral-first revision keeps the pelvis minimum between **0.9888 m and
+0.9890 m** and samples no FALL in six cases, across friction 0.9, 1.0 and
+1.1. Root tilt at abort is between **0.0597 and 0.0719 degrees**.
+It aborts at t=2.00 s, deliberately without lifting the swing foot:
+at this instant the stance foot carries approximately **490 N out of
+736 N** (about 66.6% load), below the conservative **80% continuous**
+release threshold. The system correctly refuses to invent a successful
+step. No sample establishes toe-off, landing, or walking.
+
+The v3-only release gate requires at least 80% solved load, a genuinely
+unloaded opposite foot, the estimated capture point and COM projection
+inside the loaded support polygon, low COM velocity, and 0.12 s of
+consecutive valid 50 Hz samples. A gap or failed sample resets continuity.
+The reference is bounded; **forward COM bias and spine pitching are
+suppressed only during v3 SHIFT_WEIGHT**. The v2 gait logic remains
+unchanged.
+
+**Next experiment:** cautiously sweep bounded lateral COM reference
+amplitude with load-feedback to reach the support threshold without
+sacrificing the 6 s fall-free result. This has **not** been implemented or
+validated in the current revision. Do not relax the 80% gate to manufacture
+lift, and do not add propulsive toe torque before stable support transfer.
+
 ## Browser inspection workflow (experimental)
 
 In the existing **Humanoide — equilibrio activo** scenario, load the

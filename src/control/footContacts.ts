@@ -17,6 +17,8 @@ export interface GroundContactSample {
   readonly tangentForceWorldN?: XYZ;
   /** Fraction of the solver contact friction cone/pyramid used. */
   readonly frictionUtilization?: number | null;
+  /** Minimum sliding coefficient across the solved contact tangent axes. */
+  readonly contactSlideFrictionMin?: number;
 }
 
 export interface FootSupport {
@@ -29,6 +31,8 @@ export interface FootSupport {
   /** Normal-force-weighted mean friction usage (0 to ~1 in cone). */
   readonly frictionUtilizationMean: number | null;
   readonly frictionUtilizationPeak: number | null;
+  /** Minimum measured tangent sliding coefficient, null without solved contact. */
+  readonly effectiveSlideFrictionMin: number | null;
   readonly activeContacts: number;
   /** Vertical-force-weighted contact position; not a full 6D CoP. */
   readonly verticalLoadCentroidXY: XY | null;
@@ -67,24 +71,26 @@ export function summarizeGroundSupport(input: {
   }
   type Bucket = { load: number; count: number; x: number; y: number; z: number;
     tx: number; ty: number; frictionWeighted: number; frictionLoad: number;
-    frictionPeak: number | null };
+    frictionPeak: number | null; frictionMin: number | null };
   const makeBucket = (): Bucket => ({
     load: 0,count: 0,x: 0,y: 0,z: 0,tx: 0,ty: 0,
-    frictionWeighted: 0,frictionLoad: 0,frictionPeak: null,
+    frictionWeighted: 0,frictionLoad: 0,frictionPeak: null,frictionMin: null,
   });
   const buckets: Record<"left" | "right",Bucket> = {
     left: makeBucket(),right: makeBucket(),
   };
   for (const contact of contacts) {
     const { geom1,geom2,positionWorldM,contactNormalForceN,contactNormalWorld,
-      tangentForceWorldN,frictionUtilization } = contact;
+      tangentForceWorldN,frictionUtilization,contactSlideFrictionMin } = contact;
     if (![geom1, geom2].every(Number.isSafeInteger) ||
         ![...positionWorldM, ...contactNormalWorld, contactNormalForceN].every(Number.isFinite) ||
         contactNormalForceN < 0 ||
         (tangentForceWorldN !== undefined &&
           !tangentForceWorldN.every(Number.isFinite)) ||
         (frictionUtilization != null &&
-          (!Number.isFinite(frictionUtilization) || frictionUtilization < 0))) {
+          (!Number.isFinite(frictionUtilization) || frictionUtilization < 0)) ||
+        (contactSlideFrictionMin !== undefined &&
+          (!Number.isFinite(contactSlideFrictionMin) || contactSlideFrictionMin<0))) {
       throw new RangeError("Contacto de MuJoCo inválido");
     }
     if (geom1 !== floorGeomId && geom2 !== floorGeomId) continue;
@@ -101,6 +107,9 @@ export function summarizeGroundSupport(input: {
     const b = buckets[side];
     b.load += upwardN;
     b.count++;
+    if (contactSlideFrictionMin !== undefined) {
+      b.frictionMin=Math.min(b.frictionMin??Infinity,contactSlideFrictionMin);
+    }
     b.x += positionWorldM[0] * upwardN;
     b.y += positionWorldM[1] * upwardN;
     b.z += positionWorldM[2] * upwardN;
@@ -126,6 +135,7 @@ export function summarizeGroundSupport(input: {
       frictionUtilizationMean: b.frictionLoad > 0 ?
         b.frictionWeighted/b.frictionLoad : null,
       frictionUtilizationPeak: b.frictionPeak,
+      effectiveSlideFrictionMin:b.frictionMin,
       activeContacts: b.count,
       verticalLoadCentroidXY: b.load > 0 ? [b.x / b.load, b.y / b.load] : null,
       verticalLoadCentroidWorldM: b.load > 0 ?

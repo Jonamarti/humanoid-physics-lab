@@ -3,13 +3,16 @@ import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
-import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
+import { ExperimentalStepSequence, applyStepJointTargets, applyStanceToeRollAdditiveTorque, type StepSnapshot } from "../control/experimentalStep";
 import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
 import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce } from "./contactForces";
+import { materialContactLocalM, type MeasuredFootPose } from "./contactPatchSlip";
+import { MaterialContactTracker } from "./materialContactTracker";
+import { planStanceContactCommand, applyStanceContactCommand, type StanceContactCommand, type StanceContactMode } from "../control/stanceContact";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -52,6 +55,12 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  private stanceContactScale = 0;
+  private stanceContactMode: StanceContactMode = "combined";
+  private readonly materialContactTrackers: Record<FootSide,MaterialContactTracker> = {
+    left:new MaterialContactTracker(),right:new MaterialContactTracker(),
+  };
+  private stanceContactDiagnostic: StanceContactCommand | null = null;
 
   private constructor(module: Module) {
     this.module = module;
@@ -88,6 +97,11 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
+    this.stanceContactScale = 0;
+    this.stanceContactMode = "combined";
+    this.materialContactTrackers.left.reset();
+    this.materialContactTrackers.right.reset();
+    this.stanceContactDiagnostic = null;
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -105,6 +119,11 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
+    this.stanceContactScale = 0;
+    this.stanceContactMode = "combined";
+    this.materialContactTrackers.left.reset();
+    this.materialContactTrackers.right.reset();
+    this.stanceContactDiagnostic = null;
   }
 
   /** Enables bounded internal-joint torque control on the public humanoid.
@@ -126,6 +145,9 @@ export class MujocoSimulation {
     cartesianStepScale = 0,
     coordinatedGaitProfile = 0,
     swingExtensionGuard = 0,
+    stanceContactScale = 0,
+    stanceContactMode: StanceContactMode = "combined",
+    stanceToeRollStrength = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -134,13 +156,28 @@ export class MujocoSimulation {
         coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
+    if (!Number.isFinite(stanceContactScale) || stanceContactScale<0 || stanceContactScale>1) {
+      throw new RangeError("Control de contacto fuera de 0..1");
+    }
+    if (!["combined","push-only","slip-only","recovery-only","toe-gated"].includes(stanceContactMode)) {
+      throw new RangeError("Modo de control de contacto desconocido");
+    }
+    if (!Number.isFinite(stanceToeRollStrength) || stanceToeRollStrength<0 ||
+        stanceToeRollStrength>1) {
+      throw new RangeError("Intensidad de despegue de talón fuera de 0..1");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
-      swingExtensionGuard,
+      swingExtensionGuard, stanceToeRollStrength,
     );
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
+    this.stanceContactScale = stanceContactScale;
+    this.stanceContactMode = stanceContactMode;
+    this.materialContactTrackers.left.reset();
+    this.materialContactTrackers.right.reset();
+    this.stanceContactDiagnostic = null;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
     this.footSpeedWorldMps = [0,0,0];
@@ -148,6 +185,22 @@ export class MujocoSimulation {
 
   experimentalStepStatus(): StepSnapshot | null {
     return this.stepExperiment?.snapshot() ?? null;
+  }
+
+  /** Measured reaction/intent for the opt-in stance experiment, not proof of forward propulsion. */
+  experimentalStanceContactStatus(): StanceContactCommand | null {
+    return this.stanceContactDiagnostic;
+  }
+
+  private measuredFootPose(side: FootSide): MeasuredFootPose {
+    const {model,data}=this.ready();
+    const id=model.geom(side+"_foot_geom").id;
+    const p=(data.geom_xpos as Float64Array).subarray(id*3,id*3+3);
+    const r=(data.geom_xmat as Float64Array).subarray(id*9,id*9+9);
+    return {
+      centerWorldM:[p[0]!,p[1]!,p[2]!],
+      rotationWorld:Array.from(r),
+    };
   }
 
   private sampleStepExperiment(): void {
@@ -206,6 +259,11 @@ export class MujocoSimulation {
         if (command) {
           applyStepJointTargets(model,data,
             this.standingController.gains,command.targetsRad);
+          if (command.stanceToeRollTargetRad>0 && this.stepExperiment) {
+            const side:FootSide=this.stepExperiment.swingSide==="left"?"right":"left";
+            applyStanceToeRollAdditiveTorque(model,data,this.standingController.gains,
+              side,command.stanceToeRollTargetRad);
+          }
           if (command.soleTargetWorldM && this.stepExperiment &&
               this.cartesianStepScale > 0) {
             applyCartesianFootImpedance(model,data,this.standingController.gains,
@@ -218,6 +276,57 @@ export class MujocoSimulation {
                 maxFootForceN:150,
                 blend:command.cartesianBlend*this.cartesianStepScale,
               });
+          }
+          // Opt-in contact experiment. Measure the material point currently
+          // touching the ground: a sole site may move when the foot rolls.
+          // LIFT/SWING/LAND: rear stance foot (with guarded push-off).
+          // RECOVER: both loaded feet, slip damping ONLY.
+          this.stanceContactDiagnostic=null;
+          if (this.stanceContactScale>0 && this.stepExperiment) {
+            const supportSide:FootSide=this.stepExperiment.swingSide==="left"?"right":"left";
+            const rearContactEnabled=this.stanceContactMode!=="recovery-only";
+            const recoveryEnabled=this.stanceContactMode!=="push-only";
+            const contactSides:FootSide[]=rearContactEnabled &&
+              ["LIFT","SWING","LAND"].includes(command.phase)
+              ? [supportSide] : recoveryEnabled && command.phase==="RECOVER"
+                ? [supportSide,this.stepExperiment.swingSide] : [];
+            if (contactSides.length>0) {
+              const ground=this.humanoidGroundSupportObservation();
+              const com=data.subtree_com as Float64Array;
+              for(const side of contactSides) {
+                const pose=this.measuredFootPose(side);
+                const foot=ground[side];
+                const contact=foot.verticalLoadCentroidWorldM;
+                // First landing frame and load flicker are not evidence of
+                // sustained sticking. Hysteresis and a short torque ramp
+                // prevent full-strength corrective impulse on impact.
+                const measured=this.materialContactTrackers[side].observe({
+                  timeS:data.time,
+                  footPose:pose,
+                  contactWorldM:contact,
+                  verticalLoadN:foot.verticalLoadN,
+                });
+                if (!measured || !contact) continue;
+                const plan=planStanceContactCommand({
+                  phase:command.phase,
+                  requestedStepXY:this.stepExperiment.targetDeltaXY,
+                  comWorldM:[com[3]!,com[4]!,com[5]!],
+                  contactWorldM:contact,
+                  foot,
+                  materialSlipXYMps:measured.materialSlipXYMps,
+                  strength:this.stanceContactScale*measured.feedbackRamp01,
+                  mode:this.stanceContactMode,
+                  contactLocalXM:materialContactLocalM(pose,contact)[0],
+                  swingProgress01:this.stepExperiment.snapshot().currentTargetProgressM /
+                    Math.hypot(...this.stepExperiment.targetDeltaXY),
+                });
+                if (plan) {
+                  applyStanceContactCommand(model,data,this.standingController.gains,
+                    side,contact,plan.virtualForceWorldN);
+                  this.stanceContactDiagnostic=plan;
+                }
+              }
+            }
           }
         }
       }
@@ -563,6 +672,9 @@ export class MujocoSimulation {
             contactNormalForceN: Math.max(0, solved.normalN),
             tangentForceWorldN: tangentWorld,
             frictionUtilization: solved.frictionUtilization,
+            contactSlideFrictionMin: contact.dim>1 ?
+              Math.min((contact.friction as Float64Array)[0]!,
+                (contact.friction as Float64Array)[1]!) : 0,
           });
         } finally {
           contact.delete();

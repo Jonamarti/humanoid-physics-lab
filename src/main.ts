@@ -110,6 +110,14 @@ app.innerHTML = `
               <option value="0.5">50 % — retención intensa</option>
               <option value="1">100 % — retención máxima (puede provocar caída)</option>
             </select>
+            <label for="step-stance-contact">Contacto y empuje del pie posterior (investigación)</label>
+            <select id="step-stance-contact">
+              <option value="0" selected>Desactivado — paso calibrado sin cambios</option>
+              <option value="0.25">25 % — amortiguación de deslizamiento e impulso leve</option>
+              <option value="0.5">50 % — ensayo de apoyo experimental</option>
+              <option value="1">100 % — fuerza virtual máxima acotada (no validado)</option>
+            </select>
+            <p class="muted">Este ensayo usa carga, fricción y velocidad material del punto de contacto para calcular pares internos. No fija el pie, no añade fuerzas al tronco y NO garantiza mejor marcha. La fuerza real sobre el pie debe medirse en MuJoCo.</p>
             <p class="muted">Configuración de referencia: paso hacia delante de 12 cm, rodilla coordinada, 52 % de servo y 48 % de retención, sobre el suelo nominal del modelo de 75 kg. Ha completado un paso con ambos pies en las pruebas; no está calibrada para otras direcciones, suelos ni personas reales. No se activa al recibir un empujón.</p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
@@ -186,6 +194,7 @@ const stepFoot = required<HTMLSelectElement>("#step-foot");
 const stepDirection = required<HTMLSelectElement>("#step-direction");
 const stepCartesian = required<HTMLSelectElement>("#step-cartesian");
 const stepExtensionGuard = required<HTMLSelectElement>("#step-extension-guard");
+const stepStanceContact = required<HTMLSelectElement>("#step-stance-contact");
 const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
 const stepReadout = required<HTMLElement>("#step-readout");
@@ -395,6 +404,15 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             ((simulation.jointAngleRad("lumbar_pitch") +
               simulation.jointAngleRad("thorax_pitch"))*180/Math.PI).toFixed(1) + "°" +
             " · " + snapshot.reason;
+          const contactDiagnostic=simulation.experimentalStanceContactStatus();
+          if (contactDiagnostic) {
+            stepReadout.textContent += " · GRF real en dirección del paso: " +
+              contactDiagnostic.reactionForwardN.toFixed(1) + " N" +
+              " · velocidad del punto material de apoyo: " +
+              contactDiagnostic.materialSlipSpeedMps.toFixed(3) + " m/s" +
+              " · solicitud virtual de impulso: " +
+              contactDiagnostic.intendedPushOffN.toFixed(1) + " N (NO GRF)";
+          }
           const gate=snapshot.stability;
           stepGatesReadout.textContent = gate
             ? (gate.failures.length===0
@@ -729,7 +747,7 @@ stepRun.addEventListener("click", async () => {
     simulation.reset();
     simulation.enableExperimentalStepTrial(side, delta, 0.8,
       Number(stepCartesian.value), Number(stepProfile.value),
-      Number(stepExtensionGuard.value));
+      Number(stepExtensionGuard.value), Number(stepStanceContact.value));
     activeStepFoot = side;
     clock.reset();
     lastFrame = undefined;

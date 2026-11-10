@@ -23,6 +23,30 @@ export const smoothStep = (timeS:number,durationS:number):number => {
   return u*u*(3-2*u);
 };
 
+/** Late-stance heel rise: positive +Y ankle pitch rotates the toes
+ * DOWN relative to the heel, allowing real MuJoCo contact to migrate
+ * forward. This is a bounded internal joint target, never a planted-foot
+ * constraint or a prescribed displacement of the pelvis.
+ * Start only when the other foot has made real forward progress.
+ */
+export function stanceToeRollReference(input: {
+  readonly phase: StepPhase;
+  readonly elapsedS: number;
+  readonly swingProgress01: number;
+  readonly strength: number;
+}): number {
+  const {phase,elapsedS,swingProgress01:progress,strength}=input;
+  if (![elapsedS,progress,strength].every(Number.isFinite) || elapsedS<0 ||
+      strength<0 || strength>1) {
+    throw new RangeError("Referencia de despegue de talón no válida");
+  }
+  const travel=clamp((progress-0.33)/0.25,0,1);
+  const activation=travel*travel*(3-2*travel);
+  const phaseGain=phase==="SWING" || phase==="LAND" ? 1 :
+    phase==="RECOVER" ? 1-smoothStep(elapsedS,0.18) : 0;
+  return 0.12*strength*activation*phaseGain;
+}
+
 /** Separately testable articulated 'controlled falling' posture:
  * - SHIFT_WEIGHT: small sagittal COM shift + torso pitch (not a root force).
  * - LIFT: swing hip flexes, knee folds backwards to shorten the leg.

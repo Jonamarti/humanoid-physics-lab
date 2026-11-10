@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateContactPatchSlip, type MeasuredFootPose } from "../../src/physics/contactPatchSlip";
+import { estimateContactPatchSlip, materialContactLocalM, type MeasuredFootPose } from "../../src/physics/contactPatchSlip";
 
 const identity=[1,0,0,0,1,0,0,0,1] as const;
 const pose=(x:number,y:number,z:number,rot:readonly number[]=identity):MeasuredFootPose=>
@@ -35,6 +35,21 @@ describe("Sliding versus rolling of real foot-ground contact material",()=>{
     const speedB=estimateContactPatchSlip(last,next,[0.08,0,0],0.02);
     expect(speedA.tangentialSpeedMps).toBe(0);
     expect(speedB.tangentialSpeedMps).toBe(0);
+  });
+
+  it("tracks heel-to-toe contact migration in the foot frame separately from slip",()=>{
+    const stationary=pose(0,0,0.035);
+    const heel=materialContactLocalM(stationary,[-0.07,0,0]);
+    const toe=materialContactLocalM(stationary,[0.12,0,0]);
+    expect(heel[0]).toBeLessThan(0);
+    expect(toe[0]).toBeGreaterThan(0);
+    expect(toe[0]-heel[0]).toBeCloseTo(0.19);
+    // Different point of contact can move along a rigid sole without
+    // implying material motion of the point currently supporting weight.
+    expect(estimateContactPatchSlip(stationary,stationary,[-0.07,0,0],0.002)
+      .tangentialSpeedMps).toBe(0);
+    expect(estimateContactPatchSlip(stationary,stationary,[0.12,0,0],0.002)
+      .tangentialSpeedMps).toBe(0);
   });
 
   it("rejects corrupt coordinates or time resolution",()=>{

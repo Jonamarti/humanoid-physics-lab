@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ExperimentalStepSequence, type StepFeedback } from "../../src/control/experimentalStep";
+import { ExperimentalStepSequence, applyStanceToeRollAdditiveTorque, type StepFeedback } from "../../src/control/experimentalStep";
 
 const sample = (timeS: number, overrides: Partial<StepFeedback> = {}): StepFeedback => ({
   timeS, comWorldM:[0,0,0.95],comVelocityWorldMps:[0,0,0],
@@ -10,6 +10,31 @@ const sample = (timeS: number, overrides: Partial<StepFeedback> = {}): StepFeedb
   supportSoleWorldM:[0.065,-0.105,0.001],
   supportLoadN:370,swingLoadN:370,
   ...overrides,
+});
+
+describe("Stance heel rise preserves the existing COM/ankle torque",()=>{
+  it("adds bounded torque without replacing balance control or acting on root",()=>{
+    const model={
+      njnt:2,jnt_type:[0,3],jnt_dofadr:[0,6],jnt_qposadr:[0,7],
+      jnt:(name:string)=>({id:name==="right_ankle_pitch"?1:-1}),
+    } as unknown as Parameters<typeof applyStanceToeRollAdditiveTorque>[0];
+    const applied=new Float64Array(7);
+    const data={qfrc_applied:applied,qpos:new Float64Array(8),
+      qvel:new Float64Array(7)};
+    const gains=new Map([[1,{targetRad:0,stiffnessNmPerRad:350,
+      dampingNmsPerRad:32,maxTorqueNm:170}]]);
+    applied[6]=42;
+    expect(applyStanceToeRollAdditiveTorque(model,data,gains,"right",0.06))
+      .toBeCloseTo(21);
+    expect(applied[6]).toBeCloseTo(63);
+    expect(Array.from(applied.subarray(0,6))).toEqual([0,0,0,0,0,0]);
+    applied[6]=165;
+    expect(applyStanceToeRollAdditiveTorque(model,data,gains,"right",0.12))
+      .toBeCloseTo(5);
+    expect(applied[6]).toBe(170);
+    expect(()=>applyStanceToeRollAdditiveTorque(model,data,gains,"right",-0.1))
+      .toThrow(RangeError);
+  });
 });
 
 describe("Recovery-step FSM requires verified contact events", () => {

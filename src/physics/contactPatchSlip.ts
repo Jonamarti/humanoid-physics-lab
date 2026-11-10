@@ -16,6 +16,27 @@ export interface ContactPatchVelocity {
   readonly estimatedSlipDistanceThisSampleM: number;
 }
 
+/** Material coordinates of a world-ground contact in the actual foot pose.
+ * Useful for observing heel-to-toe contact migration. A changing local contact
+ * location is NOT, by itself, evidence that any material point slipped.
+ */
+export function materialContactLocalM(
+  pose:MeasuredFootPose,contactWorldM:XYZ,
+): XYZ {
+  const r=pose.rotationWorld;
+  if(r.length!==9 || ![...r,...pose.centerWorldM,...contactWorldM].every(Number.isFinite)){
+    throw new RangeError("Posición o rotación del contacto no finita");
+  }
+  const dx=contactWorldM[0]-pose.centerWorldM[0];
+  const dy=contactWorldM[1]-pose.centerWorldM[1];
+  const dz=contactWorldM[2]-pose.centerWorldM[2];
+  return [
+    r[0]!*dx+r[3]!*dy+r[6]!*dz,
+    r[1]!*dx+r[4]!*dy+r[7]!*dz,
+    r[2]!*dx+r[5]!*dy+r[8]!*dz,
+  ];
+}
+
 /** Kinematic estimate from two successive measured MuJoCo poses and the
  * CURRENT solver-derived force-weighted contact point. Maps that material
  * point into the prior foot pose to estimate its XY displacement.
@@ -39,13 +60,8 @@ export function estimateContactPatchSlip(
       !vals.every(Number.isFinite) || deltaTimeS <= 0 || deltaTimeS > 0.25) {
     throw new RangeError("Poses, contacto o cadencia inválidos");
   }
-  const r=current.rotationWorld, p=previous.rotationWorld;
-  const dx=contactWorldM[0]-current.centerWorldM[0];
-  const dy=contactWorldM[1]-current.centerWorldM[1];
-  const dz=contactWorldM[2]-current.centerWorldM[2];
-  const localX=r[0]!*dx+r[3]!*dy+r[6]!*dz;
-  const localY=r[1]!*dx+r[4]!*dy+r[7]!*dz;
-  const localZ=r[2]!*dx+r[5]!*dy+r[8]!*dz;
+  const p=previous.rotationWorld;
+  const [localX,localY,localZ]=materialContactLocalM(current,contactWorldM);
   const prevX=previous.centerWorldM[0]+p[0]!*localX+p[1]!*localY+p[2]!*localZ;
   const prevY=previous.centerWorldM[1]+p[3]!*localX+p[4]!*localY+p[5]!*localZ;
   const vx=(contactWorldM[0]-prevX)/deltaTimeS;

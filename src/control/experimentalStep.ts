@@ -346,7 +346,7 @@ export class ExperimentalStepSequence {
     const elapsed = Math.max(0,timeS - this.phaseStartedAtS);
     const supportSign = this.supportSide === "left" ? 1 : -1;
     const moveSign = this.swingSide === "left" ? 1 : -1;
-    const gait = this.coordinatedGaitProfile > 0
+    const gaitIntent = this.coordinatedGaitProfile > 0
       ? controlledStepPosture({
         phase:this.phase, elapsedS:elapsed,
         swingSide:this.swingSide, targetDeltaXY:this.targetDeltaXY,
@@ -355,6 +355,17 @@ export class ExperimentalStepSequence {
           Math.hypot(...this.targetDeltaXY),
         swingExtensionGuard:this.swingExtensionGuard,
       }) : null;
+    // An articulated forefoot needs the support COM to move laterally
+    // *before* any forward leaning / push-off. Prevent the v2 pre-lift
+    // sagittal bias from rotating the toes and destabilizing the base.
+    // The legacy coordinated posture is unchanged for v1/v2.
+    const gait = this.articulatedSupportTransfer &&
+      this.phase === "SHIFT_WEIGHT" && gaitIntent ? {
+        ...gaitIntent,
+        forwardComBiasM: 0,
+        targetsRad: { ...gaitIntent.targetsRad,
+          lumbar_pitch:0,thorax_pitch:0 },
+      } : gaitIntent;
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;

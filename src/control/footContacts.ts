@@ -56,6 +56,8 @@ export interface GroundSupportObservation {
   readonly loadedSupportPolygonXY: readonly XY[];
   readonly totalVerticalLoadN: number;
   readonly activeFootContacts: number;
+  /** Floor-foot contacts without complete MuJoCo solver rows; NOT loaded support. */
+  readonly unsolvedFloorFootContacts?: number;
 }
 
 export function summarizeGroundSupport(input: {

@@ -55,8 +55,8 @@ export class MujocoSimulation {
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
   private stanceContactScale = 0;
-  private priorStancePose: MeasuredFootPose | undefined;
-  private priorStancePoseTimeS = 0;
+  private priorContactPoses: Partial<Record<FootSide,MeasuredFootPose>> = {};
+  private priorContactPoseTimeS = 0;
   private stanceContactDiagnostic: StanceContactCommand | null = null;
 
   private constructor(module: Module) {
@@ -95,7 +95,8 @@ export class MujocoSimulation {
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
     this.stanceContactScale = 0;
-    this.priorStancePose = undefined;
+    this.priorContactPoses = {};
+    this.priorContactPoseTimeS = 0;
     this.stanceContactDiagnostic = null;
   }
 
@@ -115,7 +116,8 @@ export class MujocoSimulation {
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
     this.stanceContactScale = 0;
-    this.priorStancePose = undefined;
+    this.priorContactPoses = {};
+    this.priorContactPoseTimeS = 0;
     this.stanceContactDiagnostic = null;
   }
 
@@ -158,7 +160,8 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.stanceContactScale = stanceContactScale;
-    this.priorStancePose = undefined;
+    this.priorContactPoses = {};
+    this.priorContactPoseTimeS = 0;
     this.stanceContactDiagnostic = null;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
@@ -254,38 +257,46 @@ export class MujocoSimulation {
                 blend:command.cartesianBlend*this.cartesianStepScale,
               });
           }
-          // NEW opt-in contact experiment. Record the *material point* slip,
-          // not the rigid sole marker speed. The measured floor reaction is
-          // independent of the intended virtual foot force below.
+          // Opt-in contact experiment. Measure the material point currently
+          // touching the ground: a sole site may move when the foot rolls.
+          // LIFT/SWING/LAND: rear stance foot (with guarded push-off).
+          // RECOVER: both loaded feet, slip damping ONLY.
           this.stanceContactDiagnostic=null;
-          if (this.stanceContactScale>0 && this.stepExperiment &&
-              ["LIFT","SWING","LAND"].includes(command.phase)) {
-            const side:FootSide=this.stepExperiment.swingSide==="left"?"right":"left";
-            const pose=this.measuredFootPose(side);
-            const foot=this.humanoidGroundSupportObservation()[side];
-            const contact=foot.verticalLoadCentroidWorldM;
-            const dt=data.time-this.priorStancePoseTimeS;
-            if (this.priorStancePose && contact && dt>0 && dt<=0.025) {
-              const slip=estimateContactPatchSlip(this.priorStancePose,pose,contact,dt);
+          if (this.stanceContactScale>0 && this.stepExperiment) {
+            const supportSide:FootSide=this.stepExperiment.swingSide==="left"?"right":"left";
+            const contactSides:FootSide[]=["LIFT","SWING","LAND"].includes(command.phase)
+              ? [supportSide] : command.phase==="RECOVER"
+                ? [supportSide,this.stepExperiment.swingSide] : [];
+            if (contactSides.length>0) {
+              const ground=this.humanoidGroundSupportObservation();
               const com=data.subtree_com as Float64Array;
-              const requested=this.stepExperiment.targetDeltaXY;
-              const plan=planStanceContactCommand({
-                phase:command.phase,
-                requestedStepXY:requested,
-                comWorldM:[com[3]!,com[4]!,com[5]!],
-                contactWorldM:contact,
-                foot,
-                materialSlipXYMps:slip.tangentialVelocityWorldMps,
-                strength:this.stanceContactScale,
-              });
-              if (plan) {
-                applyStanceContactCommand(model,data,this.standingController.gains,
-                  side,contact,plan.virtualForceWorldN);
-                this.stanceContactDiagnostic=plan;
+              const dt=data.time-this.priorContactPoseTimeS;
+              for(const side of contactSides) {
+                const pose=this.measuredFootPose(side);
+                const foot=ground[side];
+                const contact=foot.verticalLoadCentroidWorldM;
+                const previous=this.priorContactPoses[side];
+                if (previous && contact && dt>0 && dt<=0.025) {
+                  const slip=estimateContactPatchSlip(previous,pose,contact,dt);
+                  const plan=planStanceContactCommand({
+                    phase:command.phase,
+                    requestedStepXY:this.stepExperiment.targetDeltaXY,
+                    comWorldM:[com[3]!,com[4]!,com[5]!],
+                    contactWorldM:contact,
+                    foot,
+                    materialSlipXYMps:slip.tangentialVelocityWorldMps,
+                    strength:this.stanceContactScale,
+                  });
+                  if (plan) {
+                    applyStanceContactCommand(model,data,this.standingController.gains,
+                      side,contact,plan.virtualForceWorldN);
+                    this.stanceContactDiagnostic=plan;
+                  }
+                }
+                this.priorContactPoses[side]=pose;
               }
+              this.priorContactPoseTimeS=data.time;
             }
-            this.priorStancePose=pose;
-            this.priorStancePoseTimeS=data.time;
           }
         }
       }

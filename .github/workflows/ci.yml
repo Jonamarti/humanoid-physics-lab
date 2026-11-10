@@ -35,6 +35,10 @@ jobs:
         run: npm run lint
       - name: Vitest unit tests
         run: npm test
+      - name: Diagnose v3 support transfer and first fall (one-off)
+        env:
+          HPL_RUN_V3_BENCH: "1"
+        run: npx vitest run tests/manual/articulatedForefootV3Bench.test.ts
       - name: Production build
         run: npm run build
       - name: Verify production output

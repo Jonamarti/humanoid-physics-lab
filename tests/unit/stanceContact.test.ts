@@ -46,6 +46,9 @@ describe("Experimental ground-contact feedback, not a welded foot",()=>{
     expect(backward.virtualForceWorldN[0]).toBeGreaterThan(0);
     const lateral=sample({requestedStepXY:[0,0.12],materialSlipXYMps:[0,0.3]})!;
     expect(lateral.virtualForceWorldN[1]).toBeLessThan(0);
+    const recovery=sample({phase:"RECOVER",materialSlipXYMps:[0.2,0]})!;
+    expect(recovery.intendedPushOffN).toBe(0);
+    expect(recovery.virtualForceWorldN[0]).toBeLessThan(0);
   });
   it("caps virtual correction conservatively by loaded friction headroom",()=>{
     const low=sample({foot:{...foot,verticalLoadN:50,

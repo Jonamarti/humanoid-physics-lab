@@ -116,7 +116,15 @@ app.innerHTML = `
               <option value="v2" selected>v2 — pie rígido, referencia previamente medida</option>
               <option value="v3">v3 — retropié y dedos articulados, sin validar</option>
             </select>
+            <label for="v3-balance-mode">Estrategia de equilibrio en v3 (experimental)</label>
+            <select id="v3-balance-mode">
+              <option value="ankles" selected>Referencia: control de tobillos y postura</option>
+              <option value="whole-body">Compensación articular: hombros, caderas y tronco</option>
+            </select>
             <button id="v3-stand-run" type="button" disabled>Probar bipedestación con v3 (10 s)</button>
+            <button id="v3-push-run" type="button" disabled>Probar empujón con v3 (6 s)</button>
+            <p id="v3-momentum-readout" class="muted" role="status" aria-live="off" hidden></p>
+            <p class="muted">v3 emplea las mismas fuerzas reales seleccionadas arriba. La compensación corporal es una primera hipótesis física, no una garantía de recuperar el equilibrio ni un paso automático.</p>
             <p id="v3-contact-readout" class="muted" role="status" aria-live="off" hidden></p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
@@ -197,6 +205,9 @@ const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
 const stepModel = required<HTMLSelectElement>("#step-model");
 const v3StandRun = required<HTMLButtonElement>("#v3-stand-run");
+const v3PushRun = required<HTMLButtonElement>("#v3-push-run");
+const v3BalanceMode = required<HTMLSelectElement>("#v3-balance-mode");
+const v3MomentumReadout = required<HTMLElement>("#v3-momentum-readout");
 const v3ContactReadout = required<HTMLElement>("#v3-contact-readout");
 const stepReadout = required<HTMLElement>("#step-readout");
 const stepGatesReadout = required<HTMLElement>("#step-gates-readout");
@@ -253,6 +264,7 @@ function updateCalculation(): void {
   pushRun.disabled = !!forceEditor?.enabled || !simulation || mode !== "standing" || !validPushInputs();
   stepRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
   v3StandRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
+  v3PushRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled || !validPushInputs();
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -311,6 +323,7 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
   balanceReadout.hidden = mode !== "humanoid" && mode !== "standing";
   groundProjectionReadout.hidden = balanceReadout.hidden;
   v3ContactReadout.hidden = mode !== "standing" || loadedStandingModel !== "gait_v3";
+  v3MomentumReadout.hidden = v3ContactReadout.hidden;
   if (mode === "cylinder") {
     maxSampledForwardTiltDeg = Math.max(maxSampledForwardTiltDeg, cylinderForwardTiltDeg(state.qpos));
     physicsReadout.textContent = "t = " + state.time.toFixed(3) +
@@ -332,6 +345,13 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
       if (mode === "standing" && loadedStandingModel === "gait_v3") {
         const left=ground.left.segments, right=ground.right.segments;
         if (!left || !right) throw new Error("Modelo v3 sin sensores de antepié");
+        const momentum=simulation.experimentalWholeBodyBalanceStatus();
+        v3MomentumReadout.textContent = momentum
+          ? "Compensación corporal " + (momentum.active ? "activa" : "en reposo/sin apoyo") +
+            " · momento angular normalizado X/Y/Z: " +
+            momentum.normalizedMomentumXYZ.map(x=>x.toFixed(3)).join(" / ") +
+            " · apoyo disponible: " + (momentum.supportFraction*100).toFixed(0) + " %"
+          : "Compensación corporal desactivada: solo control postural de referencia.";
         const percent=(toe:number,total:number):string=>
           total>1 ? (100*toe/total).toFixed(1)+" %" : "sin apoyo";
         v3ContactReadout.textContent =
@@ -577,6 +597,9 @@ function clearLoadedScenario(): void {
   activeStepTrial = false;
   stepRun.disabled = true;
   v3StandRun.disabled = true;
+  v3PushRun.disabled = true;
+  v3MomentumReadout.hidden = true;
+  v3MomentumReadout.textContent = "";
   v3ContactReadout.hidden = true;
   v3ContactReadout.textContent = "";
   stepReadout.textContent = "El paso todavía no se ha ensayado.";
@@ -661,6 +684,7 @@ loadButton.addEventListener("click", async () => {
     forceEditor?.refresh();
     stepRun.disabled = mode !== "standing" || !!forceEditor?.enabled;
     v3StandRun.disabled = mode !== "standing" || !!forceEditor?.enabled;
+    v3PushRun.disabled = mode !== "standing" || !!forceEditor?.enabled || !validPushInputs();
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -675,6 +699,7 @@ loadButton.addEventListener("click", async () => {
 for (const control of [pushPeak, pushDuration, pushDirection]) {
   control.addEventListener("input", () => {
     pushRun.disabled = !!forceEditor?.enabled || !simulation || mode !== "standing" || !validPushInputs();
+    v3PushRun.disabled = pushRun.disabled;
     if (simulation && mode === "standing" && !activePush) present(simulation.state());
   });
 }
@@ -759,6 +784,8 @@ v3StandRun.addEventListener("click", async () => {
     await ensureStandingModel("gait_v3");
     if (!simulation || mode !== "standing") return;
     simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if (v3BalanceMode.value==="whole-body") simulation.enableExperimentalWholeBodyBalance();
     activeStepTrial = false;
     stepReadout.textContent = "Sin paso: ensayo de bipedestación del modelo articulado v3.";
     clock.reset(); lastFrame = undefined;
@@ -766,11 +793,49 @@ v3StandRun.addEventListener("click", async () => {
     initialPushCom = undefined; initialPushFeet = undefined;
     playing = true;
     toggleButton.textContent = "Pausar";
-    physicsStatus.textContent = "Ensayo v3 de 10 s en marcha; no equivale a validación de estabilidad.";
+    physicsStatus.textContent = "Ensayo v3 de 10 s con estrategia " +
+      (v3BalanceMode.value==="whole-body" ? "corporal reactiva" : "postural original") +
+      ". No equivale a validación biomecánica.";
     present(simulation.state());
   } catch (error) {
     playing = false;
     physicsStatus.textContent = "Error preparando bipedestación v3: " +
+      (error instanceof Error ? error.message : String(error));
+  }
+});
+
+v3PushRun.addEventListener("click", async () => {
+  if (!simulation || mode!=="standing" || forceEditor?.enabled) return;
+  try {
+    const trial=selectedPushTrial();
+    playing=false;
+    await ensureStandingModel("gait_v3");
+    if (!simulation || mode!=="standing") return;
+    simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if (v3BalanceMode.value==="whole-body") simulation.enableExperimentalWholeBodyBalance();
+    activeStepTrial=false;
+    stepReadout.textContent="Sin paso: ensayo físico del equilibrio corporal ante empujón.";
+    clock.reset(); lastFrame=undefined;
+    const b=simulation.humanoidBalanceObservation();
+    initialPushCom=[b.comWorldM[0],b.comWorldM[1]];
+    const footIds=simulation.geometrySpecs().filter(g=>
+      g.shape==="box" && Math.abs(g.size[0]-0.0825)<1e-8).map(g=>g.id);
+    initialPushFeet=new Map(simulation.geometryPoses().filter(p=>
+      footIds.includes(p.id)).map(p=>[p.id,p.position]));
+    activePush=trial;
+    minimumPushPelvisM=simulation.state().qpos[2]!;
+    maximumPushTiltDeg=0;
+    settledAfterPush=true;
+    playing=true;
+    toggleButton.textContent="Pausar";
+    physicsStatus.textContent="Empujón físico v3, " +
+      (v3BalanceMode.value==="whole-body" ? "compensación de momento con brazos/caderas" :
+        "control de tobillos de referencia") + ", 6 s de integración.";
+    present(simulation.state());
+  } catch(error) {
+    playing=false;
+    physicsStatus.textContent="No se pudo iniciar empujón v3: " +
       (error instanceof Error ? error.message : String(error));
   }
 });
@@ -789,6 +854,7 @@ stepRun.addEventListener("click", async () => {
       (stepModel.value==="v3" ? "gait_v3" : "gait") : "nominal");
     if (!simulation || mode !== "standing") return;
     simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance(); // step FSM remains isolated
     simulation.enableExperimentalStepTrial(side, delta, 0.8,
       Number(stepCartesian.value), Number(stepProfile.value),
       Number(stepExtensionGuard.value));

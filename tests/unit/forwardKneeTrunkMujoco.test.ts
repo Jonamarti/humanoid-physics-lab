@@ -8,7 +8,7 @@ import { MujocoSimulation } from "../../src/physics/mujoco";
  */
 describe("Actual knee bend, trunk lean and COM progression under MuJoCo",()=>{
   it("compares legacy vs coordinated posture with same physical 75kg humanoid",async()=>{
-    const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
+    const xml=await readFile(new URL("../../public/models/humanoid_step_v2.xml",import.meta.url),"utf8");
     const rows=[];
     for(const side of ["left","right"] as const) {
       for(const coordinated of [0,1] as const) {

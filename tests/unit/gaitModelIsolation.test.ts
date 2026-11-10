@@ -15,7 +15,8 @@ describe("No regression to published standing/push humanoid",()=>{
     // parameters must match once the two corrected knee axes are undone.
     const normalize=(xml:string)=>xml.replace(/<!--[\s\S]*?-->/g,"")
       .replace(/model="humanoid_step_v2"/g,'model="humanoid_v1"')
-      .replace(/(name="(?:left|right)_knee" type="hinge" axis=")0 -1 0"/g,'$10 1 0"')
+      .replace(/(name="(?:left|right)_knee" type="hinge" axis=")0 -1 0"/g,
+        (_match:string,prefix:string)=>prefix+'0 1 0"')
       .replace(/\s+/g," ").trim();
     expect(normalize(gait)).toEqual(normalize(nominal));
   });

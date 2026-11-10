@@ -504,6 +504,15 @@ export class MujocoSimulation {
     const floorGeomId = model.geom("floor").id;
     const leftFootGeomId = model.geom("left_foot_geom").id;
     const rightFootGeomId = model.geom("right_foot_geom").id;
+    // Detect articulated toes from the loaded model; v1/v2 retain the legacy path.
+    const names = Array.from({length:model.ngeom},(_,id)=>model.geom(id).name);
+    const hasLeftToe = names.includes("left_toe_geom");
+    const hasRightToe = names.includes("right_toe_geom");
+    if (hasLeftToe !== hasRightToe) throw new Error("Modelo v3 con antepié incompleto");
+    const leftToeGeomId = hasLeftToe ? model.geom("left_toe_geom").id : undefined;
+    const rightToeGeomId = hasRightToe ? model.geom("right_toe_geom").id : undefined;
+    const eligible = [leftFootGeomId,rightFootGeomId,
+      ...(hasLeftToe ? [leftToeGeomId!,rightToeGeomId!] : [])];
     const footGeom = (geomId: number): FootGeom => {
       const positions = data.geom_xpos as Float64Array;
       const rotations = data.geom_xmat as Float64Array;
@@ -532,7 +541,7 @@ export class MujocoSimulation {
           const first = contact.geom1;
           const second = contact.geom2;
           if ((first !== floorGeomId && second !== floorGeomId) ||
-              ![leftFootGeomId, rightFootGeomId].includes(
+              !eligible.includes(
                 first === floorGeomId ? second : first
               )) continue;
           if (contact.efc_address < 0) continue; // excluded / unsolved
@@ -573,6 +582,10 @@ export class MujocoSimulation {
     }
     return summarizeGroundSupport({
       floorGeomId, leftFootGeomId, rightFootGeomId,
+      ...(hasLeftToe ? {
+        leftToeGeomId:leftToeGeomId!,rightToeGeomId:rightToeGeomId!,
+        leftToe:footGeom(leftToeGeomId!),rightToe:footGeom(rightToeGeomId!),
+      } : {}),
       leftFoot: footGeom(leftFootGeomId),
       rightFoot: footGeom(rightFootGeomId),
       contacts: samples,

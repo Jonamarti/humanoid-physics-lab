@@ -32,6 +32,8 @@ export interface FootSupport {
   readonly activeContacts: number;
   /** Vertical-force-weighted contact position; not a full 6D CoP. */
   readonly verticalLoadCentroidXY: XY | null;
+  /** Actual 3D force-weighted contact centroid from MuJoCo, not a CoP. */
+  readonly verticalLoadCentroidWorldM: XYZ | null;
   readonly isLoaded: boolean;
 }
 
@@ -63,11 +65,11 @@ export function summarizeGroundSupport(input: {
       !Number.isFinite(threshold) || threshold <= 0) {
     throw new RangeError("Geometrías o umbral de contacto inválidos");
   }
-  type Bucket = { load: number; count: number; x: number; y: number;
+  type Bucket = { load: number; count: number; x: number; y: number; z: number;
     tx: number; ty: number; frictionWeighted: number; frictionLoad: number;
     frictionPeak: number | null };
   const makeBucket = (): Bucket => ({
-    load: 0,count: 0,x: 0,y: 0,tx: 0,ty: 0,
+    load: 0,count: 0,x: 0,y: 0,z: 0,tx: 0,ty: 0,
     frictionWeighted: 0,frictionLoad: 0,frictionPeak: null,
   });
   const buckets: Record<"left" | "right",Bucket> = {
@@ -101,6 +103,7 @@ export function summarizeGroundSupport(input: {
     b.count++;
     b.x += positionWorldM[0] * upwardN;
     b.y += positionWorldM[1] * upwardN;
+    b.z += positionWorldM[2] * upwardN;
     if (tangentForceWorldN) {
       b.tx += towardFoot*tangentForceWorldN[0];
       b.ty += towardFoot*tangentForceWorldN[1];
@@ -125,6 +128,8 @@ export function summarizeGroundSupport(input: {
       frictionUtilizationPeak: b.frictionPeak,
       activeContacts: b.count,
       verticalLoadCentroidXY: b.load > 0 ? [b.x / b.load, b.y / b.load] : null,
+      verticalLoadCentroidWorldM: b.load > 0 ?
+        [b.x / b.load, b.y / b.load, b.z / b.load] : null,
       isLoaded: b.load >= threshold,
     };
   };

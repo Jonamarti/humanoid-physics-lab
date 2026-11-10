@@ -15,7 +15,6 @@ const keys=["left.rearfoot","left.forefoot","right.rearfoot","right.forefoot"] a
 type Key=typeof keys[number];
 type Side="left"|"right";
 type Part="rearfoot"|"forefoot";
-const keyOf=(side:Side,part:Part):Key=>`${side}.${part}`;
 const round=(n:number|null,digits=4)=>n===null ? null : +n.toFixed(digits);
 
 function segmentIds(sim:MujocoSimulation):Readonly<Record<Key,number>> {

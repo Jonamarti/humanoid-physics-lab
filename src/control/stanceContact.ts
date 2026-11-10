@@ -23,6 +23,7 @@ export interface StanceContactCommand {
  *
  * The virtual force tries to move the supporting foot BACKWARD during the
  * latter part of forward swing, so the physical floor reaction may be forward.
+ * During RECOVER, both loaded feet receive only slip damping (no push-off).
  * Feedback opposes material slip in either tangent direction. Both effects
  * are bounded by measured normal load / available friction and later by
  * actual joint torque limits. Do not call this a verified push-off unless
@@ -49,7 +50,7 @@ export function planStanceContactCommand(input: {
       (utilization!==null && (!Number.isFinite(utilization) || utilization<0))) {
     throw new RangeError("Medida de apoyo o intensidad de contacto inválida");
   }
-  if (strength===0 || !["LIFT","SWING","LAND"].includes(phase) ||
+  if (strength===0 || !["LIFT","SWING","LAND","RECOVER"].includes(phase) ||
       foot.verticalLoadN<40 || !foot.verticalLoadCentroidWorldM ||
       friction===null || utilization===null || friction<=0) return null;
 

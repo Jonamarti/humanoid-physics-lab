@@ -54,8 +54,11 @@ export function controlledStepPosture(input: {
     phase==="STAND" || phase==="FALL" || phase==="ABORT" ? 0 :
     phase==="RECOVER" ? 1-smoothStep(elapsedS,0.65) :
     phase==="COMPLETE" ? 0 : 1;
-  const trunkPitch=0.125*sagittal*stanceRamp*intensity;
-  const bias=clamp(dx*0.3,-0.045,0.045)*stanceRamp*intensity;
+  // COM progression should provide most of the forward motion, not an
+  // exaggerated upper-body fold. The body moves under bounded ankle and
+  // hip torques, while pelvis root remains free.
+  const trunkPitch=0.070*sagittal*stanceRamp*intensity;
+  const bias=clamp(dx*0.82,-0.095,0.095)*stanceRamp*intensity;
   const targets:Record<string,number>={};
   if (trunkPitch!==0 || ["SHIFT_WEIGHT","LIFT","SWING","LAND","RECOVER"].includes(phase)) {
     targets.lumbar_pitch=trunkPitch*0.72;

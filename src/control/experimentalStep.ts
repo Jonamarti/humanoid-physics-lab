@@ -37,6 +37,8 @@ export interface StepCommand {
   /** World-space end-effector target, used by bounded Jacobian feedback. */
   readonly soleTargetWorldM: XYZ | null;
   readonly cartesianBlend: number;
+  /** Extra bounded stance ankle correction, applied ADDITIVELY to balance. */
+  readonly stanceToeRollTargetRad: number;
 }
 
 export interface StepSnapshot {
@@ -374,13 +376,14 @@ export class ExperimentalStepSequence {
     // Only experimental gait mode replaces the leg pose and adds spine
     // commands. Neutral standing and legacy step behavior remain separate.
     if (gait) Object.assign(joints,gait.targetsRad);
+    let stanceToeRollTargetRad=0;
     if (gait && this.stanceToeRollStrength>0 && this.targetDeltaXY[0]>0.03) {
-      const toeRad=stanceToeRollReference({
+      stanceToeRollTargetRad=stanceToeRollReference({
         phase:this.phase,elapsedS:elapsed,
         swingProgress01:this.currentTargetProgressM/Math.hypot(...this.targetDeltaXY),
         strength:this.stanceToeRollStrength,
       });
-      if (toeRad>0) joints[`${this.supportSide}_ankle_pitch`]=toeRad;
+      // Never replace the COM balance torque at the stance ankle.
     }
     const t = (duration: number): number => {
       const u=Math.max(0,Math.min(1,elapsed/duration));
@@ -408,7 +411,7 @@ export class ExperimentalStepSequence {
         Math.max(0,1-this.latestSwingLoadN/60);
     }
     return { phase:this.phase, referenceComXY:ref, targetsRad:joints,
-      soleTargetWorldM, cartesianBlend };
+      soleTargetWorldM, cartesianBlend, stanceToeRollTargetRad };
   }
 }
 
@@ -435,4 +438,34 @@ export function applyStepJointTargets(
   if (Array.from(data.qfrc_applied).slice(0,6).some(v => v!==0)) {
     throw new Error("El paso experimental intentó actuar sobre root/pelvis");
   }
+}
+
+/** Add a heel-rise torque ON TOP OF the active ankle-COM stabilizer.
+ * Never replace the original ankle correction; no root actuation.
+ * Delta-q requests Kp*delta-q Nm within the existing motor torque limit.
+ */
+export function applyStanceToeRollAdditiveTorque(
+  model:NamedHingeModel,data:MuJoCoJointStateView,
+  baseline:ReadonlyMap<number,JointPDSettings>,side:FootSide,targetRad:number,
+): number {
+  if (!Number.isFinite(targetRad) || targetRad<0 || targetRad>0.120001) {
+    throw new RangeError("Objetivo de elevación de talón inválido");
+  }
+  if (targetRad===0) return 0;
+  const joint=model.jnt(side+"_ankle_pitch").id;
+  if (joint<=0 || joint>=model.njnt || model.jnt_type[joint]!==3) {
+    throw new TypeError("Solo se permite el tobillo articular de apoyo");
+  }
+  const dof=model.jnt_dofadr[joint]!;
+  const gain=baseline.get(joint);
+  if (!gain || dof<6) throw new TypeError("Par de tobillo sin límite");
+  const before=data.qfrc_applied[dof]!;
+  if (!Number.isFinite(before)) throw new RangeError("Par basal no finito");
+  const extra=gain.stiffnessNmPerRad*targetRad;
+  const after=Math.max(-gain.maxTorqueNm,Math.min(gain.maxTorqueNm,before+extra));
+  data.qfrc_applied[dof]=after;
+  if (Array.from(data.qfrc_applied).slice(0,6).some(v=>v!==0)) {
+    throw new Error("Elevación de talón intentó mover pelvis libre");
+  }
+  return after-before;
 }

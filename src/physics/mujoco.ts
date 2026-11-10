@@ -3,7 +3,7 @@ import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
-import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
+import { ExperimentalStepSequence, applyStepJointTargets, applyStanceToeRollAdditiveTorque, type StepSnapshot } from "../control/experimentalStep";
 import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
 import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
@@ -259,6 +259,11 @@ export class MujocoSimulation {
         if (command) {
           applyStepJointTargets(model,data,
             this.standingController.gains,command.targetsRad);
+          if (command.stanceToeRollTargetRad>0 && this.stepExperiment) {
+            const side:FootSide=this.stepExperiment.swingSide==="left"?"right":"left";
+            applyStanceToeRollAdditiveTorque(model,data,this.standingController.gains,
+              side,command.stanceToeRollTargetRad);
+          }
           if (command.soleTargetWorldM && this.stepExperiment &&
               this.cartesianStepScale > 0) {
             applyCartesianFootImpedance(model,data,this.standingController.gains,

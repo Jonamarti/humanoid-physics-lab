@@ -78,8 +78,11 @@ export class MujocoSimulation {
       // In this Embind build a failed model.geom(name) lookup is not a safe
       // optional-access probe: it can corrupt the WASM runtime. Only resolve
       // both toe names when the XML explicitly declares both physical geoms.
-      const declared = xml.replace(/<!--[\\s\\S]*?-->/g,"");
-      const hasGeom = (name:string):boolean => new RegExp(`<geom\\\\b[^>]*\\\\bname\\\\s*=\\\\s*["']${name}["']`).test(declared);
+      const declared = xml.replace(/<!--[\s\S]*?-->/g,"");
+      const hasGeom = (name:string):boolean => {
+        const tag = new RegExp(String.raw\`<geom\\b[^>]*\\bname\\s*=\\s*["']\${name}["']\`);
+        return tag.test(declared);
+      };
       const hasLeftToe = hasGeom("left_toe_geom");
       const hasRightToe = hasGeom("right_toe_geom");
       if (hasLeftToe !== hasRightToe) throw new Error("Modelo con antepié incompleto");

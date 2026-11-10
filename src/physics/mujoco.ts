@@ -5,6 +5,7 @@ import { buildBalanceObservation, type BalanceObservation, type FootGeom, type X
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
 import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
 import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
+import { blendMeasuredLandingPose, LANDING_POSE_JOINTS } from "../control/landingMeasuredPose";
 import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
@@ -52,6 +53,8 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  private landingPoseHoldStrength = 0;
+  private capturedLandingAngles:Readonly<Record<string,number>> | undefined;
 
   private constructor(module: Module) {
     this.module = module;
@@ -86,6 +89,8 @@ export class MujocoSimulation {
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
+    this.landingPoseHoldStrength = 0;
+    this.capturedLandingAngles = undefined;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
   }
@@ -103,6 +108,8 @@ export class MujocoSimulation {
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
+    this.landingPoseHoldStrength = 0;
+    this.capturedLandingAngles = undefined;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
   }
@@ -125,6 +132,7 @@ export class MujocoSimulation {
     startTimeS = 0.8,
     cartesianStepScale = 0,
     coordinatedGaitProfile = 0,
+    landingPoseHoldStrength = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -133,10 +141,16 @@ export class MujocoSimulation {
         coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
+    if (!Number.isFinite(landingPoseHoldStrength) ||
+        landingPoseHoldStrength < 0 || landingPoseHoldStrength > 1) {
+      throw new RangeError("Retención de pose de aterrizaje fuera de 0..1");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile);
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
+    this.landingPoseHoldStrength = landingPoseHoldStrength;
+    this.capturedLandingAngles = undefined;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
     this.footSpeedWorldMps = [0,0,0];
@@ -177,6 +191,16 @@ export class MujocoSimulation {
       swingLoadN: ground[side].verticalLoadN,
       supportLoadN: ground[side==="left" ? "right" : "left"].verticalLoadN,
     });
+    if (this.landingPoseHoldStrength>0 &&
+        this.stepExperiment.snapshot().stepContactConfirmed &&
+        this.capturedLandingAngles===undefined) {
+      const angles:Record<string,number>={};
+      for(const part of LANDING_POSE_JOINTS) {
+        const name=side+"_"+part;
+        angles[name]=this.jointAngleRad(name);
+      }
+      this.capturedLandingAngles=angles;
+    }
   }
 
   /** Advances count physical steps. Each optional callback runs immediately
@@ -200,8 +224,17 @@ export class MujocoSimulation {
         } : this.standingController;
         stepActiveStanding(model, data, controller);
         if (command) {
+          const landingTimeS=this.stepExperiment?.snapshot().firstLandingTimeS;
+          const blendPose = this.landingPoseHoldStrength>0 &&
+            this.capturedLandingAngles!==undefined &&
+            landingTimeS!==null && landingTimeS!==undefined &&
+            (command.phase==="RECOVER" || command.phase==="COMPLETE")
+            ? blendMeasuredLandingPose(command.targetsRad,this.capturedLandingAngles,
+                this.stepExperiment!.swingSide,Math.max(0,data.time-landingTimeS),
+                this.landingPoseHoldStrength)
+            : command.targetsRad;
           applyStepJointTargets(model,data,
-            this.standingController.gains,command.targetsRad);
+            this.standingController.gains,blendPose);
           if (command.soleTargetWorldM && this.stepExperiment &&
               this.cartesianStepScale > 0) {
             applyCartesianFootImpedance(model,data,this.standingController.gains,

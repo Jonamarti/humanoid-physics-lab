@@ -4,7 +4,7 @@ import { MujocoSimulation } from "../../src/physics/mujoco";
 
 describe("Forward swing physics trace with posterior knee flexion",()=>{
   it("records q/knee/hip COM and actual toe path through phase transitions",async()=>{
-    const xml=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
+    const xml=await readFile(new URL("../../public/models/humanoid_step_v2.xml",import.meta.url),"utf8");
     const sim=await MujocoSimulation.create(xml);
     try {
       sim.enableExperimentalStanding();

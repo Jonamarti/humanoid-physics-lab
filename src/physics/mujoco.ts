@@ -52,6 +52,9 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  private landingHoldScale = 0;
+  private swingFootLoadN = 0;
+  private stanceFootLoadN = 0;
 
   private constructor(module: Module) {
     this.module = module;
@@ -125,6 +128,8 @@ export class MujocoSimulation {
     startTimeS = 0.8,
     cartesianStepScale = 0,
     coordinatedGaitProfile = 0,
+    landingComFraction = 0.5,
+    landingHoldScale = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -133,8 +138,17 @@ export class MujocoSimulation {
         coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
+    if (!Number.isFinite(landingComFraction) || landingComFraction < 0 ||
+        landingComFraction > 1 || !Number.isFinite(landingHoldScale) ||
+        landingHoldScale < 0 || landingHoldScale > 1) {
+      throw new RangeError("Transferencia COM o pie plantado fuera del intervalo 0..1");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
-    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile);
+    this.stepExperiment = new ExperimentalStepSequence(
+      swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile, landingComFraction);
+    this.landingHoldScale = landingHoldScale;
+    this.swingFootLoadN = 0;
+    this.stanceFootLoadN = 0;
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
@@ -152,6 +166,8 @@ export class MujocoSimulation {
     const side = this.stepExperiment.swingSide;
     this.module.mj_subtreeVel(model,data);
     const ground = this.humanoidGroundSupportObservation();
+    this.swingFootLoadN = ground[side].verticalLoadN;
+    this.stanceFootLoadN = ground[side==="left" ? "right" : "left"].verticalLoadN;
     const com = data.subtree_com as Float64Array;
     const vel = data.subtree_linvel as Float64Array;
     const comWorldM: XYZ = [com[3]!,com[4]!,com[5]!];
@@ -214,6 +230,27 @@ export class MujocoSimulation {
                 maxFootForceN:150,
                 blend:command.cartesianBlend*this.cartesianStepScale,
               });
+          }
+          // Opt-in *horizontal* foot-placement impedance after touchdown.
+          // Torques come solely from internal actuated hinges; normal load
+          // and friction are still determined by MuJoCo. Do not apply
+          // unphysical world forces or constrain the free pelvis.
+          if (this.stepExperiment && this.landingHoldScale > 0 &&
+              (command.phase === "RECOVER" || command.phase === "COMPLETE") &&
+              this.swingFootLoadN > 45 && this.stanceFootLoadN > 45) {
+            const planted=this.stepExperiment.plantedFootWorldM();
+            if (planted) {
+              applyCartesianFootImpedance(model,data,this.standingController.gains,
+                this.stepExperiment.swingSide,{
+                  targetWorldM:planted,
+                  currentWorldM:this.siteWorldPosition(this.stepExperiment.swingSide+"_sole"),
+                  measuredVelocityWorldMps:this.footSpeedWorldMps,
+                  gainsNPerM:[320,320,0],
+                  dampingNsPerM:[65,65,0],
+                  maxFootForceN:65,
+                  blend:this.landingHoldScale,
+                });
+            }
           }
         }
       }

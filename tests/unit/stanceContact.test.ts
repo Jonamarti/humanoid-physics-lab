@@ -59,7 +59,7 @@ describe("Experimental ground-contact feedback, not a welded foot",()=>{
     expect(()=>sample({materialSlipXYMps:[NaN,0]})).toThrow(RangeError);
     expect(()=>sample({strength:-1})).toThrow(RangeError);
     const names=["hip_pitch","hip_roll","knee","ankle_pitch","ankle_roll"];
-    const ids=new Map(names.map((x,i)=>["left_"+x,i+1]));
+    const ids=new Map(names.map((x,i)=>["left_"+x,i+1] as const));
     const model={
       njnt:6,
       jnt_type:[0,3,3,3,3,3],

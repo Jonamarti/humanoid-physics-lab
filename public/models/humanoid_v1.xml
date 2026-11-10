@@ -61,14 +61,16 @@
         </body>
       </body>
 
-      <!-- Legs: hip 0.91 m, thigh 0.42 m, shin 0.42 m, ankle 0.07 m. -->
+      <!-- Legs: hip 0.91 m, thigh 0.42 m, shin 0.42 m, ankle 0.07 m.
+       Knee axis is -Y: negative q flexes the shin BACK relative to thigh,
+       unlike the original +Y which folded it forward. Neutral q=0 unchanged. -->
       <body name="left_thigh" pos="0 0.105 -0.08">
         <joint name="left_hip_pitch" type="hinge" axis="0 1 0" range="-1.65 1.25"/>
         <joint name="left_hip_roll" type="hinge" axis="1 0 0" range="-0.70 0.70"/>
         <joint name="left_hip_yaw" type="hinge" axis="0 0 1" range="-0.75 0.75"/>
         <geom name="left_thigh_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.072" mass="7.5" rgba="0.39 0.62 0.78 1"/>
         <body name="left_shin" pos="0 0 -0.42">
-          <joint name="left_knee" type="hinge" axis="0 1 0" range="-2.45 0"/>
+          <joint name="left_knee" type="hinge" axis="0 -1 0" range="-2.45 0"/>
           <geom name="left_shin_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.053" mass="3.5" rgba="0.51 0.72 0.85 1"/>
           <body name="left_foot" pos="0 0 -0.42">
             <joint name="left_ankle_pitch" type="hinge" axis="0 1 0" range="-0.65 0.65"/>
@@ -84,7 +86,7 @@
         <joint name="right_hip_yaw" type="hinge" axis="0 0 1" range="-0.75 0.75"/>
         <geom name="right_thigh_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.072" mass="7.5" rgba="0.39 0.62 0.78 1"/>
         <body name="right_shin" pos="0 0 -0.42">
-          <joint name="right_knee" type="hinge" axis="0 1 0" range="-2.45 0"/>
+          <joint name="right_knee" type="hinge" axis="0 -1 0" range="-2.45 0"/>
           <geom name="right_shin_geom" type="capsule" fromto="0 0 0 0 0 -0.42" size="0.053" mass="3.5" rgba="0.51 0.72 0.85 1"/>
           <body name="right_foot" pos="0 0 -0.42">
             <joint name="right_ankle_pitch" type="hinge" axis="0 1 0" range="-0.65 0.65"/>

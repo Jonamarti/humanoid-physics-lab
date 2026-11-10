@@ -257,7 +257,7 @@ export class ExperimentalStepSequence {
           this.transition("ABORT",info.timeS,"No despegó el pie libre");
         }
         break;
-      case "SWING":
+      case "SWING": {
         // Late-swing knee extension can lower the foot before the next
         // 20ms observation. A valid loaded touchdown after a verified lift
         // also counts as end of SWING; requiring >2cm clearance *at that
@@ -273,6 +273,7 @@ export class ExperimentalStepSequence {
           this.transition("ABORT",info.timeS,"No avanzó físicamente hacia el destino");
         }
         break;
+      }
       case "LAND":
         if (elapsed > 0.05 && progress > minProgress && rise < 0.02 &&
             info.swingLoadN > 40) {

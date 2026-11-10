@@ -125,6 +125,7 @@ export class MujocoSimulation {
     startTimeS = 0.8,
     cartesianStepScale = 0,
     coordinatedGaitProfile = 0,
+    swingExtensionGuard = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -134,7 +135,10 @@ export class MujocoSimulation {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
-    this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile);
+    this.stepExperiment = new ExperimentalStepSequence(
+      swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
+      swingExtensionGuard,
+    );
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");

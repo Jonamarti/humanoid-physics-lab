@@ -258,8 +258,17 @@ export class ExperimentalStepSequence {
         }
         break;
       case "SWING":
-        if (travel > 0.055 && progress > minProgress * 0.8 && rise > 0.02) {
-          this.transition("LAND",info.timeS,"Avance medido en dirección del objetivo");
+        // Late-swing knee extension can lower the foot before the next
+        // 20ms observation. A valid loaded touchdown after a verified lift
+        // also counts as end of SWING; requiring >2cm clearance *at that
+        // same instant* incorrectly marked such steps ABORT.
+        const forwardArrival = travel > 0.055 && progress > minProgress * 0.8;
+        const stillAirborne = rise > 0.012;
+        const alreadyTouching = info.swingLoadN > 40;
+        if (forwardArrival && (stillAirborne || alreadyTouching)) {
+          this.transition("LAND",info.timeS,
+            alreadyTouching ? "Vuelo completado: contacto físico anticipado" :
+              "Avance medido hacia el objetivo y pie aún elevado");
         } else if (elapsed > 0.85) {
           this.transition("ABORT",info.timeS,"No avanzó físicamente hacia el destino");
         }

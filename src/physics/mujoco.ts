@@ -158,6 +158,7 @@ export class MujocoSimulation {
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
       swingExtensionGuard,
+      this.articulatedToeGeomIds !== undefined,
     );
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;

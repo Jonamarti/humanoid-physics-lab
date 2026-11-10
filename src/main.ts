@@ -83,9 +83,9 @@ app.innerHTML = `
             <label for="step-direction">Dirección del paso</label>
             <select id="step-direction">
               <option value="outward">Hacia fuera, lateral</option>
-              <option value="forward">Hacia delante</option>
+              <option value="forward" selected>Hacia delante</option>
               <option value="backward">Hacia atrás</option>
-              <option value="diagonal" selected>Diagonal hacia delante y fuera</option>
+              <option value="diagonal">Diagonal hacia delante y fuera</option>
             </select>
             <label for="step-profile">Coordinación de tronco, cadera y rodilla</label>
             <select id="step-profile">
@@ -95,12 +95,12 @@ app.innerHTML = `
             <p class="muted">El perfil experimental adelanta ligeramente el centro de masas y flexiona la rodilla hacia atrás al levantar el muslo; los contactos y las caídas siguen siendo físicos. No es todavía una marcha estable ni una reacción automática al empujón.</p>
             <label for="step-cartesian">Control cartesiano de pie (experimental)</label>
             <select id="step-cartesian">
-              <option value="0" selected>Desactivado — control articular anterior</option>
-              <option value="0.2">20 % — corrección leve</option>
+              <option value="0">Desactivado — control articular anterior</option>
+              <option value="0.2" selected>20 % — corrección leve (mejor ensayo observado)</option>
               <option value="0.5">50 % — corrección media</option>
               <option value="1">100 % — corrección máxima experimental</option>
             </select>
-            <p class="muted">Aún no está calibrado: las pruebas actuales han mostrado más caídas al aumentar esta corrección. Se conserva desactivado por defecto.</p>
+            <p class="muted">El 20 % es el ensayo con rodilla corregida que consigue adelantar y apoyar el pie sin caerse; todavía acaba en ABORT por precisión y deslizamiento. Otras ganancias pueden provocar caídas.</p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
           </section>

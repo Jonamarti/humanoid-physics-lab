@@ -27,6 +27,7 @@ interface Result {
   readonly recovered:boolean;
   readonly activeWholeBodySamples:number;
   readonly maxRequestedShoulderRad:number;
+  readonly maxUnsolvedFloorFootContacts:number;
 }
 
 async function tryPush(xml:string,direction:PushDirection,peakForceN:number,
@@ -45,6 +46,7 @@ async function tryPush(xml:string,direction:PushDirection,peakForceN:number,
     const startingFeet=feet();
     let minimumPelvisM=Infinity,maxRootTiltDeg=0,lateSettled=true;
     let maxRequestedShoulderRad=0,activeWholeBodySamples=0;
+    let maxUnsolvedFloorFootContacts=0;
     for(let i=0;i<300;i++){
       const state=sim.step(10,t=>{
         const f=pushForceAtTime(t,trial);
@@ -59,6 +61,9 @@ async function tryPush(xml:string,direction:PushDirection,peakForceN:number,
         obs.comWorldM[1]-initial.comWorldM[1]);
       if(state.time>5 && (speed>0.08 || displacement>0.03 || tilt>8))
         lateSettled=false;
+      const load=sim.humanoidGroundSupportObservation();
+      maxUnsolvedFloorFootContacts=Math.max(maxUnsolvedFloorFootContacts,
+        load.unsolvedFloorFootContacts??0);
       const cmd=sim.experimentalWholeBodyBalanceStatus();
       if(cmd?.active){
         activeWholeBodySamples++;
@@ -90,6 +95,7 @@ async function tryPush(xml:string,direction:PushDirection,peakForceN:number,
         rearfootDriftM<0.02 && lateSettled,
       activeWholeBodySamples,
       maxRequestedShoulderRad:round(maxRequestedShoulderRad),
+      maxUnsolvedFloorFootContacts,
     };
   }finally{sim.dispose();}
 }

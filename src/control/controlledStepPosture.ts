@@ -71,7 +71,7 @@ export function controlledStepPosture(input: {
     phase==="LAND" ? 1-0.42*smoothStep(elapsedS,0.4) :
     phase==="RECOVER" ? 0.58*(1-smoothStep(elapsedS,0.7)) :
     0;
-  const kneeFlex=-1.0*flex*intensity;
+  const kneeFlex=intensity === 0 ? 0 : -1.0*flex*intensity;
   if (["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(phase)) {
     targets[`${swingSide}_knee`]=kneeFlex;
     // Hip pitch -q brings the knee forward, while knee -q now shortens

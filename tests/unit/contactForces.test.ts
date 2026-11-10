@@ -1,7 +1,18 @@
 import { describe,expect,it } from "vitest";
-import { decodeSolvedContactForce } from "../../src/physics/contactForces";
+import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../../src/physics/contactForces";
 
 describe("MuJoCo solved contact wrench (matches mju_decodePyramid)",()=>{
+  it("rejects partial/unsolved contact solver rows before decoding any wrench",()=>{
+    expect(hasCompleteSolvedContactRows(0,3,true,4,4)).toBe(true);
+    expect(hasCompleteSolvedContactRows(1,3,true,4,4)).toBe(false);
+    expect(hasCompleteSolvedContactRows(0,3,true,3,10)).toBe(false);
+    expect(hasCompleteSolvedContactRows(-1,3,true,100,100)).toBe(false);
+    expect(hasCompleteSolvedContactRows(0,3,false,3,3)).toBe(true);
+    expect(hasCompleteSolvedContactRows(0,3,false,2,3)).toBe(false);
+    expect(hasCompleteSolvedContactRows(0,1,true,1,1)).toBe(true);
+    expect(hasCompleteSolvedContactRows(0,0,true,1,1)).toBe(false);
+    expect(hasCompleteSolvedContactRows(0,3,true,NaN,4)).toBe(false);
+  });
   it("recovers normal and both tangents from pyramidal friction dim=3",()=>{
     const result=decodeSolvedContactForce({
       solverRows:new Float64Array([999,30,10,20,5,888]),

@@ -100,11 +100,13 @@ export class ExperimentalStepSequence {
     readonly targetDeltaXY: XY,
     readonly startTimeS = 0.8,
     readonly coordinatedGaitProfile = 0,
+    readonly landingComFraction = 0.5,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
       Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
-      !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1) {
+      !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1 ||
+      !Number.isFinite(landingComFraction) || landingComFraction < 0 || landingComFraction > 1) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -134,6 +136,12 @@ export class ExperimentalStepSequence {
       frictionUtilizationAtLanding: this.frictionUtilizationAtLanding,
       firstLandingTimeS: this.firstLandingTimeS,
     };
+  }
+
+  /** World-space measured touchdown position, only after solver-backed contact. */
+  plantedFootWorldM(): XYZ | null {
+    return this.firstLandingSole
+      ? [...this.firstLandingSole] as XYZ : null;
   }
 
   private transition(phase: StepPhase, timeS: number, reason: string): void {
@@ -328,8 +336,8 @@ export class ExperimentalStepSequence {
       const deltaX=this.firstLandingSole[0]-this.originalSole[0];
       const deltaY=this.firstLandingSole[1]-this.originalSole[1];
       const newStandingRef:XY=[
-        referenceComXY[0]+0.5*deltaX,
-        referenceComXY[1]+0.5*deltaY,
+        referenceComXY[0]+this.landingComFraction*deltaX,
+        referenceComXY[1]+this.landingComFraction*deltaY,
       ];
       const u=this.phase==="COMPLETE" ? 1 :
         Math.max(0,Math.min(1,elapsed/0.7));

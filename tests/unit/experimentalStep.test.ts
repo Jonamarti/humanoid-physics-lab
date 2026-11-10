@@ -54,6 +54,24 @@ describe("Recovery-step FSM requires verified contact events", () => {
     expect(step.snapshot().maxSupportFootSlipM).toBe(0);
     expect(step.snapshot().targetErrorXYM).toBeLessThan(0.03);
   });
+  it("detects contact after forward knee extension even if toe height is already low", () => {
+    const step=new ExperimentalStepSequence("left",[0.12,0],0.8,1);
+    step.observe(sample(0.1));
+    step.observe(sample(0.8));
+    step.observe(sample(1.1,{supportLoadN:640,swingLoadN:90}));
+    expect(step.snapshot().phase).toBe("LIFT");
+    step.observe(sample(1.2,{supportLoadN:720,swingLoadN:0,
+      swingSoleWorldM:[0.065,0.105,0.055]}));
+    expect(step.snapshot().phase).toBe("SWING");
+    step.observe(sample(1.44,{supportLoadN:600,swingLoadN:130,
+      swingSoleWorldM:[0.16,0.105,0.009]}));
+    expect(step.snapshot().phase).toBe("LAND");
+    step.observe(sample(1.52,{supportLoadN:530,swingLoadN:180,
+      swingSoleWorldM:[0.16,0.105,0.004]}));
+    expect(step.snapshot().phase).toBe("RECOVER");
+    expect(step.snapshot().stepContactConfirmed).toBe(true);
+  });
+
   it("fades the swing servo on physical landing, never pushes the foot after contact", () => {
     const step=new ExperimentalStepSequence("left",[0.1,0],0.8);
     step.observe(sample(0.05));

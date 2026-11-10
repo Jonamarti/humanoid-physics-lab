@@ -3,6 +3,7 @@ import { limitedJointTorque, type JointPDSettings, type MuJoCoJointStateView } f
 import type { NamedHingeModel } from "./standingBaseline";
 import type { FootSide } from "./recoveryPlanner";
 import { controlledStepPosture } from "./controlledStepPosture";
+import { assessStepStability, type StepStabilityAssessment } from "./stepStabilityDiagnostics";
 
 /** EXPERIMENTAL: physical joints only. No root actuation, foot teleportation
  * or fake contact. An aborted attempt is NOT a simulated fall.
@@ -38,21 +39,6 @@ export interface StepCommand {
   readonly cartesianBlend: number;
 }
 
-/** Strict gates that must ALL be true continuously for a certified step.
- * Exposed for diagnostics; not used to relax pass/fail criteria.
- */
-export interface StepStabilityGates {
-  readonly comInside: boolean;
-  readonly captureInside: boolean;
-  readonly comSpeedSlow: boolean;
-  readonly pelvisHigh: boolean;
-  readonly rootUpright: boolean;
-  readonly footAtTarget: boolean;
-  readonly supportFootStable: boolean;
-  readonly landedFootStable: boolean;
-  readonly bilateralLoad: boolean;
-}
-
 export interface StepSnapshot {
   readonly phase: StepPhase;
   readonly reason: string;
@@ -69,7 +55,8 @@ export interface StepSnapshot {
   readonly targetErrorXYM: number;
   /** Consecutive seconds of verified stability, sampled at physics cadence. */
   readonly settledDurationS: number;
-  readonly stabilityGates: StepStabilityGates | null;
+  /** Every physics gate required for sustained step completion. */
+  readonly stability: StepStabilityAssessment | null;
   /** Last unloaded-foot velocity sampled BEFORE the loaded landing frame.
    * This is a ~20ms-cadence proxy, not an exact contact-time impact velocity.
    */
@@ -106,7 +93,7 @@ export class ExperimentalStepSequence {
   private latestSwingLoadN = 0;
   private settledSinceS: number | undefined;
   private settledDurationS = 0;
-  private stabilityGates: StepStabilityGates | null = null;
+  private stability: StepStabilityAssessment | null = null;
   private lastUnloadedFootVelocityWorldMps: XYZ | undefined;
   private firstLandingVelocityEstimate: XYZ | undefined;
   private frictionUtilizationAtLanding: number | null = null;
@@ -146,7 +133,7 @@ export class ExperimentalStepSequence {
       maxSupportFootSlipM: this.maxSupportFootSlipM,
       targetErrorXYM: this.targetErrorXYM,
       settledDurationS: this.settledDurationS,
-      stabilityGates: this.stabilityGates,
+      stability: this.stability,
       preLandingTangentialSpeedMps: this.firstLandingVelocityEstimate
         ? Math.hypot(this.firstLandingVelocityEstimate[0],
           this.firstLandingVelocityEstimate[1]) : null,
@@ -238,20 +225,21 @@ export class ExperimentalStepSequence {
     // interval of physically loaded bilateral support and a stationary COM.
     // Missing/late samples invalidate the interval rather than pretending
     // there was support throughout the gap.
-    const gates: StepStabilityGates = {
-      comInside: info.comProjectionInsideLoadedSupport,
-      captureInside: info.capturePointInsideLoadedSupport,
-      comSpeedSlow: Math.hypot(info.comVelocityWorldMps[0],
-        info.comVelocityWorldMps[1]) < 0.12,
-      pelvisHigh: info.pelvisHeightM > 0.82,
-      rootUpright: info.rootTiltDeg < 10,
-      footAtTarget: this.targetErrorXYM <= 0.05,
-      supportFootStable: this.maxSupportFootSlipM <= 0.02,
-      landedFootStable: this.maxContactSlipM <= 0.02,
-      bilateralLoad: info.supportLoadN > 40 && info.swingLoadN > 40,
-    };
-    this.stabilityGates = gates;
-    const stableNow = Object.values(gates).every(Boolean);
+    if (this.stepContactConfirmed) {
+      this.stability=assessStepStability({
+        comProjectionInsideLoadedSupport:info.comProjectionInsideLoadedSupport,
+        capturePointInsideLoadedSupport:info.capturePointInsideLoadedSupport,
+        comVelocityWorldMps:info.comVelocityWorldMps,
+        pelvisHeightM:info.pelvisHeightM,
+        rootTiltDeg:info.rootTiltDeg,
+        targetErrorXYM:this.targetErrorXYM,
+        maxSupportFootSlipM:this.maxSupportFootSlipM,
+        maxLandingSlipM:this.maxContactSlipM,
+        supportLoadN:info.supportLoadN,
+        swingLoadN:info.swingLoadN,
+      });
+    }
+    const stableNow=this.stability?.passes ?? false;
     if ((this.phase === "RECOVER" || this.phase === "COMPLETE") &&
         stableNow && sampleGapS <= 0.06) {
       this.settledSinceS ??= info.timeS;
@@ -319,7 +307,8 @@ export class ExperimentalStepSequence {
             "Apoyo bilateral y destino estables durante al menos un segundo");
         } else if (elapsed > 2.2) {
           this.transition("ABORT",info.timeS,
-            "No sostuvo el equilibrio y la colocación durante un segundo");
+            "No sostuvo el equilibrio un segundo; fallan: "+
+              (this.stability?.failures.join(", ") ?? "sin medidas"));
         }
         break;
     }

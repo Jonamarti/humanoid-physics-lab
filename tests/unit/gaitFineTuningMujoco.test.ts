@@ -27,7 +27,7 @@ describe("Narrow knee extension guard sweep for one stable forward step",()=>{
             targetErrorCm:+(100*s.targetErrorXYM).toFixed(2),
             supportSlipCm:+(100*s.maxSupportFootSlipM).toFixed(2),
             stableS:+maxStableS.toFixed(2),
-            failedGates:Object.entries(s.stabilityGates??{})
+            failedGates:Object.entries(s.stability?.checks??{})
               .filter(([,ok])=>!ok).map(([name])=>name),
             minPelvisM:+s.minPelvisM.toFixed(3),
           };

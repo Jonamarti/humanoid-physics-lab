@@ -28,7 +28,7 @@ describe("Step completion and symmetric friction sensitivity",()=>{
             placementErrorCm:+(st.targetErrorXYM*100).toFixed(2),
             stableTimeS:+st.settledDurationS.toFixed(2),
             minPelvisM:+st.minPelvisM.toFixed(3),
-            failedGates:Object.entries(st.stabilityGates??{})
+            failedGates:Object.entries(st.stability?.checks??{})
               .filter(([,good])=>!good).map(([k])=>k),
           };
           rows.push(row);

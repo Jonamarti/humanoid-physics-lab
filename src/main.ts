@@ -7,6 +7,7 @@ import { BallViewer } from "./renderer/ballViewer";
 import { forceDisplayForFrame } from "./renderer/forceDisplay";
 import { installForceEditor } from "./editor/forceEditor";
 import { projectBalanceToGround } from "./renderer/balanceProjection";
+import { STEP_STABILITY_LABELS } from "./control/stepStabilityDiagnostics";
 import { CYLINDER, cylinderMJCF, cylinderForceAt, cylinderForwardTiltDeg, idealPivotPrediction, localGripPoint, validateCylinderTrial, type CylinderTrial } from "./physics/cylinderBenchmark";
 import { expectedPushImpulseNs, pushForceAtTime, rootTiltDegrees, validatePushTrial, type PushDirection, type PushTrial } from "./physics/standingPush";
 
@@ -112,6 +113,7 @@ app.innerHTML = `
             <p class="muted">Configuración de referencia: paso hacia delante de 12 cm, rodilla coordinada, 52 % de servo y 48 % de retención, sobre el suelo nominal del modelo de 75 kg. Ha completado un paso con ambos pies en las pruebas; no está calibrada para otras direcciones, suelos ni personas reales. No se activa al recibir un empujón.</p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
+            <p id="step-gates-readout" class="muted">Condiciones pendientes: primero debe despegar y apoyar físicamente.</p>
           </section>
         </div>
         <div id="rigid-force-controls">
@@ -187,6 +189,7 @@ const stepExtensionGuard = required<HTMLSelectElement>("#step-extension-guard");
 const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
 const stepReadout = required<HTMLElement>("#step-readout");
+const stepGatesReadout = required<HTMLElement>("#step-gates-readout");
 
 type Scenario = "ball" | "humanoid" | "standing" | "cylinder";
 const selectedScenario = (): Scenario => {
@@ -392,6 +395,14 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             ((simulation.jointAngleRad("lumbar_pitch") +
               simulation.jointAngleRad("thorax_pitch"))*180/Math.PI).toFixed(1) + "°" +
             " · " + snapshot.reason;
+          const gate=snapshot.stability;
+          stepGatesReadout.textContent = gate
+            ? (gate.failures.length===0
+              ? "Condiciones instantáneas cumplidas; falta sostenerlas 1 segundo."
+              : "Condiciones que impiden completar: " +
+                gate.failures.map(k=>STEP_STABILITY_LABELS[k]).join("; ") +
+                " · velocidad COM: "+gate.comSpeedXYMps.toFixed(3)+" m/s")
+            : "Condiciones pendientes: primero debe despegar y apoyar físicamente.";
         }
       }
       if (mode === "standing" && activePush && initialPushCom) {
@@ -534,6 +545,7 @@ function clearLoadedScenario(): void {
   activeStepTrial = false;
   stepRun.disabled = true;
   stepReadout.textContent = "El paso todavía no se ha ensayado.";
+  stepGatesReadout.textContent = "Condiciones pendientes: primero debe despegar y apoyar físicamente.";
   initialPushCom = undefined;
   initialPushFeet = undefined;
   minimumPushPelvisM = Infinity;

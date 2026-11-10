@@ -29,8 +29,8 @@ describe("Fine sweep for stable forward foot placement",()=>{
                   finalSnapshot.targetErrorXYM);
                 longestStableS=Math.max(longestStableS,
                   finalSnapshot.settledDurationS);
-                if(finalSnapshot.stabilityGates &&
-                  Object.values(finalSnapshot.stabilityGates).every(Boolean))
+                if(finalSnapshot.stability?.checks &&
+                  Object.values(finalSnapshot.stability?.checks).every(Boolean))
                   gotAllGates=true;
               }
             }
@@ -46,7 +46,7 @@ describe("Fine sweep for stable forward foot placement",()=>{
                 +(postTouchMinError*100).toFixed(2):null,
               stableS:+longestStableS.toFixed(2),
               allGatesEver:gotAllGates,
-              failedGates:Object.entries(st.stabilityGates??{})
+              failedGates:Object.entries(st.stability?.checks??{})
                 .filter(([,value])=>!value).map(([name])=>name),
               minPelvis:+st.minPelvisM.toFixed(3),
             };

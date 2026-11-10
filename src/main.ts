@@ -263,6 +263,7 @@ if (viewport) {
 }
 
 let simulation: MujocoSimulation | undefined;
+let loadedStandingModel: "nominal" | "gait" = "nominal";
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
@@ -517,6 +518,7 @@ function clearLoadedScenario(): void {
   playing = false;
   simulation?.dispose();
   simulation = undefined;
+  loadedStandingModel = "nominal";
   activeTrial = undefined;
   activePush = undefined;
   activeStepTrial = false;
@@ -619,11 +621,52 @@ for (const control of [pushPeak, pushDuration, pushDirection]) {
   });
 }
 
-pushRun.addEventListener("click", () => {
+/** Keep the published balance/push humanoid unchanged. The corrected
+ * knee-axis model is opt-in ONLY for the experimental gait test.
+ * Recreate the MuJoCo model, rather than patching its compiled joint axes
+ * in-place (which could invalidate precomputed contact structures).
+ */
+async function ensureStandingModel(requested: "nominal" | "gait"): Promise<void> {
+  if (!simulation || mode !== "standing" || loadedStandingModel===requested) return;
+  const previous=simulation;
+  const file=requested==="gait" ? "models/humanoid_step_v2.xml" : "models/humanoid_v1.xml";
+  physicsStatus.textContent = "Preparando modelo " +
+    (requested==="gait" ? "de marcha con flexión anatómica" : "de equilibrio original") + "...";
+  const response=await fetch(import.meta.env.BASE_URL + file);
+  if (!response.ok) throw new Error("No se pudo cargar "+file+": HTTP "+response.status);
+  const next=await MujocoSimulation.create(await response.text());
+  if (simulation!==previous || mode!=="standing") {
+    next.dispose();
+    throw new Error("El escenario cambió durante la carga del modelo");
+  }
+  try {
+    next.enableExperimentalStanding();
+    viewer?.showArticulated(next.geometrySpecs());
+  } catch(error) {
+    next.dispose();
+    throw error;
+  }
+  playing=false;
+  simulation=next;
+  previous.dispose();
+  loadedStandingModel=requested;
+  activePush=undefined;
+  activeStepTrial=false;
+  clock.reset();
+  lastFrame=undefined;
+  toggleButton.textContent="Iniciar";
+  forceEditor?.reset();
+}
+
+pushRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
   try {
     const trial = selectedPushTrial();
     playing = false;
+    // User may have just inspected a knee-corrected gait trial. Always
+    // restore the unchanged standard model for push comparisons.
+    await ensureStandingModel("nominal");
+    if (!simulation || mode !== "standing") return;
     activeStepTrial = false;
     stepReadout.textContent = "El paso todavía no se ha ensayado.";
     simulation.reset();
@@ -649,7 +692,7 @@ pushRun.addEventListener("click", () => {
   }
 });
 
-stepRun.addEventListener("click", () => {
+stepRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
   try {
     const side = stepFoot.value === "right" ? "right" : "left";
@@ -659,6 +702,8 @@ stepRun.addEventListener("click", () => {
       ? [0, 0.12*sign] : direction === "forward" ? [0.12,0] :
         direction === "backward" ? [-0.10,0] : [0.12,0.08*sign];
     playing = false;
+    await ensureStandingModel(Number(stepProfile.value)>0 ? "gait" : "nominal");
+    if (!simulation || mode !== "standing") return;
     simulation.reset();
     simulation.enableExperimentalStepTrial(side, delta, 0.8, Number(stepCartesian.value), Number(stepProfile.value));
     activeStepFoot = side;

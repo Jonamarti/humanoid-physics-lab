@@ -11,6 +11,20 @@ export interface DecodedContactForce {
   readonly frictionUtilization: number | null;
 }
 
+/** Does this contact have *all* rows in the currently solved constraint
+ * system? Contact detection and constraint solving have distinct phases.
+ * A contact with no complete solved rows has NO measured wrench: never
+ * decode partial rows, estimate a normal from contact count, or claim load.
+ */
+export function hasCompleteSolvedContactRows(
+  start:number,dim:number,pyramidal:boolean,nefc:number,forceLength:number,
+):boolean {
+  if (![start,dim,nefc,forceLength].every(Number.isSafeInteger) ||
+      dim<1 || dim>6 || nefc<0 || forceLength<0 || start<0) return false;
+  const rows=pyramidal && dim>1 ? 2*(dim-1) : dim;
+  return start+rows<=nefc && start+rows<=forceLength;
+}
+
 export function decodeSolvedContactForce(input: {
   readonly solverRows: ArrayLike<number>;
   readonly efcAddress: number;

@@ -87,6 +87,12 @@ app.innerHTML = `
               <option value="backward">Hacia atrás</option>
               <option value="diagonal" selected>Diagonal hacia delante y fuera</option>
             </select>
+            <label for="step-profile">Coordinación de tronco, cadera y rodilla</label>
+            <select id="step-profile">
+              <option value="0">Anterior — sin inclinación coordinada</option>
+              <option value="1" selected>Experimental — tronco adelante, elevar muslo, flexionar rodilla</option>
+            </select>
+            <p class="muted">El perfil experimental adelanta ligeramente el centro de masas y flexiona la rodilla hacia atrás al levantar el muslo; los contactos y las caídas siguen siendo físicos. No es todavía una marcha estable ni una reacción automática al empujón.</p>
             <label for="step-cartesian">Control cartesiano de pie (experimental)</label>
             <select id="step-cartesian">
               <option value="0" selected>Desactivado — control articular anterior</option>
@@ -168,6 +174,7 @@ const pushReadout = required<HTMLElement>("#push-readout");
 const stepFoot = required<HTMLSelectElement>("#step-foot");
 const stepDirection = required<HTMLSelectElement>("#step-direction");
 const stepCartesian = required<HTMLSelectElement>("#step-cartesian");
+const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
 const stepReadout = required<HTMLElement>("#step-readout");
 
@@ -260,6 +267,7 @@ let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
 let activeStepTrial = false;
+let activeStepFoot: "left" | "right" = "left";
 let initialPushCom: readonly [number, number] | undefined;
 let initialPushFeet: Map<number, readonly number[]> | undefined;
 let minimumPushPelvisM = Infinity;
@@ -367,6 +375,11 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             " · fricción del contacto inicial: " +
             (snapshot.frictionUtilizationAtLanding === null ? "sin medir" :
               (snapshot.frictionUtilizationAtLanding*100).toFixed(0) + " %") +
+            " · flexión de rodilla REAL: " +
+            (-simulation.jointAngleRad(activeStepFoot+"_knee")*180/Math.PI).toFixed(1) + "°" +
+            " · inclinación articular del tronco REAL: " +
+            ((simulation.jointAngleRad("lumbar_pitch") +
+              simulation.jointAngleRad("thorax_pitch"))*180/Math.PI).toFixed(1) + "°" +
             " · " + snapshot.reason;
         }
       }
@@ -647,7 +660,8 @@ stepRun.addEventListener("click", () => {
         direction === "backward" ? [-0.10,0] : [0.12,0.08*sign];
     playing = false;
     simulation.reset();
-    simulation.enableExperimentalStepTrial(side, delta, 0.8, Number(stepCartesian.value));
+    simulation.enableExperimentalStepTrial(side, delta, 0.8, Number(stepCartesian.value), Number(stepProfile.value));
+    activeStepFoot = side;
     clock.reset();
     lastFrame = undefined;
     activePush = undefined;
@@ -656,7 +670,9 @@ stepRun.addEventListener("click", () => {
     activeStepTrial = true;
     playing = true;
     toggleButton.textContent = "Pausar";
-    physicsStatus.textContent = "Ensayo voluntario de paso físico en marcha; los fallos se mostrarán como fallos.";
+    physicsStatus.textContent = Number(stepProfile.value) > 0 ?
+      "Ensayo de marcha coordinada: transferencia del COM, inclinación de tronco, elevación del muslo y flexión de rodilla. Resultados físicos sin garantías de estabilidad." :
+      "Ensayo anterior de paso físico; los fallos se mostrarán como fallos.";
     present(simulation.state());
   } catch (error) {
     playing = false;

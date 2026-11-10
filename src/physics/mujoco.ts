@@ -10,6 +10,7 @@ import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce } from "./contactForces";
+import { wholeBodyBalanceCommand, type WholeBodyBalanceCommand } from "../control/wholeBodyBalance";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -55,6 +56,9 @@ export class MujocoSimulation {
   /** Cached IDs only for a model with both declared toe geometries.
    * Never ask the WASM named accessor for missing v1/v2 geoms. */
   private articulatedToeGeomIds: Readonly<{left:number;right:number}> | undefined;
+  private wholeBodyBalanceEnabled = false;
+  private wholeBodyBalanceTicks = 0;
+  private lastWholeBodyCommand: WholeBodyBalanceCommand | null = null;
 
   private constructor(module: Module) {
     this.module = module;
@@ -103,6 +107,9 @@ export class MujocoSimulation {
     this.model = nextModel;
     this.data = nextData;
     this.articulatedToeGeomIds = nextToeGeomIds;
+    this.wholeBodyBalanceEnabled = false;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
@@ -121,6 +128,8 @@ export class MujocoSimulation {
     this.module.mj_resetData(model, data);
     this.module.mj_forward(model, data);
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
@@ -134,6 +143,32 @@ export class MujocoSimulation {
     const { model, data } = this.ready();
     this.module.mj_forward(model, data);
     this.standingController = makeStandingController(model, data);
+    this.wholeBodyBalanceEnabled = false;
+    this.lastWholeBodyCommand = null;
+    this.wholeBodyBalanceTicks = 0;
+  }
+
+  /** First research iteration: opt-in whole-body angular-momentum response.
+   * Only articulated v3, with standing controller already running. No free
+   * root actuation, no automatic stepping, and no alteration to v1/v2.
+   */
+  enableExperimentalWholeBodyBalance(): void {
+    if (!this.standingController || !this.articulatedToeGeomIds) {
+      throw new Error("El control corporal experimental exige bipedestación y el modelo v3");
+    }
+    if (this.stepExperiment) throw new Error("No mezclar control corporal experimental y paso");
+    this.wholeBodyBalanceEnabled = true;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
+  }
+
+  disableExperimentalWholeBodyBalance(): void {
+    this.wholeBodyBalanceEnabled = false;
+    this.lastWholeBodyCommand = null;
+  }
+
+  experimentalWholeBodyBalanceStatus(): WholeBodyBalanceCommand | null {
+    return this.lastWholeBodyCommand;
   }
 
   /** Opt-in voluntary recovery-step test. Not a validated walking controller.
@@ -155,6 +190,9 @@ export class MujocoSimulation {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
+    if (this.wholeBodyBalanceEnabled) {
+      throw new Error("Desactiva el control corporal antes de iniciar el ensayo de paso");
+    }
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
       swingExtensionGuard,
@@ -224,6 +262,23 @@ export class MujocoSimulation {
           referenceComXY: command.referenceComXY,
         } : this.standingController;
         stepActiveStanding(model, data, controller);
+        if (this.wholeBodyBalanceEnabled && !command) {
+          if (++this.wholeBodyBalanceTicks % 10 === 0) {
+            const ang = data.subtree_angmom as Float64Array;
+            const vel = data.qvel as Float64Array;
+            const ground = this.humanoidGroundSupportObservation();
+            this.lastWholeBodyCommand = wholeBodyBalanceCommand({
+              angularMomentumWorldNms:[ang[3]!,ang[4]!,ang[5]!],
+              rootAngularVelocityWorldRadS:[vel[3]!,vel[4]!,vel[5]!],
+              totalMassKg:this.standingController.totalMassKg,
+              solvedFootLoadN:ground.totalVerticalLoadN,
+            });
+          }
+          if (this.lastWholeBodyCommand?.active) {
+            applyStepJointTargets(model,data,this.standingController.gains,
+              this.lastWholeBodyCommand.targetsRad);
+          }
+        }
         if (command) {
           applyStepJointTargets(model,data,
             this.standingController.gains,command.targetsRad);
@@ -615,5 +670,8 @@ export class MujocoSimulation {
     this.data = undefined;
     this.model = undefined;
     this.articulatedToeGeomIds = undefined;
+    this.wholeBodyBalanceEnabled = false;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
   }
 }

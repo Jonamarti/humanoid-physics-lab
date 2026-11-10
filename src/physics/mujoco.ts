@@ -147,6 +147,7 @@ export class MujocoSimulation {
     swingExtensionGuard = 0,
     stanceContactScale = 0,
     stanceContactMode: StanceContactMode = "combined",
+    stanceToeRollStrength = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -161,10 +162,14 @@ export class MujocoSimulation {
     if (!["combined","push-only","slip-only","recovery-only","toe-gated"].includes(stanceContactMode)) {
       throw new RangeError("Modo de control de contacto desconocido");
     }
+    if (!Number.isFinite(stanceToeRollStrength) || stanceToeRollStrength<0 ||
+        stanceToeRollStrength>1) {
+      throw new RangeError("Intensidad de despegue de talón fuera de 0..1");
+    }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
-      swingExtensionGuard,
+      swingExtensionGuard, stanceToeRollStrength,
     );
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;

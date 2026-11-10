@@ -18,19 +18,22 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
       new URL("../../public/models/humanoid_step_v2.xml", import.meta.url), "utf8");
     const rows = [];
     for (const swing of ["left", "right"] as const) {
-      for (const {stanceGain,mode} of [
-        {stanceGain:0,mode:"combined"},
-        {stanceGain:0.35,mode:"combined"},
-        {stanceGain:0.35,mode:"push-only"},
-        {stanceGain:0.35,mode:"slip-only"},
-        {stanceGain:0.35,mode:"recovery-only"},
-        {stanceGain:0.35,mode:"toe-gated"},
+      for (const {stanceGain,mode,toeRollStrength} of [
+        {stanceGain:0,mode:"combined",toeRollStrength:0},
+        {stanceGain:0.35,mode:"combined",toeRollStrength:0},
+        {stanceGain:0.35,mode:"push-only",toeRollStrength:0},
+        {stanceGain:0.35,mode:"slip-only",toeRollStrength:0},
+        {stanceGain:0.35,mode:"recovery-only",toeRollStrength:0},
+        {stanceGain:0.35,mode:"toe-gated",toeRollStrength:0},
+        {stanceGain:0,mode:"combined",toeRollStrength:0.5},
+        {stanceGain:0.35,mode:"toe-gated",toeRollStrength:0.5},
+        {stanceGain:0.35,mode:"toe-gated",toeRollStrength:1},
       ] as const) {
         const sim = await MujocoSimulation.create(xml);
         try {
           sim.enableExperimentalStanding();
           sim.enableExperimentalStepTrial(swing, [0.12, 0], 0.8,
-            0.52, 1, 0.48, stanceGain, mode);
+            0.52, 1, 0.48, stanceGain, mode, toeRollStrength);
           const support = swing === "left" ? "right" : "left";
           const specs = sim.geometrySpecs().filter(spec =>
             spec.shape === "box" && Math.abs(spec.size[2] - 0.035) < 1e-6);
@@ -61,6 +64,7 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
           let loadedLandingSamples = 0;
           let activeControllerSamples = 0;
           let minSupportLocalXM = Infinity, maxSupportLocalXM = -Infinity;
+          let maxActualStanceAnklePitchRad = -Infinity;
 
           for (let i = 0; i < 260; i++) {
             const state = sim.step(10);
@@ -71,6 +75,8 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
             const currentSupport = getPose(supportGeom!.id);
             const currentLanding = getPose(landingGeom!.id);
             const dt = state.time - lastTimeS;
+            maxActualStanceAnklePitchRad=Math.max(maxActualStanceAnklePitchRad,
+              sim.jointAngleRad(support+"_ankle_pitch"));
             if (dt > 0 && rear.verticalLoadN > 40 &&
                 rear.verticalLoadCentroidWorldM &&
                 ["LIFT", "SWING", "LAND"].includes(fsm.phase)) {
@@ -105,7 +111,8 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
 
           const status = sim.experimentalStepStatus()!;
           const row = {
-            swing, stanceGain, mode, phase: status.phase,
+            swing, stanceGain, mode, toeRollStrength, phase: status.phase,
+            maxActualStanceAnklePitchDeg:+(maxActualStanceAnklePitchRad*180/Math.PI).toFixed(3),
             sampledForwardImpulseNs: +sampledForwardImpulseNs.toFixed(4),
             sampledBrakingImpulseNs: +sampledBrakingImpulseNs.toFixed(4),
             requestedPushImpulseNs: +requestedPushImpulseNs.toFixed(4),
@@ -128,6 +135,8 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
           expect(loadedSupportSamples).toBeGreaterThan(0);
           if (stanceGain === 0) {
             expect(activeControllerSamples).toBe(0);
+          }
+          if (stanceGain===0 && toeRollStrength===0) {
             expect(status.phase).toBe("COMPLETE");
             expect(status.settledDurationS).toBeGreaterThanOrEqual(1);
           }
@@ -143,6 +152,6 @@ describe("Real MuJoCo contact-controller A/B smoke (both feet)", () => {
       }
     }
     console.log("STANCE-CONTACT-ABLATION " + JSON.stringify(rows));
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(18);
   }, 120000);
 });

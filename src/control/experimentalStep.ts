@@ -2,7 +2,7 @@ import type { XY, XYZ } from "./balanceSensors";
 import { limitedJointTorque, type JointPDSettings, type MuJoCoJointStateView } from "./jointPD";
 import type { NamedHingeModel } from "./standingBaseline";
 import type { FootSide } from "./recoveryPlanner";
-import { controlledStepPosture } from "./controlledStepPosture";
+import { controlledStepPosture, stanceToeRollReference } from "./controlledStepPosture";
 import { assessStepStability, type StepStabilityAssessment } from "./stepStabilityDiagnostics";
 
 /** EXPERIMENTAL: physical joints only. No root actuation, foot teleportation
@@ -106,12 +106,15 @@ export class ExperimentalStepSequence {
     readonly coordinatedGaitProfile = 0,
     /** Opt-in measured-foot-progress gate for swing knee extension. */
     readonly swingExtensionGuard = 0,
+    /** Opt-in physical ankle plantarflexion to try heel-to-forefoot rollover. */
+    readonly stanceToeRollStrength = 0,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
       Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
       !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1 ||
-      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1) {
+      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1 ||
+      !Number.isFinite(stanceToeRollStrength) || stanceToeRollStrength < 0 || stanceToeRollStrength > 1) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -371,6 +374,14 @@ export class ExperimentalStepSequence {
     // Only experimental gait mode replaces the leg pose and adds spine
     // commands. Neutral standing and legacy step behavior remain separate.
     if (gait) Object.assign(joints,gait.targetsRad);
+    if (gait && this.stanceToeRollStrength>0 && this.targetDeltaXY[0]>0.03) {
+      const toeRad=stanceToeRollReference({
+        phase:this.phase,elapsedS:elapsed,
+        swingProgress01:this.currentTargetProgressM/Math.hypot(...this.targetDeltaXY),
+        strength:this.stanceToeRollStrength,
+      });
+      if (toeRad>0) joints[`${this.supportSide}_ankle_pitch`]=toeRad;
+    }
     const t = (duration: number): number => {
       const u=Math.max(0,Math.min(1,elapsed/duration));
       return u*u*(3-2*u);

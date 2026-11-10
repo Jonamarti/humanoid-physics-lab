@@ -1,12 +1,26 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { controlledStepPosture, smoothStep } from "../../src/control/controlledStepPosture";
+import { controlledStepPosture, smoothStep, stanceToeRollReference } from "../../src/control/controlledStepPosture";
 
 const input=(phase:"SHIFT_WEIGHT"|"LIFT"|"SWING"|"LAND"|"RECOVER",elapsedS:number,dx=0.12)=>({
   phase,elapsedS,swingSide:"left" as const,
   targetDeltaXY:[dx,0] as const,
 });
 describe("Corrected knee anatomy and controlled step postures",()=>{
+  it("requests limited heel rise only after actual swing progress, then releases it",()=>{
+    const toe=(phase:"SWING"|"LAND"|"RECOVER"|"LIFT",elapsedS:number,
+      progress:number,strength=1)=>stanceToeRollReference({
+        phase,elapsedS,swingProgress01:progress,strength,
+      });
+    expect(toe("LIFT",0.3,0.7)).toBe(0);
+    expect(toe("SWING",0.2,0.3)).toBe(0);
+    expect(toe("SWING",0.2,0.6)).toBeCloseTo(0.12);
+    expect(toe("LAND",0,0.6,0.5)).toBeCloseTo(0.06);
+    expect(toe("RECOVER",0,0.6)).toBeCloseTo(0.12);
+    expect(toe("RECOVER",0.18,0.6)).toBe(0);
+    expect(()=>toe("SWING",0.1,0.6,1.1)).toThrow(RangeError);
+  });
+
   it("makes knee folding biomechanically posterior with the existing negative-q targets",async()=>{
     const xml=await readFile(new URL("../../public/models/humanoid_step_v2.xml",import.meta.url),"utf8");
     for (const side of ["left","right"]) {

@@ -10,7 +10,8 @@ import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce } from "./contactForces";
-import { estimateContactPatchSlip, type MeasuredFootPose } from "./contactPatchSlip";
+import type { MeasuredFootPose } from "./contactPatchSlip";
+import { MaterialContactTracker } from "./materialContactTracker";
 import { planStanceContactCommand, applyStanceContactCommand, type StanceContactCommand } from "../control/stanceContact";
 
 export type PhysicsState = Readonly<{
@@ -55,8 +56,9 @@ export class MujocoSimulation {
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
   private stanceContactScale = 0;
-  private priorContactPoses: Partial<Record<FootSide,MeasuredFootPose>> = {};
-  private priorContactPoseTimeS = 0;
+  private readonly materialContactTrackers: Record<FootSide,MaterialContactTracker> = {
+    left:new MaterialContactTracker(),right:new MaterialContactTracker(),
+  };
   private stanceContactDiagnostic: StanceContactCommand | null = null;
 
   private constructor(module: Module) {
@@ -95,8 +97,8 @@ export class MujocoSimulation {
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
     this.stanceContactScale = 0;
-    this.priorContactPoses = {};
-    this.priorContactPoseTimeS = 0;
+    this.materialContactTrackers.left.reset();
+    this.materialContactTrackers.right.reset();
     this.stanceContactDiagnostic = null;
   }
 
@@ -116,8 +118,8 @@ export class MujocoSimulation {
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
     this.stanceContactScale = 0;
-    this.priorContactPoses = {};
-    this.priorContactPoseTimeS = 0;
+    this.materialContactTrackers.left.reset();
+    this.materialContactTrackers.right.reset();
     this.stanceContactDiagnostic = null;
   }
 
@@ -160,8 +162,8 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
     this.stanceContactScale = stanceContactScale;
-    this.priorContactPoses = {};
-    this.priorContactPoseTimeS = 0;
+    this.materialContactTrackers.left.reset();
+    this.materialContactTrackers.right.reset();
     this.stanceContactDiagnostic = null;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
@@ -270,32 +272,35 @@ export class MujocoSimulation {
             if (contactSides.length>0) {
               const ground=this.humanoidGroundSupportObservation();
               const com=data.subtree_com as Float64Array;
-              const dt=data.time-this.priorContactPoseTimeS;
               for(const side of contactSides) {
                 const pose=this.measuredFootPose(side);
                 const foot=ground[side];
                 const contact=foot.verticalLoadCentroidWorldM;
-                const previous=this.priorContactPoses[side];
-                if (previous && contact && dt>0 && dt<=0.025) {
-                  const slip=estimateContactPatchSlip(previous,pose,contact,dt);
-                  const plan=planStanceContactCommand({
-                    phase:command.phase,
-                    requestedStepXY:this.stepExperiment.targetDeltaXY,
-                    comWorldM:[com[3]!,com[4]!,com[5]!],
-                    contactWorldM:contact,
-                    foot,
-                    materialSlipXYMps:slip.tangentialVelocityWorldMps,
-                    strength:this.stanceContactScale,
-                  });
-                  if (plan) {
-                    applyStanceContactCommand(model,data,this.standingController.gains,
-                      side,contact,plan.virtualForceWorldN);
-                    this.stanceContactDiagnostic=plan;
-                  }
+                // First landing frame and load flicker are not evidence of
+                // sustained sticking. Hysteresis and a short torque ramp
+                // prevent full-strength corrective impulse on impact.
+                const measured=this.materialContactTrackers[side].observe({
+                  timeS:data.time,
+                  footPose:pose,
+                  contactWorldM:contact,
+                  verticalLoadN:foot.verticalLoadN,
+                });
+                if (!measured || !contact) continue;
+                const plan=planStanceContactCommand({
+                  phase:command.phase,
+                  requestedStepXY:this.stepExperiment.targetDeltaXY,
+                  comWorldM:[com[3]!,com[4]!,com[5]!],
+                  contactWorldM:contact,
+                  foot,
+                  materialSlipXYMps:measured.materialSlipXYMps,
+                  strength:this.stanceContactScale*measured.feedbackRamp01,
+                });
+                if (plan) {
+                  applyStanceContactCommand(model,data,this.standingController.gains,
+                    side,contact,plan.virtualForceWorldN);
+                  this.stanceContactDiagnostic=plan;
                 }
-                this.priorContactPoses[side]=pose;
               }
-              this.priorContactPoseTimeS=data.time;
             }
           }
         }

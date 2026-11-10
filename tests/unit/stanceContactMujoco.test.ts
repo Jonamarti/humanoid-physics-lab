@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe,expect,it } from "vitest";
 import { MujocoSimulation } from "../../src/physics/mujoco";
-import { estimateContactPatchSlip, type MeasuredFootPose } from "../../src/physics/contactPatchSlip";
+import { estimateContactPatchSlip, materialContactLocalM, type MeasuredFootPose } from "../../src/physics/contactPatchSlip";
 
 /** Explicit opt-in, because many physics trials consume CI credits.
  * Set RUN_LONG_BENCHMARKS=1 and run this file locally. No result is hardcoded:
@@ -42,6 +42,8 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
           let measuredMaterialPathM=0,maxMaterialSpeedMps=0;
           let landingMaterialPathM=0,landingPeakMaterialSpeedMps=0;
           let loadedLandingSamples=0;
+          let minSupportContactLocalX=Infinity,maxSupportContactLocalX=-Infinity;
+          let minLandingContactLocalX=Infinity,maxLandingContactLocalX=-Infinity;
           let loadedSamples=0,controlSamples=0,requestedBackwardImpulseNs=0;
           for(let tick=0;tick<2600;tick++){
             const state=sim.step(1);
@@ -56,6 +58,10 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
                 support.verticalLoadCentroidWorldM,dt);
               measuredMaterialPathM+=patch.estimatedSlipDistanceThisSampleM;
               maxMaterialSpeedMps=Math.max(maxMaterialSpeedMps,patch.tangentialSpeedMps);
+              const localX=materialContactLocalM(current,
+                support.verticalLoadCentroidWorldM)[0];
+              minSupportContactLocalX=Math.min(minSupportContactLocalX,localX);
+              maxSupportContactLocalX=Math.max(maxSupportContactLocalX,localX);
               const longitudinalN=support.tangentialReactionXYN[0];
               actualPositiveImpulseNs+=Math.max(0,longitudinalN)*dt;
               actualNegativeImpulseNs+=Math.max(0,-longitudinalN)*dt;
@@ -74,6 +80,10 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
               landingMaterialPathM+=landingPatch.estimatedSlipDistanceThisSampleM;
               landingPeakMaterialSpeedMps=Math.max(landingPeakMaterialSpeedMps,
                 landingPatch.tangentialSpeedMps);
+              const localX=materialContactLocalM(currentSwing,
+                receiving.verticalLoadCentroidWorldM)[0];
+              minLandingContactLocalX=Math.min(minLandingContactLocalX,localX);
+              maxLandingContactLocalX=Math.max(maxLandingContactLocalX,localX);
               loadedLandingSamples++;
             }
             previous=current;
@@ -87,6 +97,10 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
             intendedBackwardFootImpulseNs:+requestedBackwardImpulseNs.toFixed(4),
             measuredContactMaterialPathM:+measuredMaterialPathM.toFixed(4),
             receivingContactMaterialPathM:+landingMaterialPathM.toFixed(4),
+            rearFootContactMigrationLocalXM:loadedSamples>0 ?
+              +(maxSupportContactLocalX-minSupportContactLocalX).toFixed(4) : null,
+            receivingFootContactMigrationLocalXM:loadedLandingSamples>0 ?
+              +(maxLandingContactLocalX-minLandingContactLocalX).toFixed(4) : null,
             receivingPeakMaterialSpeedMps:+landingPeakMaterialSpeedMps.toFixed(4),
             loadedLandingSamples,
             maxMaterialSpeedMps:+maxMaterialSpeedMps.toFixed(4),
@@ -106,6 +120,8 @@ describe("Rear-foot push-off versus material contact slip in real MuJoCo",()=>{
           expect([row.actualForwardGRFImpulseNs,row.actualBackwardGRFImpulseNs,
             row.measuredContactMaterialPathM,row.maxMaterialSpeedMps,
             row.receivingContactMaterialPathM,row.receivingPeakMaterialSpeedMps,
+            row.rearFootContactMigrationLocalXM ?? 0,
+            row.receivingFootContactMigrationLocalXM ?? 0,
             row.targetErrorM].every(Number.isFinite)).toBe(true);
         } finally {sim.dispose();}
       }

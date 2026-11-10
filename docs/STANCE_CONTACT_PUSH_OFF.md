@@ -32,8 +32,10 @@ For enabled isolated steps, the 2 ms physics loop:
    reconstructs its own material point in the previous measured foot pose and estimates its
    tangential velocity relative to the stationary floor. This is different from sole-site drift.
 3. If contact is loaded (>=40 N), friction reserve is available and the FSM is in LIFT/SWING/LAND,
-   requests modest virtual contact-point force opposing measured slip. In late **forward** SWING/LAND
-   only, with COM beyond the contact, it also requests a modest **rearward** foot effort.
+   it requests modest virtual contact-point force opposing measured slip on the **rear support foot**.
+   In late **forward** SWING/LAND only, with COM beyond the contact, it also requests a modest
+   **rearward** foot effort. During RECOVER it uses slip-only feedback on **both loaded feet**,
+   so the newly landed foot can roll or stabilize without any programmed push-off.
    A small load-dependent aggregate friction-reserve *proxy* clips that request; the true
    solver still determines stick, slip and ground reaction.
 4. Converts the virtual contact effort to clipped **internal** hip/knee/ankle torques via `J^T F`.
@@ -48,6 +50,12 @@ certificate; joints may saturate and the sign of the measured GRF may differ fro
 virtual effort. All thresholds in the existing step-completion FSM remain unchanged.
 
 ## Verification and disposition
+
+**Execution note (10 Nov 2026):** the edits have been published to an isolated GitHub branch,
+with unit and opt-in MuJoCo benchmark source. A local complete TypeScript/ESLint/Vitest/MuJoCo
+run has **not yet been executed** in this environment (repository dependencies and GitHub Actions
+credits are unavailable). No physical performance results or stability gains are claimed for this branch.
+
 
 Run existing tests/build locally with `npm run check`. The extra real-physics A/B is **opt-in**
 to avoid CI credit consumption:

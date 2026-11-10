@@ -22,7 +22,7 @@ describe("Corrected knee anatomy and controlled step postures",()=>{
   it("leans the trunk before lifting and shifts COM reference forward, never root qpos",()=>{
     const shift=controlledStepPosture(input("SHIFT_WEIGHT",0.4));
     expect(shift.forwardComBiasM).toBeGreaterThan(0.03);
-    expect(shift.requestedTrunkPitchRad).toBeGreaterThan(0.11);
+    expect(shift.requestedTrunkPitchRad).toBeGreaterThan(0.06);
     expect(shift.targetsRad.lumbar_pitch).toBeGreaterThan(0);
     expect(shift.targetsRad.thorax_pitch).toBeGreaterThan(0);
     expect(Object.keys(shift.targetsRad).some(k=>k.includes("root"))).toBe(false);

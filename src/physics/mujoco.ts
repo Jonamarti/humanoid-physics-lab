@@ -505,12 +505,16 @@ export class MujocoSimulation {
     const leftFootGeomId = model.geom("left_foot_geom").id;
     const rightFootGeomId = model.geom("right_foot_geom").id;
     // Detect articulated toes from the loaded model; v1/v2 retain the legacy path.
-    const names = Array.from({length:model.ngeom},(_,id)=>model.geom(id).name);
-    const hasLeftToe = names.includes("left_toe_geom");
-    const hasRightToe = names.includes("right_toe_geom");
+    // Missing named geoms are not valid in v1/v2; resolve safely by ID lookup.
+    const optionalGeomId = (name:string):number|undefined => {
+      try { const id=model.geom(name).id; return id>=0 ? id : undefined; }
+      catch { return undefined; }
+    };
+    const leftToeGeomId = optionalGeomId("left_toe_geom");
+    const rightToeGeomId = optionalGeomId("right_toe_geom");
+    const hasLeftToe = leftToeGeomId !== undefined;
+    const hasRightToe = rightToeGeomId !== undefined;
     if (hasLeftToe !== hasRightToe) throw new Error("Modelo v3 con antepié incompleto");
-    const leftToeGeomId = hasLeftToe ? model.geom("left_toe_geom").id : undefined;
-    const rightToeGeomId = hasRightToe ? model.geom("right_toe_geom").id : undefined;
     const eligible = [leftFootGeomId,rightFootGeomId,
       ...(hasLeftToe ? [leftToeGeomId!,rightToeGeomId!] : [])];
     const footGeom = (geomId: number): FootGeom => {

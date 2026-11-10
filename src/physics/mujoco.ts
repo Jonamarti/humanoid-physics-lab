@@ -9,7 +9,7 @@ import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
-import { decodeSolvedContactForce } from "./contactForces";
+import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "./contactForces";
 import { wholeBodyBalanceCommand, type WholeBodyBalanceCommand } from "../control/wholeBodyBalance";
 
 export type PhysicsState = Readonly<{
@@ -602,7 +602,8 @@ export class MujocoSimulation {
     const samples: GroundContactSample[] = [];
     const contacts = data.contact;
     const constraintForce = data.efc_force as Float64Array;
-    const pyramidal = this.module.mj_isPyramidal(model);
+    const pyramidal = Boolean(this.module.mj_isPyramidal(model));
+    let unsolvedFloorFootContacts = 0;
     try {
       for (let i = 0; i < contacts.size(); i++) {
         const contact = contacts.get(i);
@@ -614,7 +615,16 @@ export class MujocoSimulation {
               !eligible.includes(
                 first === floorGeomId ? second : first
               )) continue;
-          if (contact.efc_address < 0) continue; // excluded / unsolved
+          // A detected contact need not have a complete solved friction
+          // constraint at this integration stage. Unsolved contacts carry
+          // NO measured load; skip, count and expose them separately instead
+          // of reading out-of-range rows or synthesizing normal forces.
+          if (!hasCompleteSolvedContactRows(
+            contact.efc_address,contact.dim,pyramidal,
+            data.nefc,constraintForce.length)) {
+            unsolvedFloorFootContacts++;
+            continue;
+          }
           // Decode the solved normal *and* tangents from efc_force with
           // the same pyramid formula as MuJoCo's mju_decodePyramid.
           // This avoids the WASM mj_contactForce output-buffer bug.
@@ -622,7 +632,7 @@ export class MujocoSimulation {
             solverRows: constraintForce,
             efcAddress: contact.efc_address,
             dim: contact.dim,
-            pyramidal: Boolean(pyramidal),
+            pyramidal,
             friction: contact.friction as Float64Array,
             adhesionN: contact.adhesion,
           });
@@ -650,7 +660,7 @@ export class MujocoSimulation {
     } finally {
       contacts.delete();
     }
-    return summarizeGroundSupport({
+    return {...summarizeGroundSupport({
       floorGeomId, leftFootGeomId, rightFootGeomId,
       ...(toes ? {
         leftToeGeomId:toes.left,rightToeGeomId:toes.right,
@@ -659,7 +669,7 @@ export class MujocoSimulation {
       leftFoot: footGeom(leftFootGeomId),
       rightFoot: footGeom(rightFootGeomId),
       contacts: samples,
-    });
+    }),unsolvedFloorFootContacts};
   }
 
   dispose(): void {

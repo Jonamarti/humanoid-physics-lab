@@ -93,8 +93,6 @@ export class MujocoSimulation {
     this.footSpeedWorldMps = [0,0,0];
     this.contactHipRelief = 0;
     this.contactHipScale = 1;
-    this.contactHipRelief = 0;
-    this.contactHipScale = 1;
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -112,6 +110,8 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
+    this.contactHipRelief = 0;
+    this.contactHipScale = 1;
   }
 
   /** Enables bounded internal-joint torque control on the public humanoid.

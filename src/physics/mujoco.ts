@@ -5,6 +5,7 @@ import { buildBalanceObservation, type BalanceObservation, type FootGeom, type X
 import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
 import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
 import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
+import { contactHipTorqueScale, attenuateSwingHipTorques } from "../control/landingContactTorque";
 import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
@@ -52,6 +53,8 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  private contactHipRelief = 0;
+  private contactHipScale = 1;
 
   private constructor(module: Module) {
     this.module = module;
@@ -88,6 +91,10 @@ export class MujocoSimulation {
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
     this.footSpeedWorldMps = [0,0,0];
+    this.contactHipRelief = 0;
+    this.contactHipScale = 1;
+    this.contactHipRelief = 0;
+    this.contactHipScale = 1;
   }
 
   private ready(): { model: NonNullable<MujocoSimulation["model"]>; data: NonNullable<MujocoSimulation["data"]> } {
@@ -124,17 +131,28 @@ export class MujocoSimulation {
     targetDeltaXY: XY = [0.10, 0],
     startTimeS = 0.8,
     cartesianStepScale = 0,
+    contactHipRelief = 0,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
+    }
+    if (!Number.isFinite(contactHipRelief) || contactHipRelief<0 || contactHipRelief>1) {
+      throw new RangeError("Alivio de par al contactar fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
     this.stepExperiment = new ExperimentalStepSequence(swingFoot, targetDeltaXY, startTimeS);
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
+    this.contactHipRelief = contactHipRelief;
+    this.contactHipScale = 1;
     this.lastStepFootWorld = this.siteWorldPosition(swingFoot+"_sole");
     this.lastStepFootTimeS = this.ready().data.time;
     this.footSpeedWorldMps = [0,0,0];
+  }
+
+  /** Experimental diagnostic only; nominal trials return 1. */
+  experimentalContactHipTorqueScale(): number {
+    return this.contactHipScale;
   }
 
   experimentalStepStatus(): StepSnapshot | null {
@@ -147,6 +165,18 @@ export class MujocoSimulation {
     const side = this.stepExperiment.swingSide;
     this.module.mj_subtreeVel(model,data);
     const ground = this.humanoidGroundSupportObservation();
+    if (this.contactHipRelief > 0) {
+      const targetScale = contactHipTorqueScale({
+        phase: this.stepExperiment.snapshot().phase,
+        normalForceN: ground[side].verticalLoadN,
+        frictionUtilization: ground[side].frictionUtilizationMean,
+        soleTangentialSpeedMps: Math.hypot(this.footSpeedWorldMps[0],this.footSpeedWorldMps[1]),
+        relief: this.contactHipRelief,
+      });
+      // Smooth abrupt contact-state changes at the observation cadence
+      // without inventing additional forces or altering nominal balance.
+      this.contactHipScale += 0.35 * (targetScale - this.contactHipScale);
+    }
     const com = data.subtree_com as Float64Array;
     const vel = data.subtree_linvel as Float64Array;
     const comWorldM: XYZ = [com[3]!,com[4]!,com[5]!];
@@ -209,6 +239,11 @@ export class MujocoSimulation {
                 maxFootForceN:150,
                 blend:command.cartesianBlend*this.cartesianStepScale,
               });
+          }
+          if (this.contactHipRelief > 0 && this.stepExperiment &&
+              ["LAND","RECOVER","COMPLETE"].includes(command.phase)) {
+            attenuateSwingHipTorques(model,data.qfrc_applied as Float64Array,
+              this.stepExperiment.swingSide,this.contactHipScale);
           }
         }
       }

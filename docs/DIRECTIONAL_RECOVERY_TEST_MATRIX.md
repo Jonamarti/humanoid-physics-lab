@@ -50,6 +50,54 @@ post-landing COM velocity and any physical fall. An `ABORT` is not a
 `COMPLETE`; unconfirmed landing and sole-marker drift of zero are
 **not** evidence of a firm planted foot.
 
+## Recorded first full 14-case MuJoCo run (2026-11-11)
+
+[Physical run 42937043421](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42937043421)
+completed twelve 6 s directional trials and two 7 s chained trials,
+using solved contacts and real external half-sine pulses at the sternum.
+The deterministic suite passed **159 tests**, with 9 skips and 3 explicit
+todos; the two opt-in physical suites also completed as *diagnostics*.
+A green software run does **not** imply successful step recovery.
+
+| Input direction | Peak force N | Physical outcome | Real LIFT | Confirmed landing |
+| --- | ---: | --- | --- | --- |
+| +X forward | 120 | Upright/no step | no | no |
+| +X forward | 200 | FALL | no | no |
+| +X forward | 300 | FALL | no | no |
+| -X backward | 100 | Upright/no step | no | no |
+| -X backward | 160 | FALL | no | no |
+| -X backward | 240 | FALL | no | no |
+| +Y left | 120 | Upright/no step | no | no |
+| +Y left | 200 | Upright/no step | no | no |
+| +Y left | 300 | FALL | no | no |
+| -Y right | 120 | Upright/no step | no | no |
+| -Y right | 200 | Upright/no step | no | no |
+| -Y right | 300 | FALL | no | no |
+| left then right (160 N each) | 160 | Upright/no step | no | no |
+| forward then forward (160 N each) | 160 | Upright/no step | no | no |
+
+Every FALL case produced **one planned step**, but its physical FSM
+never reached LIFT before the pelvis/tilt fell outside the acceptable
+range. This is not a collision-free knee-lift accomplishment. The
+measured apparent sole rise during falling is **not** proof that a
+swing foot was physically raised. No case completed a planted,
+loaded, settled step. The paired opposite-direction trials at
+160 N were compensated without stepping, so they did not exercise
+two sequential validated steps.
+
+Observed first FALL timestamps: forward 200/300 N 3.28/2.44 s;
+backward 160/240 N 2.78/2.30 s; left and right 300 N 2.54 s.
+These outcomes identify the **pre-lift support transfer and timing**
+as the first blocking physical stage, before the landing controller.
+
+The one-off CI step was removed after saving this evidence. The
+default branch/model gait acceptance criteria have not been changed.
+Proposed next step: isolate a narrower force interval near each
+automatic-step trigger, log longitudinal/lateral COM and capture-point
+history during SHIFT_WEIGHT at 50 Hz, and vary only load-transfer
+policy after confirming physical support. Do not loosen touchdown or
+stability gates to label the run successful.
+
 ## Progressive acceptance milestones (not yet achieved)
 
 1. **Small perturbation:** stay upright with joint balance, not an

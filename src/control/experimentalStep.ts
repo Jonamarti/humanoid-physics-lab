@@ -4,7 +4,7 @@ import type { NamedHingeModel } from "./standingBaseline";
 import type { FootSide } from "./recoveryPlanner";
 import { controlledStepPosture } from "./controlledStepPosture";
 import { assessStepStability, type StepStabilityAssessment } from "./stepStabilityDiagnostics";
-import { assessSupportTransfer } from "./supportTransferDiagnostics";
+import { assessSupportTransfer, type SupportTransferReadiness } from "./supportTransferDiagnostics";
 
 /** EXPERIMENTAL: physical joints only. No root actuation, foot teleportation
  * or fake contact. An aborted attempt is NOT a simulated fall.
@@ -65,6 +65,12 @@ export interface StepSnapshot {
   readonly preLandingDownwardSpeedMps: number | null;
   readonly frictionUtilizationAtLanding: number | null;
   readonly firstLandingTimeS: number | null;
+  /** Exact latest 50 Hz release gate observation from the physical FSM. */
+  readonly preLiftReadiness: SupportTransferReadiness | null;
+  /** Current uninterrupted gate-ready time. This is NOT physical liftoff. */
+  readonly preLiftReadyDurationS: number;
+  /** Longest gate-ready interval during SHIFT_WEIGHT, including failed attempts. */
+  readonly longestPreLiftReadyDurationS: number;
 }
 
 /** One voluntary step attempt, useful for testing the controller in real
@@ -101,6 +107,9 @@ export class ExperimentalStepSequence {
   private firstLandingTimeS: number | null = null;
   private stableTransferSinceS: number | undefined;
   private latestSupportFraction = 0;
+  private preLiftReadiness: SupportTransferReadiness | null = null;
+  private preLiftReadyDurationS = 0;
+  private longestPreLiftReadyDurationS = 0;
 
   constructor(
     readonly swingSide: FootSide,
@@ -157,6 +166,9 @@ export class ExperimentalStepSequence {
         ? Math.max(0,-this.firstLandingVelocityEstimate[2]) : null,
       frictionUtilizationAtLanding: this.frictionUtilizationAtLanding,
       firstLandingTimeS: this.firstLandingTimeS,
+      preLiftReadiness: this.preLiftReadiness,
+      preLiftReadyDurationS: this.preLiftReadyDurationS,
+      longestPreLiftReadyDurationS: this.longestPreLiftReadyDurationS,
     };
   }
 
@@ -228,6 +240,12 @@ export class ExperimentalStepSequence {
       const steady = readiness.ready;
       if (steady && sampleGapS <= 0.06) this.stableTransferSinceS ??= info.timeS;
       else this.stableTransferSinceS = undefined;
+      this.preLiftReadiness = readiness;
+      this.preLiftReadyDurationS = this.stableTransferSinceS === undefined ? 0 :
+        Math.max(0, info.timeS - this.stableTransferSinceS);
+      this.longestPreLiftReadyDurationS = Math.max(
+        this.longestPreLiftReadyDurationS, this.preLiftReadyDurationS,
+      );
     }
     if (this.phase === "FALL") return;
     if (info.pelvisHeightM < 0.65 || info.rootTiltDeg > 50) {

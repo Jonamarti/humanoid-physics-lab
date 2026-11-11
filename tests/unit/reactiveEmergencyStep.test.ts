@@ -32,6 +32,40 @@ describe("Emergency capture-point step transfer (reactive v3 only)",()=>{
     expect(cmd.targetsRad.pelvis_root).toBeUndefined();
     expect(emergency.snapshot().stepContactConfirmed).toBe(false);
   });
+  it("exposes continuous 50 Hz readiness from the same physical FSM without calling it a lift",()=>{
+    const emergency=seq(true);
+    emergency.observe(sample(0));
+    emergency.observe(sample(.02));
+    let state=emergency.snapshot();
+    expect(state.phase).toBe("SHIFT_WEIGHT");
+    expect(state.preLiftReadiness?.ready).toBe(true);
+    expect(state.preLiftReadyDurationS).toBe(0);
+    emergency.observe(sample(.04));
+    state=emergency.snapshot();
+    expect(state.preLiftReadyDurationS).toBeCloseTo(.02);
+    expect(state.longestPreLiftReadyDurationS).toBeCloseTo(.02);
+    expect(state.stepContactConfirmed).toBe(false);
+    emergency.observe(sample(.06,{swingLoadN:226,supportLoadN:510}));
+    state=emergency.snapshot();
+    expect(state.preLiftReadiness?.gates.swingUnloaded).toBe(false);
+    expect(state.preLiftReadyDurationS).toBe(0);
+    expect(state.longestPreLiftReadyDurationS).toBeCloseTo(.02);
+    emergency.observe(sample(.08));
+    emergency.observe(sample(.10));
+    expect(emergency.snapshot().preLiftReadyDurationS).toBeCloseTo(.02);
+    expect(emergency.snapshot().phase).toBe("SHIFT_WEIGHT");
+  });
+  it("breaks measured readiness dwell after an observation gap >60ms",()=>{
+    const emergency=seq(true);
+    emergency.observe(sample(0));
+    emergency.observe(sample(.02));
+    emergency.observe(sample(.04));
+    expect(emergency.snapshot().preLiftReadyDurationS).toBeCloseTo(.02);
+    emergency.observe(sample(.12));
+    expect(emergency.snapshot().preLiftReadyDurationS).toBe(0);
+    expect(emergency.snapshot().preLiftReadiness?.ready).toBe(true);
+    expect(emergency.snapshot().phase).toBe("SHIFT_WEIGHT");
+  });
   it("will not release swing foot with inadequate load or excessive tilt",()=>{
     const emergency=seq(true);
     emergency.observe(sample(0));

@@ -65,6 +65,11 @@ async function physicalCase(xml:string,c:Case) {
     let lastPhase="";const phaseHistory:string[]=[];
     let minAirborneSoleClearanceM=Infinity;
     let postTouchBilateralS=0;
+    const transferTrace:unknown[]=[];
+    const gateFailures:Record<string,number>={};
+    let readyFrames=0,consecutiveReady=0,maxConsecutiveReady=0;
+    let minSwingLoadN=Infinity,maxSupportFractionInShift=0;
+    let maxFsmReadyDurationS=0;
     for(let i=0;i<Math.round(c.durationS/0.02);i++){
       sim.step(10,timeS=>{
         for(const f of c.forces){
@@ -91,6 +96,41 @@ async function physicalCase(xml:string,c:Case) {
       if(isOutside) maxCaptureOutsideM=Math.max(maxCaptureOutsideM,
         Math.hypot(cp[0]-balance.comWorldM[0],cp[1]-balance.comWorldM[1]));
       peakFootLoadN=Math.max(peakFootLoadN,support.left.verticalLoadN,support.right.verticalLoadN);
+      // STAND transitions to SHIFT_WEIGHT after its observation. On that
+      // first frame the FSM has not evaluated transfer gates yet: skip it.
+      if(step?.phase==="SHIFT_WEIGHT" && reactive.lastIntent && step.preLiftReadiness){
+        const swing=reactive.lastIntent.swingSide;
+        const stance=reactive.lastIntent.supportSide;
+        const swingN=support[swing].verticalLoadN;
+        const supportN=support[stance].verticalLoadN;
+        const comInside=insideConvexHullXY(
+          [balance.comWorldM[0],balance.comWorldM[1]],support.loadedSupportPolygonXY);
+        // The FSM observed the same solved 50 Hz step; read its own
+        // release gates/dwell rather than approximating them independently.
+        const readiness=step.preLiftReadiness;
+        // Narrowed by the enclosing readiness guard above.
+        const failed=Object.entries(readiness.gates)
+          .filter(([,pass])=>!pass).map(([name])=>name);
+        for(const name of failed)gateFailures[name]=(gateFailures[name]??0)+1;
+        if(readiness.ready){
+          readyFrames++;
+          consecutiveReady++;
+          maxConsecutiveReady=Math.max(maxConsecutiveReady,consecutiveReady);
+        }else consecutiveReady=0;
+        minSwingLoadN=Math.min(minSwingLoadN,swingN);
+        maxSupportFractionInShift=Math.max(maxSupportFractionInShift,readiness.supportFraction);
+        maxFsmReadyDurationS=Math.max(maxFsmReadyDurationS,step.longestPreLiftReadyDurationS);
+        if(transferTrace.length<100)transferTrace.push({
+          t:Number(state.time.toFixed(3)),swing,stance,swingN,supportN,
+          fraction:readiness.supportFraction,
+          comXY:[balance.comWorldM[0],balance.comWorldM[1]],
+          velocityXY:[balance.comVelocityWorldMps[0],balance.comVelocityWorldMps[1]],
+          captureXY:cp,captureInside:!isOutside,comInside,
+          pelvisM:state.qpos[2]!,tiltDeg:rootTiltDegrees(state.qpos),
+          gates:readiness.gates,failed,
+          fsmReadyDurationS:step.preLiftReadyDurationS,
+        });
+      }
       if(step){
         maxSoleRiseM=Math.max(maxSoleRiseM,step.maxSoleRiseM);
         const phase=step.phase;
@@ -142,6 +182,11 @@ async function physicalCase(xml:string,c:Case) {
       seenPhysicalLift,seenPhysicalSwing,peakFootLoadN,
       maxComDisplacementM,maxCaptureOutsideM,minPelvisM,maxRootTiltDeg,
       postTouchBilateralS,finalSpeedMps,
+      transferDiagnosis:{
+        samples:transferTrace.length,readyFrames,maxConsecutiveReady,
+        minSwingLoadN:Number.isFinite(minSwingLoadN)?minSwingLoadN:null,
+        maxSupportFractionInShift,maxFsmReadyDurationS,gateFailures,trace:transferTrace,
+      },
       phaseHistory,physicalPhase:physical?.phase??null,
       landed:physical?.stepContactConfirmed??false,
       settledS:physical?.settledDurationS??0,

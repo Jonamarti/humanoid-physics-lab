@@ -220,6 +220,8 @@ export class MujocoSimulation {
     cartesianStepScale = 0,
     coordinatedGaitProfile = 0,
     swingExtensionGuard = 0,
+    /** V3 voluntary support reference only; does not change release gates. */
+    articulatedLateralShiftM = 0.075,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -236,6 +238,8 @@ export class MujocoSimulation {
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
       swingExtensionGuard,
       this.articulatedToeGeomIds !== undefined,
+      false,
+      articulatedLateralShiftM,
     );
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;

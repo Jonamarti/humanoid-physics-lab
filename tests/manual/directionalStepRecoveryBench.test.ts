@@ -4,6 +4,7 @@ import {MujocoSimulation} from "../../src/physics/mujoco";
 import {editedForceAtTime,editedForceImpulseNs,type EditedForce} from "../../src/physics/forceSequence";
 import {capturePointXY,insideConvexHullXY} from "../../src/control/balanceSensors";
 import {rootTiltDegrees} from "../../src/physics/standingPush";
+import {assessSupportTransfer} from "../../src/control/supportTransferDiagnostics";
 
 /** Honest physical diagnostic rather than a passing animation.
  * Run explicitly:
@@ -65,6 +66,10 @@ async function physicalCase(xml:string,c:Case) {
     let lastPhase="";const phaseHistory:string[]=[];
     let minAirborneSoleClearanceM=Infinity;
     let postTouchBilateralS=0;
+    const transferTrace:unknown[]=[];
+    const gateFailures:Record<string,number>={};
+    let readyFrames=0,consecutiveReady=0,maxConsecutiveReady=0;
+    let minSwingLoadN=Infinity,maxSupportFractionInShift=0;
     for(let i=0;i<Math.round(c.durationS/0.02);i++){
       sim.step(10,timeS=>{
         for(const f of c.forces){
@@ -91,6 +96,41 @@ async function physicalCase(xml:string,c:Case) {
       if(isOutside) maxCaptureOutsideM=Math.max(maxCaptureOutsideM,
         Math.hypot(cp[0]-balance.comWorldM[0],cp[1]-balance.comWorldM[1]));
       peakFootLoadN=Math.max(peakFootLoadN,support.left.verticalLoadN,support.right.verticalLoadN);
+      if(step?.phase==="SHIFT_WEIGHT" && reactive.lastIntent){
+        const swing=reactive.lastIntent.swingSide;
+        const stance=reactive.lastIntent.supportSide;
+        const swingN=support[swing].verticalLoadN;
+        const supportN=support[stance].verticalLoadN;
+        const comInside=insideConvexHullXY(
+          [balance.comWorldM[0],balance.comWorldM[1]],support.loadedSupportPolygonXY);
+        const readiness=assessSupportTransfer({
+          supportLoadN:supportN,swingLoadN:swingN,
+          comVelocityWorldMps:balance.comVelocityWorldMps,
+          comProjectionInsideLoadedSupport:comInside,
+          capturePointInsideLoadedSupport:!isOutside,
+          pelvisHeightM:state.qpos[2]!,
+          rootTiltDeg:rootTiltDegrees(state.qpos),
+        },true);
+        const failed=Object.entries(readiness.gates)
+          .filter(([,pass])=>!pass).map(([name])=>name);
+        for(const name of failed)gateFailures[name]=(gateFailures[name]??0)+1;
+        if(readiness.ready){
+          readyFrames++;
+          consecutiveReady++;
+          maxConsecutiveReady=Math.max(maxConsecutiveReady,consecutiveReady);
+        }else consecutiveReady=0;
+        minSwingLoadN=Math.min(minSwingLoadN,swingN);
+        maxSupportFractionInShift=Math.max(maxSupportFractionInShift,readiness.supportFraction);
+        if(transferTrace.length<100)transferTrace.push({
+          t:Number(state.time.toFixed(3)),swing,stance,swingN,supportN,
+          fraction:readiness.supportFraction,
+          comXY:[balance.comWorldM[0],balance.comWorldM[1]],
+          velocityXY:[balance.comVelocityWorldMps[0],balance.comVelocityWorldMps[1]],
+          captureXY:cp,captureInside:!isOutside,comInside,
+          pelvisM:state.qpos[2]!,tiltDeg:rootTiltDegrees(state.qpos),
+          gates:readiness.gates,failed,
+        });
+      }
       if(step){
         maxSoleRiseM=Math.max(maxSoleRiseM,step.maxSoleRiseM);
         const phase=step.phase;
@@ -142,6 +182,11 @@ async function physicalCase(xml:string,c:Case) {
       seenPhysicalLift,seenPhysicalSwing,peakFootLoadN,
       maxComDisplacementM,maxCaptureOutsideM,minPelvisM,maxRootTiltDeg,
       postTouchBilateralS,finalSpeedMps,
+      transferDiagnosis:{
+        samples:transferTrace.length,readyFrames,maxConsecutiveReady,
+        minSwingLoadN:Number.isFinite(minSwingLoadN)?minSwingLoadN:null,
+        maxSupportFractionInShift,gateFailures,trace:transferTrace,
+      },
       phaseHistory,physicalPhase:physical?.phase??null,
       landed:physical?.stepContactConfirmed??false,
       settledS:physical?.settledDurationS??0,

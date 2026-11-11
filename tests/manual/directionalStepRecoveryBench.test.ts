@@ -69,6 +69,9 @@ async function physicalCase(xml:string,c:Case) {
     const gateFailures:Record<string,number>={};
     let readyFrames=0,consecutiveReady=0,maxConsecutiveReady=0;
     let minSwingLoadN=Infinity,maxSupportFractionInShift=0;
+    let minSupportLoadN=Infinity;
+    let wrongLegLoadedFrames=0,transferSamples=0;
+    let firstTransferLoads: {stance:string;swing:string;stanceN:number;swingN:number}|null=null;
     let maxFsmReadyDurationS=0;
     for(let i=0;i<Math.round(c.durationS/0.02);i++){
       sim.step(10,timeS=>{
@@ -103,6 +106,12 @@ async function physicalCase(xml:string,c:Case) {
         const stance=reactive.lastIntent.supportSide;
         const swingN=support[swing].verticalLoadN;
         const supportN=support[stance].verticalLoadN;
+        if(!firstTransferLoads)firstTransferLoads={
+          stance,swing,stanceN:supportN,swingN,
+        };
+        minSupportLoadN=Math.min(minSupportLoadN,supportN);
+        transferSamples++;
+        if(swingN>supportN && swingN>250)wrongLegLoadedFrames++;
         const comInside=insideConvexHullXY(
           [balance.comWorldM[0],balance.comWorldM[1]],support.loadedSupportPolygonXY);
         // The FSM observed the same solved 50 Hz step; read its own
@@ -185,6 +194,8 @@ async function physicalCase(xml:string,c:Case) {
       transferDiagnosis:{
         samples:transferTrace.length,readyFrames,maxConsecutiveReady,
         minSwingLoadN:Number.isFinite(minSwingLoadN)?minSwingLoadN:null,
+        minSupportLoadN:Number.isFinite(minSupportLoadN)?minSupportLoadN:null,
+        wrongLegLoadedFrames,transferSamples,firstTransferLoads,
         maxSupportFractionInShift,maxFsmReadyDurationS,gateFailures,trace:transferTrace,
       },
       phaseHistory,physicalPhase:physical?.phase??null,

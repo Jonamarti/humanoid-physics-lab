@@ -29,3 +29,7 @@ jobs:
         env:
           HPL_RUN_ARM_TRANSFER_AB: "1"
         run: npx vitest run tests/manual/v3ArmTransferAB.test.ts --reporter=verbose
+      - name: Diagnose physical pre-lift gates on complete directional matrix
+        env:
+          HPL_RUN_DIRECTIONAL_PUSHES: "1"
+        run: npx vitest run tests/manual/directionalStepRecoveryBench.test.ts --reporter=verbose

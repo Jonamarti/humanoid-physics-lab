@@ -50,6 +50,46 @@ No postural success is inferred from an active target or green CI.
 The original push button explicitly returns to unchanged v1 and should
 not be compared directly with a v3 push when investigating gains.
 
+## Multi-angle force editor integration
+
+The **Editor avanzado: varias fuerzas 3D** now has its own strategy selector,
+located immediately above the editor:
+
+- **v3 — intentar compensar con brazos, caderas y tronco** (selected by
+  default for this editor; **not** enabled by default for other modes).
+- **v3 — solo controlador postural de referencia**, for A/B comparison on
+  exactly the same articulated-foot model.
+- **v1 — controlador original para comparación** (legacy behavior).
+
+Enabling the editor prepares the requested MuJoCo model *before* the user
+selects custom force anchor points. When changing strategies the model
+switches immediately, the standing controller is reset and any previous
+body-index-based custom anchors are invalidated: v1 and v3 body indices
+may refer to different segments. Force vectors, timing and named sites
+are preserved. Re-select custom body points on the new model before
+running; stale anchors must never be silently applied to another limb.
+
+The editor freezes its force sequence at run, resets the current model,
+enables the opt-in whole-body controller only for that selected strategy,
+and applies **every 3D force** by its authored real site/body attachment
+at each MuJoCo physics step. Controllers do not alter the authored
+external-force vectors, impulses or timing. Normal v1/v2 tests and the
+voluntary gait-step FSM remain separate.
+
+The resulting interface labels a **fall**, **recovery without stepping**
+or **no recovery**, based on sampled minimum pelvis height, maximum
+root tilt, final foot drift and final COM displacement/settling.
+The judgment uses the same conservative diagnostic family as the single
+push benchmark, and is explicitly approximate (render-frame sampling
+is not continuous verification). The editor does not yet invent a
+compensatory step.
+
+`tests/unit/multiAngleWholeBodyMujoco.test.ts` integrates three overlapping
+and non-overlapping pushes applied at different anatomical sites and
+world-space axes on v3, checks that identical force samples are used for
+both policies and confirms measured actuator response rather than
+pretending recovery from a commanded pose.
+
 ## Physical evidence
 
 [One-off benchmark, GitHub Actions #42927302329](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42927302329).

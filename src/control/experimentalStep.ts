@@ -223,11 +223,11 @@ export class ExperimentalStepSequence {
         // Deliberately reduced load fraction for an EMERGENCY triggered
         // outside the old capture region; the foot still MUST physically
         // unload, rise and land, and all original completion gates remain.
-        loadTotal>250 && supportFraction>=0.66 &&
-        info.swingLoadN<loadTotal*0.34 &&
+        loadTotal>250 && supportFraction>=0.72 &&
+        info.swingLoadN<loadTotal*0.28 &&
         info.comProjectionInsideLoadedSupport &&
-        info.pelvisHeightM>0.84 && info.rootTiltDeg<25 &&
-        comSpeed<1.5 :
+        info.pelvisHeightM>0.82 && info.rootTiltDeg<25 &&
+        comSpeed<1.2 :
         supportFraction>=0.80 && info.swingLoadN<loadTotal*0.20 &&
         info.capturePointInsideLoadedSupport &&
         info.comProjectionInsideLoadedSupport && comSpeed<0.18;
@@ -291,11 +291,9 @@ export class ExperimentalStepSequence {
       case "SHIFT_WEIGHT": {
         const legacyReady=elapsed >= 0.25 && supportFraction >= 0.7 &&
           info.swingLoadN < loadTotal * 0.3;
-        const v3Ready=this.reactiveEmergencyStep ?
-          elapsed>=0.12 && this.stableTransferSinceS !== undefined &&
-            info.timeS-this.stableTransferSinceS>=0.04 :
-          legacyReady && this.stableTransferSinceS !== undefined &&
-            info.timeS-this.stableTransferSinceS>=0.12;
+        const v3Ready=legacyReady && this.stableTransferSinceS !== undefined &&
+          info.timeS-this.stableTransferSinceS >=
+            (this.reactiveEmergencyStep ? 0.08 : 0.12);
         if (this.articulatedSupportTransfer ? v3Ready : legacyReady) {
           this.transition("LIFT",info.timeS,this.reactiveEmergencyStep ?
             "Paso reactivo: carga estable y COM proyectado en apoyo; captura externa" :
@@ -388,8 +386,7 @@ export class ExperimentalStepSequence {
       } : gaitIntent;
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
-      ? Math.min(1,elapsed/(this.reactiveEmergencyStep ? 0.18 : 0.35))
-      : active ? 1 : 0;
+      ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
     // For v3, do not inject more and more lateral bias once loads have
     // reached their target; keep the reference bounded. v1/v2 stay exact.
     const shiftM=this.reactiveEmergencyStep && this.phase==="SHIFT_WEIGHT" ?

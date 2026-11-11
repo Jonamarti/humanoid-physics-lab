@@ -1,0 +1,31 @@
+name: One-off v3 shoulder-transfer physical A/B
+
+on:
+  push:
+    branches: [experiment/v3-arm-transfer-ab-20261111]
+    paths:
+      - .github/workflows/arm-transfer-ab.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Paired MuJoCo 4-direction A/B (observational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate TypeScript
+        run: npm run typecheck
+      - name: Run matched physical push trials
+        env:
+          HPL_RUN_ARM_TRANSFER_AB: "1"
+        run: npx vitest run tests/manual/v3ArmTransferAB.test.ts --reporter=verbose

@@ -37,7 +37,7 @@ describe("Emergency capture-point step transfer (reactive v3 only)",()=>{
     emergency.observe(sample(0));
     for(let i=1;i<=28;i++){
       const t=i*.02;
-      emergency.observe(sample(t,{supportLoadN:510,swingLoadN:226}));
+      emergency.observe(sample(t,{supportLoadN:440,swingLoadN:296}));
     }
     expect(emergency.snapshot().phase).toBe("SHIFT_WEIGHT");
     for(let i=29;i<=35;i++){

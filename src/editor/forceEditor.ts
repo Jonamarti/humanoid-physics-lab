@@ -12,6 +12,8 @@ export interface ForceEditor {
   readonly horizonS: number;
   refresh(): void;
   reset(): void;
+  /** Collapse editor when a standing scenario is unloaded; keep force settings. */
+  disable(): void;
   /** Clear body-index attachments when switching MuJoCo model layouts. */
   clearCustomAttachments(): number;
   finish(): void;
@@ -255,6 +257,16 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       draw();
       if (!enabled) callbacks.getViewer()?.clearMultiForces();
       configureViewer();
+    },
+    disable() {
+      enabled=false;
+      check.checked=false;
+      pane.hidden=true;
+      snapshot=undefined;
+      applied.clear();
+      configureViewer();
+      callbacks.getViewer()?.clearMultiForces();
+      draw();
     },
     clearCustomAttachments() {
       const count=forces.filter(f=>f.attachment!==undefined).length;

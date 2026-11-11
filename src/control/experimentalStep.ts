@@ -110,6 +110,11 @@ export class ExperimentalStepSequence {
     readonly swingExtensionGuard = 0,
     /** Guarded support transfer; opt-in only for articulated-foot v3. */
     readonly articulatedSupportTransfer = false,
+    /** Reacting to an already escaped capture point: the usual requirement
+     * for capture to be back inside the old base is not achievable during
+     * a genuine emergency. Maintain separate support/load/tilt gates.
+     */
+    readonly reactiveEmergencyStep = false,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
@@ -212,10 +217,20 @@ export class ExperimentalStepSequence {
       // A single 50 Hz load spike is insufficient to release the swing leg.
       // The capture point must remain in *solved loaded* support and the
       // support leg must carry its share continuously before LIFT.
-      const steady = supportFraction >= 0.80 && info.swingLoadN < loadTotal*0.20 &&
-        info.capturePointInsideLoadedSupport &&
+      const comSpeed=Math.hypot(
+        info.comVelocityWorldMps[0],info.comVelocityWorldMps[1]);
+      const steady = this.reactiveEmergencyStep ?
+        // Deliberately reduced load fraction for an EMERGENCY triggered
+        // outside the old capture region; the foot still MUST physically
+        // unload, rise and land, and all original completion gates remain.
+        loadTotal>250 && supportFraction>=0.72 &&
+        info.swingLoadN<loadTotal*0.28 &&
         info.comProjectionInsideLoadedSupport &&
-        Math.hypot(info.comVelocityWorldMps[0],info.comVelocityWorldMps[1]) < 0.18;
+        info.pelvisHeightM>0.82 && info.rootTiltDeg<25 &&
+        comSpeed<1.2 :
+        supportFraction>=0.80 && info.swingLoadN<loadTotal*0.20 &&
+        info.capturePointInsideLoadedSupport &&
+        info.comProjectionInsideLoadedSupport && comSpeed<0.18;
       if (steady && sampleGapS <= 0.06) this.stableTransferSinceS ??= info.timeS;
       else this.stableTransferSinceS = undefined;
     }
@@ -277,9 +292,12 @@ export class ExperimentalStepSequence {
         const legacyReady=elapsed >= 0.25 && supportFraction >= 0.7 &&
           info.swingLoadN < loadTotal * 0.3;
         const v3Ready=legacyReady && this.stableTransferSinceS !== undefined &&
-          info.timeS-this.stableTransferSinceS >= 0.12;
+          info.timeS-this.stableTransferSinceS >=
+            (this.reactiveEmergencyStep ? 0.08 : 0.12);
         if (this.articulatedSupportTransfer ? v3Ready : legacyReady) {
-          this.transition("LIFT",info.timeS,this.articulatedSupportTransfer ?
+          this.transition("LIFT",info.timeS,this.reactiveEmergencyStep ?
+            "Paso reactivo: carga estable y COM proyectado en apoyo; captura externa" :
+            this.articulatedSupportTransfer ?
             "Apoyo articulado cargado de forma continua y punto de captura dentro" :
             "Pie de apoyo con al menos 70 % de la carga");
         } else if (elapsed > 1.2) {
@@ -371,9 +389,13 @@ export class ExperimentalStepSequence {
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
     // For v3, do not inject more and more lateral bias once loads have
     // reached their target; keep the reference bounded. v1/v2 stay exact.
-    const shiftM=this.articulatedSupportTransfer && this.phase==="SHIFT_WEIGHT"
-      ? 0.075*fraction*Math.max(0.55,Math.min(1.10,1.10-this.latestSupportFraction*0.20))
-      : 0.075*fraction;
+    const shiftM=this.reactiveEmergencyStep && this.phase==="SHIFT_WEIGHT" ?
+      // A bounded, quicker transfer only for explicitly enabled emergency
+      // stepping. This may still fail and must be assessed in MuJoCo.
+      0.115*fraction :
+      this.articulatedSupportTransfer && this.phase==="SHIFT_WEIGHT"
+        ? 0.075*fraction*Math.max(0.55,Math.min(1.10,1.10-this.latestSupportFraction*0.20))
+        : 0.075*fraction;
     const weightShiftRef: XY = [
       referenceComXY[0]+(gait?.forwardComBiasM ?? 0),
       referenceComXY[1]+supportSign*shiftM,

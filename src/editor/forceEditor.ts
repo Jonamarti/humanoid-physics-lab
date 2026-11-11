@@ -12,6 +12,10 @@ export interface ForceEditor {
   readonly horizonS: number;
   refresh(): void;
   reset(): void;
+  /** Collapse editor when a standing scenario is unloaded; keep force settings. */
+  disable(): void;
+  /** Clear body-index attachments when switching MuJoCo model layouts. */
+  clearCustomAttachments(): number;
   finish(): void;
   beginFrame(): void;
   applyStep(sim: MujocoSimulation, timeS: number): void;
@@ -254,6 +258,31 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       if (!enabled) callbacks.getViewer()?.clearMultiForces();
       configureViewer();
     },
+    disable() {
+      enabled=false;
+      check.checked=false;
+      pane.hidden=true;
+      snapshot=undefined;
+      applied.clear();
+      configureViewer();
+      callbacks.getViewer()?.clearMultiForces();
+      draw();
+    },
+    clearCustomAttachments() {
+      const count=forces.filter(f=>f.attachment!==undefined).length;
+      if(count>0){
+        // The same body index may identify another limb in v1 versus v3.
+        // Preserve vectors and timings but require user to pick physical
+        // attachment points anew on the newly loaded model.
+        forces=forces.map(f=>({...f,attachment:undefined}));
+        snapshot=undefined;
+        applied.clear();
+        draw();
+        status.textContent=count+" anclaje(s) manual(es) invalidado(s) al cambiar de modelo. "+
+          "Selecciona de nuevo los puntos del cuerpo para aplicar esas fuerzas.";
+      }
+      return count;
+    },
     beginFrame() { applied.clear(); },
     applyStep(sim, timeS) {
       if (!snapshot) return;
@@ -330,6 +359,11 @@ export function installForceEditor(host: HTMLElement, callbacks: EditorCallbacks
       draw();
       callbacks.onRun();
     } catch (error) {
+      // Rejecting a run must not retain a frozen snapshot or leave
+      // the editor disabled. No force has started yet.
+      snapshot=undefined;
+      applied.clear();
+      draw();
       status.textContent = error instanceof Error ? error.message : String(error);
     }
   });

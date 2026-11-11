@@ -47,6 +47,14 @@ app.innerHTML = `
       <article class="panel controls">
         <div id="standing-push-controls" hidden>
           <h2>Probar un empujón real</h2>
+          <label for="force-editor-balance-mode">Recuperación de equilibrio al aplicar varias fuerzas y ángulos</label>
+          <select id="force-editor-balance-mode">
+            <option value="whole-body-step" selected>v3 — compensar y dar un paso reactivo si es necesario</option>
+            <option value="whole-body">v3 — solo brazos, caderas y tronco (sin paso)</option>
+            <option value="v3-posture">v3 — solo controlador postural de referencia</option>
+            <option value="v1-posture">v1 — controlador original para comparación</option>
+          </select>
+          <p class="muted">El paso reactivo se intenta solo cuando el punto de captura sale persistentemente de los apoyos y hay un destino viable. Primero actúan los músculos; el pie solo se mueve por dinámica física, sin fijar ni desplazar artificialmente la pelvis. Puede abortar o caer.</p>
           <div id="multi-force-editor"></div>
           <p class="muted">El impacto se aplica en el esternón del humanoide, mediante una fuerza externa en MuJoCo. No se fija la pelvis ni se mueve ningún pie artificialmente.</p>
           <label for="push-direction">Dirección</label>
@@ -111,6 +119,22 @@ app.innerHTML = `
               <option value="1">100 % — retención máxima (puede provocar caída)</option>
             </select>
             <p class="muted">Configuración de referencia: paso hacia delante de 12 cm, rodilla coordinada, 52 % de servo y 48 % de retención, sobre el suelo nominal del modelo de 75 kg. Ha completado un paso con ambos pies en las pruebas; no está calibrada para otras direcciones, suelos ni personas reales. No se activa al recibir un empujón.</p>
+            <label for="step-model">Modelo físico de los pies (solo experimental)</label>
+            <select id="step-model">
+              <option value="v2" selected>v2 — pie rígido, referencia previamente medida</option>
+              <option value="v3">v3 — retropié y dedos articulados, sin validar</option>
+            </select>
+            <label for="v3-balance-mode">Estrategia de equilibrio en v3 (experimental)</label>
+            <select id="v3-balance-mode">
+              <option value="ankles" selected>Referencia: control de tobillos y postura</option>
+              <option value="whole-body">Compensación articular: hombros, caderas y tronco</option>
+              <option value="whole-body-step">Compensación corporal + paso reactivo (experimental)</option>
+            </select>
+            <button id="v3-stand-run" type="button" disabled>Probar bipedestación con v3 (10 s)</button>
+            <button id="v3-push-run" type="button" disabled>Probar empujón con v3 (6 s)</button>
+            <p id="v3-momentum-readout" class="muted" role="status" aria-live="off" hidden></p>
+            <p class="muted">v3 emplea las mismas fuerzas reales seleccionadas arriba. La compensación corporal es una primera hipótesis física, no una garantía de recuperar el equilibrio ni un paso automático.</p>
+            <p id="v3-contact-readout" class="muted" role="status" aria-live="off" hidden></p>
             <button id="step-run" type="button" disabled>Reiniciar y ensayar un paso (5,2 s)</button>
             <p id="step-readout" class="muted" role="status" aria-live="off">El paso todavía no se ha ensayado.</p>
             <p id="step-gates-readout" class="muted">Condiciones pendientes: primero debe despegar y apoyar físicamente.</p>
@@ -188,6 +212,13 @@ const stepCartesian = required<HTMLSelectElement>("#step-cartesian");
 const stepExtensionGuard = required<HTMLSelectElement>("#step-extension-guard");
 const stepProfile = required<HTMLSelectElement>("#step-profile");
 const stepRun = required<HTMLButtonElement>("#step-run");
+const stepModel = required<HTMLSelectElement>("#step-model");
+const v3StandRun = required<HTMLButtonElement>("#v3-stand-run");
+const v3PushRun = required<HTMLButtonElement>("#v3-push-run");
+const v3BalanceMode = required<HTMLSelectElement>("#v3-balance-mode");
+const v3MomentumReadout = required<HTMLElement>("#v3-momentum-readout");
+const editorBalanceMode = required<HTMLSelectElement>("#force-editor-balance-mode");
+const v3ContactReadout = required<HTMLElement>("#v3-contact-readout");
 const stepReadout = required<HTMLElement>("#step-readout");
 const stepGatesReadout = required<HTMLElement>("#step-gates-readout");
 
@@ -242,6 +273,10 @@ function updateCalculation(): void {
   rigidPanel.hidden = standingSelected;
   pushRun.disabled = !!forceEditor?.enabled || !simulation || mode !== "standing" || !validPushInputs();
   stepRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
+  v3StandRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
+  v3PushRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled || !validPushInputs();
+  editorBalanceMode.disabled = !simulation || mode !== "standing" || playing ||
+    preparingEditorModel || !!forceEditor?.running;
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -276,7 +311,11 @@ if (viewport) {
 }
 
 let simulation: MujocoSimulation | undefined;
-let loadedStandingModel: "nominal" | "gait" = "nominal";
+type StandingModelVariant = "nominal" | "gait" | "gait_v3";
+let loadedStandingModel: StandingModelVariant = "nominal";
+let preparingEditorModel = false;
+const editorRequestedModel = (): StandingModelVariant =>
+  editorBalanceMode.value==="v1-posture" ? "nominal" : "gait_v3";
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
@@ -298,6 +337,8 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
   const z = state.qpos[2];
   balanceReadout.hidden = mode !== "humanoid" && mode !== "standing";
   groundProjectionReadout.hidden = balanceReadout.hidden;
+  v3ContactReadout.hidden = mode !== "standing" || loadedStandingModel !== "gait_v3";
+  v3MomentumReadout.hidden = v3ContactReadout.hidden;
   if (mode === "cylinder") {
     maxSampledForwardTiltDeg = Math.max(maxSampledForwardTiltDeg, cylinderForwardTiltDeg(state.qpos));
     physicsReadout.textContent = "t = " + state.time.toFixed(3) +
@@ -316,6 +357,36 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
       viewer?.setArticulatedPoses(simulation.geometryPoses());
       const b = simulation.humanoidBalanceObservation();
       const ground = simulation.humanoidGroundSupportObservation();
+      if (mode === "standing" && loadedStandingModel === "gait_v3") {
+        const left=ground.left.segments, right=ground.right.segments;
+        if (!left || !right) throw new Error("Modelo v3 sin sensores de antepié");
+        const momentum=simulation.experimentalWholeBodyBalanceStatus();
+        const reactive=simulation.experimentalReactiveRecoveryStatus();
+        const intent=reactive?.lastIntent;
+        v3MomentumReadout.textContent = (reactive
+          ? "Recuperación reactiva: "+reactive.phase+" · "+reactive.reason+
+            " · intentos "+reactive.attempts+
+            (intent ? " · pie "+intent.swingSide+" · paso XY "+
+              intent.deltaXY.map(x=>(100*x).toFixed(1)).join(" / ")+" cm"+
+              " · fase física "+(reactive.physicalStepPhase??"sin iniciar") : "")
+          : "Paso reactivo desactivado.")+" · "+(momentum
+          ? "Compensación corporal " + (momentum.active ? "activa" : "en reposo/sin apoyo") +
+            " · momento angular normalizado X/Y/Z: " +
+            momentum.normalizedMomentumXYZ.map(x=>x.toFixed(3)).join(" / ") +
+            " · apoyo disponible: " + (momentum.supportFraction*100).toFixed(0) + " %"
+          : "Compensación corporal desactivada: solo control postural de referencia.");
+        const percent=(toe:number,total:number):string=>
+          total>1 ? (100*toe/total).toFixed(1)+" %" : "sin apoyo";
+        v3ContactReadout.textContent =
+          "v3 experimental — cargas resueltas en MuJoCo (N). Izquierdo: talón " +
+          left.rearfoot.verticalLoadN.toFixed(0) + ", antepié " +
+          left.forefoot.verticalLoadN.toFixed(0) + " (" +
+          percent(left.forefoot.verticalLoadN,ground.left.verticalLoadN) +
+          "). Derecho: talón " + right.rearfoot.verticalLoadN.toFixed(0) +
+          ", antepié " + right.forefoot.verticalLoadN.toFixed(0) + " (" +
+          percent(right.forefoot.verticalLoadN,ground.right.verticalLoadN) +
+          "). Centroide y carga no prueban por sí solos propulsión ni ausencia de deslizamiento.";
+      }
       const projection = projectBalanceToGround(b.comWorldM, ground.loadedSupportPolygonXY);
       viewer?.setBalanceProjection(b.comWorldM, ground.loadedSupportPolygonXY);
       const label = projection.status === "inside" ? "DENTRO" :
@@ -405,18 +476,23 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             : "Condiciones pendientes: primero debe despegar y apoyar físicamente.";
         }
       }
-      if (mode === "standing" && activePush && initialPushCom) {
+      if (mode === "standing" && (activePush || forceEditor?.running) && initialPushCom) {
         minimumPushPelvisM = Math.min(minimumPushPelvisM, state.qpos[2]!);
         maximumPushTiltDeg = Math.max(maximumPushTiltDeg, rootTiltDegrees(state.qpos));
         const delta = Math.hypot(b.comWorldM[0] - initialPushCom[0], b.comWorldM[1] - initialPushCom[1]);
         const speed = Math.hypot(b.comVelocityWorldMps[0], b.comVelocityWorldMps[1]);
-        if (state.time > 5 && (delta > 0.03 || speed > 0.08 || rootTiltDegrees(state.qpos) > 8)) {
+        const settlingWindow=forceEditor?.running ?
+          forceEditor.horizonS-1 : 5;
+        if (state.time > settlingWindow &&
+            (delta > 0.03 || speed > 0.08 || rootTiltDegrees(state.qpos) > 8)) {
           settledAfterPush = false;
         }
-        pushReadout.textContent = "Empujón máximo " + activePush.peakForceN + " N · impulso teórico " +
-          expectedPushImpulseNs(activePush).toFixed(2) + " N·s · inclinación máxima muestreada " +
-          maximumPushTiltDeg.toFixed(1) + "° · pelvis mínima " + minimumPushPelvisM.toFixed(3) +
-          " m · desviación de COM actual " + (delta * 100).toFixed(1) + " cm.";
+        if(activePush) {
+          pushReadout.textContent = "Empujón máximo " + activePush.peakForceN + " N · impulso teórico " +
+            expectedPushImpulseNs(activePush).toFixed(2) + " N·s · inclinación máxima muestreada " +
+            maximumPushTiltDeg.toFixed(1) + "° · pelvis mínima " + minimumPushPelvisM.toFixed(3) +
+            " m · desviación de COM actual " + (delta * 100).toFixed(1) + " cm.";
+        }
       }
       const fmt = (n: number) => n.toFixed(3);
       balanceReadout.textContent =
@@ -476,11 +552,41 @@ function animate(timestampMs: number): void {
       state = activeSimulation.step(steps);
     }
     if (!(mode === "standing" && (activePush || forceEditor?.running))) present(state);
+    let finishedForceSequence=false;
     if (mode === "standing" && forceEditor?.running && state.time >= forceEditor.horizonS) {
       playing = false;
       forceEditor.finish();
+      finishedForceSequence=true;
       toggleButton.textContent = "Iniciar";
-      physicsStatus.textContent = "Secuencia múltiple completada; resultados físicos, no validación biomecánica.";
+      editorBalanceMode.disabled=false;
+      const b=activeSimulation.humanoidBalanceObservation();
+      const footDrift=initialPushFeet ?
+        Math.max(...Array.from(initialPushFeet,([id,before])=>{
+          const now=activeSimulation.geometryPoses().find(p=>p.id===id)?.position;
+          return now ? Math.hypot(now[0]-before[0]!,now[1]-before[1]!) : Infinity;
+        })) : Infinity;
+      const recovered=minimumPushPelvisM>0.86 && maximumPushTiltDeg<25 &&
+        footDrift<0.02 && settledAfterPush;
+      const fell=minimumPushPelvisM<0.70 || maximumPushTiltDeg>50;
+      const displacement=initialPushCom ?
+        Math.hypot(b.comWorldM[0]-initialPushCom[0],
+          b.comWorldM[1]-initialPushCom[1]) : Infinity;
+      const step=activeSimulation.experimentalReactiveRecoveryStatus();
+      const strategy=editorBalanceMode.value==="whole-body-step"
+        ? "compensación corporal + paso reactivo" :
+        editorBalanceMode.value==="whole-body" ? "compensación corporal" :
+          "postura de referencia";
+      physicsStatus.textContent="Fuerzas 3D ("+strategy+"): "+
+        (fell ? "CAÍDA detectada" : recovered ? "equilibrio recuperado sin paso" :
+          "equilibrio NO recuperado con los criterios del ensayo")+
+        ". Inclinación máxima "+maximumPushTiltDeg.toFixed(2)+"°"+
+        ", pelvis mínima "+minimumPushPelvisM.toFixed(3)+" m"+
+        ", deriva final de pies "+(footDrift*100).toFixed(1)+" cm"+
+        ", desplazamiento final COM "+(displacement*100).toFixed(1)+
+        " cm. "+(step ? "Paso reactivo: "+step.phase+
+          " · fase física: "+(step.physicalStepPhase??"ninguna")+
+          " · "+step.reason+". " : "")+
+        "Diagnóstico muestreado, no certificación biomecánica.";
     }
     if (mode === "standing" && activePush && state.time >= 6) {
       playing = false;
@@ -508,15 +614,20 @@ function animate(timestampMs: number): void {
       toggleButton.textContent = "Iniciar";
       const status = activeSimulation.experimentalStepStatus();
       physicsStatus.textContent = status?.phase === "COMPLETE"
-        ? "Paso físico comprobado: despegue, avance hacia objetivo y aterrizaje cargado."
+        ? (loadedStandingModel === "gait_v3"
+          ? "FSM COMPLETE en v3: evaluar cargas de antepié, fricción y deslizamiento antes de llamarlo marcha validada."
+          : "Paso físico comprobado: despegue, avance hacia objetivo y aterrizaje cargado.")
         : status?.phase === "FALL"
         ? "El intento de paso terminó en una caída física."
         : "Paso experimental no completado: " + (status?.reason ?? "sin diagnóstico");
     }
-    if (mode === "standing" && !activePush && !activeStepTrial && !forceEditor?.running && state.time >= 10) {
+    if (mode === "standing" && !activePush && !activeStepTrial &&
+        !forceEditor?.running && !finishedForceSequence && state.time >= 10) {
       playing = false;
       toggleButton.textContent = "Iniciar";
-      physicsStatus.textContent = state.qpos[2]! >= 0.79
+      physicsStatus.textContent = loadedStandingModel === "gait_v3"
+        ? "v3: 10 segundos integrados. La altura final y las cargas visibles no garantizan postura estable; pendiente análisis de inclinación, apoyos y deslizamiento."
+        : state.qpos[2]! >= 0.79
         ? "Diez segundos simulados: pelvis alta y controlador activo. Ensayo nominal sin empujones; la recuperación aún no está validada."
         : "Diez segundos simulados, pero el humanoide perdió altura: el escenario no superó la evaluación.";
     }
@@ -544,6 +655,12 @@ function clearLoadedScenario(): void {
   activePush = undefined;
   activeStepTrial = false;
   stepRun.disabled = true;
+  v3StandRun.disabled = true;
+  v3PushRun.disabled = true;
+  v3MomentumReadout.hidden = true;
+  v3MomentumReadout.textContent = "";
+  v3ContactReadout.hidden = true;
+  v3ContactReadout.textContent = "";
   stepReadout.textContent = "El paso todavía no se ha ensayado.";
   stepGatesReadout.textContent = "Condiciones pendientes: primero debe despegar y apoyar físicamente.";
   initialPushCom = undefined;
@@ -559,7 +676,8 @@ function clearLoadedScenario(): void {
   forceMeterFill.style.width = "0%";
   viewer?.clearForceArrow();
   viewer?.clearMultiForces();
-  forceEditor?.reset();
+  forceEditor?.disable();
+  forceEditor?.clearCustomAttachments();
   viewer?.clearBalanceProjection();
   viewer?.showSphere();
   clock.reset();
@@ -625,6 +743,8 @@ loadButton.addEventListener("click", async () => {
     pushRun.disabled = !!forceEditor?.enabled || mode !== "standing" || !validPushInputs();
     forceEditor?.refresh();
     stepRun.disabled = mode !== "standing" || !!forceEditor?.enabled;
+    v3StandRun.disabled = mode !== "standing" || !!forceEditor?.enabled;
+    v3PushRun.disabled = mode !== "standing" || !!forceEditor?.enabled || !validPushInputs();
     toggleButton.textContent = "Iniciar";
   } catch (error) {
     clearLoadedScenario();
@@ -639,6 +759,7 @@ loadButton.addEventListener("click", async () => {
 for (const control of [pushPeak, pushDuration, pushDirection]) {
   control.addEventListener("input", () => {
     pushRun.disabled = !!forceEditor?.enabled || !simulation || mode !== "standing" || !validPushInputs();
+    v3PushRun.disabled = pushRun.disabled;
     if (simulation && mode === "standing" && !activePush) present(simulation.state());
   });
 }
@@ -648,12 +769,14 @@ for (const control of [pushPeak, pushDuration, pushDirection]) {
  * Recreate the MuJoCo model, rather than patching its compiled joint axes
  * in-place (which could invalidate precomputed contact structures).
  */
-async function ensureStandingModel(requested: "nominal" | "gait"): Promise<void> {
+async function ensureStandingModel(requested: StandingModelVariant): Promise<void> {
   if (!simulation || mode !== "standing" || loadedStandingModel===requested) return;
   const previous=simulation;
-  const file=requested==="gait" ? "models/humanoid_step_v2.xml" : "models/humanoid_v1.xml";
+  const file=requested==="gait_v3" ? "models/humanoid_gait_v3.xml" :
+    requested==="gait" ? "models/humanoid_step_v2.xml" : "models/humanoid_v1.xml";
   physicsStatus.textContent = "Preparando modelo " +
-    (requested==="gait" ? "de marcha con flexión anatómica" : "de equilibrio original") + "...";
+    (requested==="gait_v3" ? "v3 con antepié articulado" :
+      requested==="gait" ? "de marcha con flexión anatómica" : "de equilibrio original") + "...";
   const response=await fetch(import.meta.env.BASE_URL + file);
   if (!response.ok) throw new Error("No se pudo cargar "+file+": HTTP "+response.status);
   const next=await MujocoSimulation.create(await response.text());
@@ -678,7 +801,61 @@ async function ensureStandingModel(requested: "nominal" | "gait"): Promise<void>
   lastFrame=undefined;
   toggleButton.textContent="Iniciar";
   forceEditor?.reset();
+  const invalidated=forceEditor?.clearCustomAttachments()??0;
+  if(invalidated>0){
+    physicsStatus.textContent="Cambio de modelo: se han invalidado "+invalidated+
+      " punto(s) de fuerza anclados manualmente. Selecciónalos otra vez.";
+  }
 }
+
+async function prepareEditorModel():Promise<void> {
+  if (!forceEditor?.enabled || !simulation || mode!=="standing" || playing ||
+    preparingEditorModel) return;
+  preparingEditorModel=true;
+  editorBalanceMode.disabled=true;
+  forceEditor.refresh();
+  try {
+    const requested=editorRequestedModel();
+    await ensureStandingModel(requested);
+    if (!simulation || mode!=="standing" || !forceEditor.enabled ||
+      editorRequestedModel()!==requested) return;
+    simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if(editorBalanceMode.value==="whole-body-step"){
+      simulation.enableExperimentalReactiveRecovery();
+    } else if(editorBalanceMode.value==="whole-body"){
+      simulation.enableExperimentalWholeBodyBalance();
+    }
+    activePush=undefined;
+    activeStepTrial=false;
+    initialPushCom=undefined;
+    initialPushFeet=undefined;
+    clock.reset();
+    lastFrame=undefined;
+    physicsStatus.textContent="Editor avanzado preparado con "+
+      (editorBalanceMode.value==="whole-body-step"
+        ? "control corporal y paso reactivo hacia el punto de captura (v3)"
+        : editorBalanceMode.value==="whole-body"
+        ? "control experimental de brazos, caderas y tronco (v3)"
+        : editorBalanceMode.value==="v3-posture"
+          ? "control postural original sobre v3"
+          : "control postural original sobre v1")+
+      ". Vuelve a seleccionar los puntos manuales si has cambiado de modelo.";
+    present(simulation.state());
+  } catch(error) {
+    physicsStatus.textContent="No se pudo preparar el modelo de fuerzas 3D: "+
+      (error instanceof Error ? error.message : String(error));
+  } finally {
+    preparingEditorModel=false;
+    updateCalculation();
+    forceEditor?.refresh();
+  }
+}
+
+editorBalanceMode.addEventListener("change",()=>{
+  if(!forceEditor?.enabled) return;
+  void prepareEditorModel();
+});
 
 pushRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
@@ -714,6 +891,76 @@ pushRun.addEventListener("click", async () => {
   }
 });
 
+v3StandRun.addEventListener("click", async () => {
+  if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
+  try {
+    playing = false;
+    await ensureStandingModel("gait_v3");
+    if (!simulation || mode !== "standing") return;
+    simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if (v3BalanceMode.value==="whole-body-step")
+      simulation.enableExperimentalReactiveRecovery();
+    else if (v3BalanceMode.value==="whole-body")
+      simulation.enableExperimentalWholeBodyBalance();
+    activeStepTrial = false;
+    stepReadout.textContent = "Sin paso: ensayo de bipedestación del modelo articulado v3.";
+    clock.reset(); lastFrame = undefined;
+    activePush = undefined;
+    initialPushCom = undefined; initialPushFeet = undefined;
+    playing = true;
+    toggleButton.textContent = "Pausar";
+    physicsStatus.textContent = "Ensayo v3 de 10 s con estrategia " +
+      (v3BalanceMode.value==="whole-body" ? "corporal reactiva" : "postural original") +
+      ". No equivale a validación biomecánica.";
+    present(simulation.state());
+  } catch (error) {
+    playing = false;
+    physicsStatus.textContent = "Error preparando bipedestación v3: " +
+      (error instanceof Error ? error.message : String(error));
+  }
+});
+
+v3PushRun.addEventListener("click", async () => {
+  if (!simulation || mode!=="standing" || forceEditor?.enabled) return;
+  try {
+    const trial=selectedPushTrial();
+    playing=false;
+    await ensureStandingModel("gait_v3");
+    if (!simulation || mode!=="standing") return;
+    simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if (v3BalanceMode.value==="whole-body-step")
+      simulation.enableExperimentalReactiveRecovery();
+    else if (v3BalanceMode.value==="whole-body")
+      simulation.enableExperimentalWholeBodyBalance();
+    activeStepTrial=false;
+    stepReadout.textContent="Sin paso: ensayo físico del equilibrio corporal ante empujón.";
+    clock.reset(); lastFrame=undefined;
+    const b=simulation.humanoidBalanceObservation();
+    initialPushCom=[b.comWorldM[0],b.comWorldM[1]];
+    const footIds=simulation.geometrySpecs().filter(g=>
+      g.shape==="box" && Math.abs(g.size[0]-0.0825)<1e-8).map(g=>g.id);
+    initialPushFeet=new Map(simulation.geometryPoses().filter(p=>
+      footIds.includes(p.id)).map(p=>[p.id,p.position]));
+    activePush=trial;
+    minimumPushPelvisM=simulation.state().qpos[2]!;
+    maximumPushTiltDeg=0;
+    settledAfterPush=true;
+    playing=true;
+    toggleButton.textContent="Pausar";
+    physicsStatus.textContent="Empujón físico v3, " +
+      (v3BalanceMode.value==="whole-body-step" ? "compensación corporal y paso reactivo" :
+        v3BalanceMode.value==="whole-body" ? "compensación de momento con brazos/caderas" :
+          "control de tobillos de referencia") + ", 6 s de integración.";
+    present(simulation.state());
+  } catch(error) {
+    playing=false;
+    physicsStatus.textContent="No se pudo iniciar empujón v3: " +
+      (error instanceof Error ? error.message : String(error));
+  }
+});
+
 stepRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
   try {
@@ -724,9 +971,11 @@ stepRun.addEventListener("click", async () => {
       ? [0, 0.12*sign] : direction === "forward" ? [0.12,0] :
         direction === "backward" ? [-0.10,0] : [0.12,0.08*sign];
     playing = false;
-    await ensureStandingModel(Number(stepProfile.value)>0 ? "gait" : "nominal");
+    await ensureStandingModel(Number(stepProfile.value)>0 ?
+      (stepModel.value==="v3" ? "gait_v3" : "gait") : "nominal");
     if (!simulation || mode !== "standing") return;
     simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance(); // step FSM remains isolated
     simulation.enableExperimentalStepTrial(side, delta, 0.8,
       Number(stepCartesian.value), Number(stepProfile.value),
       Number(stepExtensionGuard.value));
@@ -739,7 +988,9 @@ stepRun.addEventListener("click", async () => {
     activeStepTrial = true;
     playing = true;
     toggleButton.textContent = "Pausar";
-    physicsStatus.textContent = Number(stepProfile.value) > 0 ?
+    physicsStatus.textContent = loadedStandingModel === "gait_v3" ?
+      "Paso v3 experimental con articulación MTP pasiva. No hay validación de marcha ni propulsión; medir fuerzas y estabilidad." :
+      Number(stepProfile.value) > 0 ?
       "Ensayo de paso coordinado: la extensión de rodilla depende del avance real. El perfil calibrado solo ha superado pruebas para 12 cm hacia delante en el modelo nominal de 75 kg." :
       "Ensayo anterior de paso físico; los fallos se mostrarán como fallos.";
     present(simulation.state());
@@ -781,35 +1032,73 @@ resetButton.addEventListener("click", () => {
   viewer?.clearForceArrow();
   viewer?.clearMultiForces();
   forceEditor?.reset();
+  updateCalculation();
   present(simulation.state());
   toggleButton.textContent = "Iniciar";
   physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";
 });
 
-const forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
+// Editor initialization invokes canEdit() synchronously. Declare the binding
+// before construction to avoid the TDZ crash in production-minified JavaScript.
+// A const initializer would reintroduce the synchronous canEdit() TDZ bug.
+// eslint-disable-next-line prefer-const -- deliberately initialize after declaring.
+let forceEditor!: ReturnType<typeof installForceEditor>;
+forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
   getSimulation: () => mode === "standing" ? simulation : undefined,
   getViewer: () => viewer,
-  canEdit: () => !playing,
+  canEdit: () => !playing && !preparingEditorModel &&
+    (!forceEditor?.enabled || loadedStandingModel===editorRequestedModel()),
   onToggle: () => {
     if (!simulation || mode !== "standing" || playing) return;
     if (forceEditor?.enabled) {
       activePush = undefined;
       viewer?.clearForceArrow();
-    } else viewer?.clearMultiForces();
+      void prepareEditorModel();
+    } else {
+      simulation.disableExperimentalWholeBodyBalance();
+      viewer?.clearMultiForces();
+    }
     updateCalculation();
     present(simulation.state());
   },
   onRun: () => {
-    if (!simulation || mode !== "standing") return;
+    if (!simulation || mode !== "standing" || preparingEditorModel ||
+      loadedStandingModel!==editorRequestedModel()) {
+      throw new Error("El modelo de equilibrio aún no está preparado para las fuerzas 3D");
+    }
     playing = false;
     simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if(editorBalanceMode.value==="whole-body-step")
+      simulation.enableExperimentalReactiveRecovery();
+    else if(editorBalanceMode.value==="whole-body")
+      simulation.enableExperimentalWholeBodyBalance();
+    const initial=simulation.humanoidBalanceObservation();
+    initialPushCom=[initial.comWorldM[0],initial.comWorldM[1]];
+    const footIds=simulation.geometrySpecs().filter(spec=>
+      spec.shape==="box" &&
+      (loadedStandingModel==="gait_v3"
+        ? Math.abs(spec.size[0]-0.0825)<1e-6
+        : Math.abs(spec.size[2]-0.035)<1e-6)).map(spec=>spec.id);
+    initialPushFeet=new Map(simulation.geometryPoses().filter(p=>
+      footIds.includes(p.id)).map(p=>[p.id,p.position]));
+    minimumPushPelvisM=simulation.state().qpos[2]!;
+    maximumPushTiltDeg=0;
+    settledAfterPush=true;
     clock.reset(); lastFrame = undefined;
     activePush = undefined;
     activeStepTrial = false;
     stepReadout.textContent = "El paso todavía no se ha ensayado.";
     playing = true;
     toggleButton.textContent = "Pausar";
-    physicsStatus.textContent = "Secuencia de fuerzas externas 3D activa.";
+    physicsStatus.textContent = "Fuerzas 3D activas: el humanoide intenta "+
+      "recuperar el equilibrio mediante "+
+      (editorBalanceMode.value==="whole-body-step"
+        ? "articulaciones y, si pierde el apoyo, un paso físico reactivo."
+        : editorBalanceMode.value==="whole-body"
+          ? "brazos, caderas, tronco y tobillos."
+          : "su controlador postural original.");
+    editorBalanceMode.disabled=true;
     present(simulation.state());
     forceEditor?.refresh();
   },

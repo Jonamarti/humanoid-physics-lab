@@ -1,0 +1,51 @@
+name: Record real v3 push and fall videos
+
+on:
+  push:
+    branches:
+      - feat/articulated-forefoot-v3-20261110
+    paths:
+      - scripts/capture-v3-recovery.mjs
+      - .github/workflows/record-v3-recovery.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install physics runtime and browser controller
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.58.2
+          command -v google-chrome || command -v chromium || npx playwright install chromium
+          npx playwright install ffmpeg
+      - name: Build actual 3D MuJoCo viewer
+        run: npm run build
+      - name: Serve viewer
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/hpl-v3-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl --silent --fail http://127.0.0.1:4173/humanoid-physics-lab/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/hpl-v3-server.log
+          exit 1
+      - name: Record 3 physical v3 push cases
+        run: node scripts/capture-v3-recovery.mjs
+      - name: Upload real video and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: humanoid-v3-push-recovery-videos
+          path: media/v3-push-recovery/
+          retention-days: 14
+          if-no-files-found: warn

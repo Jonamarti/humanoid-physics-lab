@@ -4,6 +4,7 @@ import type { NamedHingeModel } from "./standingBaseline";
 import type { FootSide } from "./recoveryPlanner";
 import { controlledStepPosture } from "./controlledStepPosture";
 import { assessStepStability, type StepStabilityAssessment } from "./stepStabilityDiagnostics";
+import { assessSupportTransfer, type SupportTransferReadiness } from "./supportTransferDiagnostics";
 
 /** EXPERIMENTAL: physical joints only. No root actuation, foot teleportation
  * or fake contact. An aborted attempt is NOT a simulated fall.
@@ -64,6 +65,12 @@ export interface StepSnapshot {
   readonly preLandingDownwardSpeedMps: number | null;
   readonly frictionUtilizationAtLanding: number | null;
   readonly firstLandingTimeS: number | null;
+  /** Exact latest 50 Hz release gate observation from the physical FSM. */
+  readonly preLiftReadiness: SupportTransferReadiness | null;
+  /** Current uninterrupted gate-ready time. This is NOT physical liftoff. */
+  readonly preLiftReadyDurationS: number;
+  /** Longest gate-ready interval during SHIFT_WEIGHT, including failed attempts. */
+  readonly longestPreLiftReadyDurationS: number;
 }
 
 /** One voluntary step attempt, useful for testing the controller in real
@@ -98,6 +105,11 @@ export class ExperimentalStepSequence {
   private firstLandingVelocityEstimate: XYZ | undefined;
   private frictionUtilizationAtLanding: number | null = null;
   private firstLandingTimeS: number | null = null;
+  private stableTransferSinceS: number | undefined;
+  private latestSupportFraction = 0;
+  private preLiftReadiness: SupportTransferReadiness | null = null;
+  private preLiftReadyDurationS = 0;
+  private longestPreLiftReadyDurationS = 0;
 
   constructor(
     readonly swingSide: FootSide,
@@ -106,12 +118,25 @@ export class ExperimentalStepSequence {
     readonly coordinatedGaitProfile = 0,
     /** Opt-in measured-foot-progress gate for swing knee extension. */
     readonly swingExtensionGuard = 0,
+    /** Guarded support transfer; opt-in only for articulated-foot v3. */
+    readonly articulatedSupportTransfer = false,
+    /** Reacting to an already escaped capture point: the usual requirement
+     * for capture to be back inside the old base is not achievable during
+     * a genuine emergency. Maintain separate support/load/tilt gates.
+     */
+    readonly reactiveEmergencyStep = false,
+    /** V3 voluntary pre-lift lateral COM reference, kept bounded in metres.
+     * This is a research tuning parameter, NOT an acceptance criterion.
+     */
+    readonly articulatedLateralShiftM = 0.075,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
       Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
       !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1 ||
-      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1) {
+      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1 ||
+      !Number.isFinite(articulatedLateralShiftM) ||
+      articulatedLateralShiftM < 0.05 || articulatedLateralShiftM > 0.15) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -141,6 +166,9 @@ export class ExperimentalStepSequence {
         ? Math.max(0,-this.firstLandingVelocityEstimate[2]) : null,
       frictionUtilizationAtLanding: this.frictionUtilizationAtLanding,
       firstLandingTimeS: this.firstLandingTimeS,
+      preLiftReadiness: this.preLiftReadiness,
+      preLiftReadyDurationS: this.preLiftReadyDurationS,
+      longestPreLiftReadyDurationS: this.longestPreLiftReadyDurationS,
     };
   }
 
@@ -203,6 +231,22 @@ export class ExperimentalStepSequence {
     const loadTotal = info.supportLoadN + info.swingLoadN;
     const supportFraction = loadTotal > 10 ? info.supportLoadN/loadTotal : 0;
     this.maxSupportLoadFraction = Math.max(this.maxSupportLoadFraction,supportFraction);
+    this.latestSupportFraction = supportFraction;
+    if (this.articulatedSupportTransfer && this.phase === "SHIFT_WEIGHT") {
+      // A single 50 Hz load spike is insufficient to release the swing leg.
+      // The capture point must remain in *solved loaded* support and the
+      // support leg must carry its share continuously before LIFT.
+      const readiness = assessSupportTransfer(info, this.reactiveEmergencyStep);
+      const steady = readiness.ready;
+      if (steady && sampleGapS <= 0.06) this.stableTransferSinceS ??= info.timeS;
+      else this.stableTransferSinceS = undefined;
+      this.preLiftReadiness = readiness;
+      this.preLiftReadyDurationS = this.stableTransferSinceS === undefined ? 0 :
+        Math.max(0, info.timeS - this.stableTransferSinceS);
+      this.longestPreLiftReadyDurationS = Math.max(
+        this.longestPreLiftReadyDurationS, this.preLiftReadyDurationS,
+      );
+    }
     if (this.phase === "FALL") return;
     if (info.pelvisHeightM < 0.65 || info.rootTiltDeg > 50) {
       this.transition("FALL",info.timeS,"Pelvis baja o tronco demasiado inclinado");
@@ -257,13 +301,25 @@ export class ExperimentalStepSequence {
       case "STAND":
         if (info.timeS >= this.startTimeS) this.transition("SHIFT_WEIGHT",info.timeS,"Transferencia de peso inicial");
         break;
-      case "SHIFT_WEIGHT":
-        if (elapsed >= 0.25 && supportFraction >= 0.7 && info.swingLoadN < loadTotal * 0.3) {
-          this.transition("LIFT",info.timeS,"Pie de apoyo con al menos 70 % de la carga");
+      case "SHIFT_WEIGHT": {
+        const legacyReady=elapsed >= 0.25 && supportFraction >= 0.7 &&
+          info.swingLoadN < loadTotal * 0.3;
+        const v3Ready=legacyReady && this.stableTransferSinceS !== undefined &&
+          info.timeS-this.stableTransferSinceS >=
+            (this.reactiveEmergencyStep ? 0.08 : 0.12);
+        if (this.articulatedSupportTransfer ? v3Ready : legacyReady) {
+          this.transition("LIFT",info.timeS,this.reactiveEmergencyStep ?
+            "Paso reactivo: carga estable y COM proyectado en apoyo; captura externa" :
+            this.articulatedSupportTransfer ?
+            "Apoyo articulado cargado de forma continua y punto de captura dentro" :
+            "Pie de apoyo con al menos 70 % de la carga");
         } else if (elapsed > 1.2) {
-          this.transition("ABORT",info.timeS,"No consiguió transferir peso al apoyo");
+          this.transition("ABORT",info.timeS,this.articulatedSupportTransfer ?
+            "Apoyo articulado no estabilizado para el despegue" :
+            "No consiguió transferir peso al apoyo");
         }
         break;
+      }
       case "LIFT":
         if (rise > 0.03 && info.swingLoadN < 25) {
           this.transition("SWING",info.timeS,"Despegue físico y descarga medidos");
@@ -321,7 +377,7 @@ export class ExperimentalStepSequence {
     const elapsed = Math.max(0,timeS - this.phaseStartedAtS);
     const supportSign = this.supportSide === "left" ? 1 : -1;
     const moveSign = this.swingSide === "left" ? 1 : -1;
-    const gait = this.coordinatedGaitProfile > 0
+    const gaitIntent = this.coordinatedGaitProfile > 0
       ? controlledStepPosture({
         phase:this.phase, elapsedS:elapsed,
         swingSide:this.swingSide, targetDeltaXY:this.targetDeltaXY,
@@ -330,12 +386,33 @@ export class ExperimentalStepSequence {
           Math.hypot(...this.targetDeltaXY),
         swingExtensionGuard:this.swingExtensionGuard,
       }) : null;
+    // An articulated forefoot needs the support COM to move laterally
+    // *before* any forward leaning / push-off. Prevent the v2 pre-lift
+    // sagittal bias from rotating the toes and destabilizing the base.
+    // The legacy coordinated posture is unchanged for v1/v2.
+    const gait = this.articulatedSupportTransfer &&
+      this.phase === "SHIFT_WEIGHT" && gaitIntent ? {
+        ...gaitIntent,
+        forwardComBiasM: 0,
+        targetsRad: { ...gaitIntent.targetsRad,
+          lumbar_pitch:0,thorax_pitch:0 },
+      } : gaitIntent;
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
       ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
+    // For v3, do not inject more and more lateral bias once loads have
+    // reached their target; keep the reference bounded. v1/v2 stay exact.
+    const shiftM=this.reactiveEmergencyStep && this.phase==="SHIFT_WEIGHT" ?
+      // A bounded, quicker transfer only for explicitly enabled emergency
+      // stepping. This may still fail and must be assessed in MuJoCo.
+      0.115*fraction :
+      this.articulatedSupportTransfer && this.phase==="SHIFT_WEIGHT"
+        ? this.articulatedLateralShiftM*fraction*
+          Math.max(0.55,Math.min(1.10,1.10-this.latestSupportFraction*0.20))
+        : 0.075*fraction;
     const weightShiftRef: XY = [
       referenceComXY[0]+(gait?.forwardComBiasM ?? 0),
-      referenceComXY[1]+supportSign*0.075*fraction,
+      referenceComXY[1]+supportSign*shiftM,
     ];
     let ref: XY = weightShiftRef;
     if (this.firstLandingSole && this.originalSole &&

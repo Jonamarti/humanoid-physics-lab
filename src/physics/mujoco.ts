@@ -9,7 +9,9 @@ import { rootTiltDegrees } from "./standingPush";
 import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
-import { decodeSolvedContactForce } from "./contactForces";
+import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "./contactForces";
+import { wholeBodyBalanceCommand, type WholeBodyBalanceCommand } from "../control/wholeBodyBalance";
+import { ReactiveStepCoordinator, type ReactiveRecoveryStatus } from "../control/reactiveStepCoordinator";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -52,6 +54,15 @@ export class MujocoSimulation {
   private lastStepFootTimeS = 0;
   private footSpeedWorldMps: XYZ = [0,0,0];
   private cartesianStepScale = 0;
+  /** Cached IDs only for a model with both declared toe geometries.
+   * Never ask the WASM named accessor for missing v1/v2 geoms. */
+  private articulatedToeGeomIds: Readonly<{left:number;right:number}> | undefined;
+  private wholeBodyBalanceEnabled = false;
+  private wholeBodyBalanceTicks = 0;
+  private lastWholeBodyCommand: WholeBodyBalanceCommand | null = null;
+  /** Only enabled by explicit v3 reactive mode (not by standing or plain WB). */
+  private reactiveRecovery: ReactiveStepCoordinator | undefined;
+  private reactiveRecoveryTicks = 0;
 
   private constructor(module: Module) {
     this.module = module;
@@ -70,7 +81,23 @@ export class MujocoSimulation {
     const nextModel = this.module.MjModel.from_xml_string(xml);
     if (!nextModel) throw new Error("No se pudo compilar MJCF");
     let nextData: InstanceType<Module["MjData"]> | undefined;
+    let nextToeGeomIds: Readonly<{left:number;right:number}> | undefined;
     try {
+      // In this Embind build a failed model.geom(name) lookup is not a safe
+      // optional-access probe: it can corrupt the WASM runtime. Only resolve
+      // both toe names when the XML explicitly declares both physical geoms.
+      const declared = xml.replace(/<!--[\s\S]*?-->/g,"");
+      const hasLeftToe = /<geom\b[^>]*\bname\s*=\s*["']left_toe_geom["']/.test(declared);
+      const hasRightToe = /<geom\b[^>]*\bname\s*=\s*["']right_toe_geom["']/.test(declared);
+      if (hasLeftToe !== hasRightToe) throw new Error("Modelo con antepié incompleto");
+      if (hasLeftToe) {
+        const left = nextModel.geom("left_toe_geom").id;
+        const right = nextModel.geom("right_toe_geom").id;
+        if (![left,right].every(id => Number.isSafeInteger(id) && id>=0 && id<nextModel.ngeom) || left === right) {
+          throw new Error("Geometrías de antepié inválidas");
+        }
+        nextToeGeomIds = {left,right};
+      }
       nextData = new this.module.MjData(nextModel);
       if (!nextData) throw new Error("No se pudo crear MjData");
       this.module.mj_forward(nextModel, nextData);
@@ -83,6 +110,12 @@ export class MujocoSimulation {
     this.model?.delete();
     this.model = nextModel;
     this.data = nextData;
+    this.articulatedToeGeomIds = nextToeGeomIds;
+    this.wholeBodyBalanceEnabled = false;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
@@ -101,6 +134,10 @@ export class MujocoSimulation {
     this.module.mj_resetData(model, data);
     this.module.mj_forward(model, data);
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
+    if (this.reactiveRecovery) this.reactiveRecovery = new ReactiveStepCoordinator();
+    this.reactiveRecoveryTicks = 0;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
@@ -114,6 +151,63 @@ export class MujocoSimulation {
     const { model, data } = this.ready();
     this.module.mj_forward(model, data);
     this.standingController = makeStandingController(model, data);
+    this.wholeBodyBalanceEnabled = false;
+    this.lastWholeBodyCommand = null;
+    this.wholeBodyBalanceTicks = 0;
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
+  }
+
+  /** First research iteration: opt-in whole-body angular-momentum response.
+   * Only articulated v3, with standing controller already running. No free
+   * root actuation, no automatic stepping, and no alteration to v1/v2.
+   */
+  enableExperimentalWholeBodyBalance(): void {
+    if (!this.standingController || !this.articulatedToeGeomIds) {
+      throw new Error("El control corporal experimental exige bipedestación y el modelo v3");
+    }
+    if (this.stepExperiment) throw new Error("No mezclar control corporal experimental y paso");
+    this.wholeBodyBalanceEnabled = true;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
+  }
+
+  disableExperimentalWholeBodyBalance(): void {
+    this.wholeBodyBalanceEnabled = false;
+    this.lastWholeBodyCommand = null;
+    this.disableExperimentalReactiveRecovery();
+  }
+
+  /** Arm/hip/trunk balance first; try at most one real v3 step when the
+   * measured capture point persistently escapes solved loaded support.
+   * The original voluntary step mode remains separate from this experiment.
+   */
+  enableExperimentalReactiveRecovery(): void {
+    if (!this.articulatedToeGeomIds || !this.standingController ||
+        this.stepExperiment) {
+      throw new Error("La recuperación con paso exige bipedestación v3 sin paso activo");
+    }
+    this.enableExperimentalWholeBodyBalance();
+    this.reactiveRecovery = new ReactiveStepCoordinator();
+    this.reactiveRecoveryTicks = 0;
+  }
+
+  disableExperimentalReactiveRecovery(): void {
+    if (this.reactiveRecovery && this.stepExperiment) {
+      this.stepExperiment = undefined;
+      this.stepExperimentTicks = 0;
+      this.cartesianStepScale = 0;
+    }
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
+  }
+
+  experimentalReactiveRecoveryStatus(): ReactiveRecoveryStatus | null {
+    return this.reactiveRecovery?.snapshot() ?? null;
+  }
+
+  experimentalWholeBodyBalanceStatus(): WholeBodyBalanceCommand | null {
+    return this.lastWholeBodyCommand;
   }
 
   /** Opt-in voluntary recovery-step test. Not a validated walking controller.
@@ -126,6 +220,8 @@ export class MujocoSimulation {
     cartesianStepScale = 0,
     coordinatedGaitProfile = 0,
     swingExtensionGuard = 0,
+    /** V3 voluntary support reference only; does not change release gates. */
+    articulatedLateralShiftM = 0.075,
   ): void {
     if (!Number.isFinite(cartesianStepScale) || cartesianStepScale<0 || cartesianStepScale>1) {
       throw new RangeError("Escala de control de pie fuera de 0..1");
@@ -135,9 +231,15 @@ export class MujocoSimulation {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
+    if (this.wholeBodyBalanceEnabled || this.reactiveRecovery) {
+      throw new Error("Desactiva la recuperación automática antes de un paso voluntario");
+    }
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
       swingExtensionGuard,
+      this.articulatedToeGeomIds !== undefined,
+      false,
+      articulatedLateralShiftM,
     );
     this.stepExperimentTicks = 0;
     this.cartesianStepScale = cartesianStepScale;
@@ -183,6 +285,44 @@ export class MujocoSimulation {
     });
   }
 
+  /** Called at 50 Hz after MuJoCo has resolved contacts. The coordinator
+   * chooses a reachable landing candidate, but the actual lift, flight and
+   * landing are controlled/verified by the existing physical step FSM.
+   */
+  private sampleReactiveRecovery(): void {
+    const coordinator=this.reactiveRecovery;
+    if (!coordinator || !this.standingController) return;
+    const {model,data}=this.ready();
+    this.module.mj_subtreeVel(model,data);
+    const com=data.subtree_com as Float64Array;
+    const vel=data.subtree_linvel as Float64Array;
+    const pelvis=data.qpos as Float64Array;
+    const ground=this.humanoidGroundSupportObservation();
+    const current=this.stepExperiment?.snapshot();
+    if(current) coordinator.observePhysicalStep(current.phase,current.reason);
+    const intent=coordinator.observe({
+      timeS:data.time,
+      comWorldM:[com[3]!,com[4]!,com[5]!],
+      comVelocityWorldMps:[vel[3]!,vel[4]!,vel[5]!],
+      totalMassKg:this.standingController.totalMassKg,
+      rootTiltDeg:rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
+      pelvisHeightM:pelvis[2]!,
+      ground,
+    });
+    if (!intent || this.stepExperiment) return;
+    // This is an actual internal-joint step attempt; no root trajectory,
+    // hidden translation or fixed-to-world swing foot is introduced.
+    this.stepExperiment=new ExperimentalStepSequence(
+      intent.swingSide,intent.deltaXY,intent.timeS,
+      1,0.48,true,true,
+    );
+    this.cartesianStepScale=0.52;
+    this.stepExperimentTicks=0;
+    this.lastStepFootWorld=this.siteWorldPosition(intent.swingSide+"_sole");
+    this.lastStepFootTimeS=data.time;
+    this.footSpeedWorldMps=[0,0,0];
+  }
+
   /** Advances count physical steps. Each optional callback runs immediately
    * before the step so force pulses respect physical time, not screen FPS.
    * External wrenches are cleared on EVERY step to avoid stale impulses.
@@ -196,13 +336,36 @@ export class MujocoSimulation {
       (data.xfrc_applied as Float64Array).fill(0);
       if (this.standingController) {
         this.module.mj_subtreeVel(model, data);
-        const command = this.stepExperiment?.command(
+        // Once an automatic step has ABORTED / COMPLETED, release the
+        // swing controller so joint-balance can resume (while still reading
+        // the original FSM for evidence of a subsequent physical fall).
+        const stepPhase=this.stepExperiment?.snapshot().phase;
+        const reactiveTerminal=!!this.reactiveRecovery &&
+          (stepPhase==="ABORT" || stepPhase==="COMPLETE" || stepPhase==="FALL");
+        const command = reactiveTerminal ? null : this.stepExperiment?.command(
           data.time, this.standingController.referenceComXY);
         const controller = command ? {
           ...this.standingController,
           referenceComXY: command.referenceComXY,
         } : this.standingController;
         stepActiveStanding(model, data, controller);
+        if (this.wholeBodyBalanceEnabled && !command) {
+          if (++this.wholeBodyBalanceTicks % 10 === 0) {
+            const ang = data.subtree_angmom as Float64Array;
+            const vel = data.qvel as Float64Array;
+            const ground = this.humanoidGroundSupportObservation();
+            this.lastWholeBodyCommand = wholeBodyBalanceCommand({
+              angularMomentumWorldNms:[ang[3]!,ang[4]!,ang[5]!],
+              rootAngularVelocityWorldRadS:[vel[3]!,vel[4]!,vel[5]!],
+              totalMassKg:this.standingController.totalMassKg,
+              solvedFootLoadN:ground.totalVerticalLoadN,
+            });
+          }
+          if (this.lastWholeBodyCommand?.active) {
+            applyStepJointTargets(model,data,this.standingController.gains,
+              this.lastWholeBodyCommand.targetsRad);
+          }
+        }
         if (command) {
           applyStepJointTargets(model,data,
             this.standingController.gains,command.targetsRad);
@@ -246,6 +409,9 @@ export class MujocoSimulation {
         // Read solved loads at 50 Hz, with the prior physical step's
         // contact solution (a <=2ms lag), not on render frames.
         this.sampleStepExperiment();
+      }
+      if (this.reactiveRecovery && ++this.reactiveRecoveryTicks % 10 === 0) {
+        this.sampleReactiveRecovery();
       }
     }
     return this.state();
@@ -504,6 +670,9 @@ export class MujocoSimulation {
     const floorGeomId = model.geom("floor").id;
     const leftFootGeomId = model.geom("left_foot_geom").id;
     const rightFootGeomId = model.geom("right_foot_geom").id;
+    const toes = this.articulatedToeGeomIds;
+    const eligible = [leftFootGeomId,rightFootGeomId,
+      ...(toes ? [toes.left,toes.right] : [])];
     const footGeom = (geomId: number): FootGeom => {
       const positions = data.geom_xpos as Float64Array;
       const rotations = data.geom_xmat as Float64Array;
@@ -523,7 +692,8 @@ export class MujocoSimulation {
     const samples: GroundContactSample[] = [];
     const contacts = data.contact;
     const constraintForce = data.efc_force as Float64Array;
-    const pyramidal = this.module.mj_isPyramidal(model);
+    const pyramidal = Boolean(this.module.mj_isPyramidal(model));
+    let unsolvedFloorFootContacts = 0;
     try {
       for (let i = 0; i < contacts.size(); i++) {
         const contact = contacts.get(i);
@@ -532,10 +702,19 @@ export class MujocoSimulation {
           const first = contact.geom1;
           const second = contact.geom2;
           if ((first !== floorGeomId && second !== floorGeomId) ||
-              ![leftFootGeomId, rightFootGeomId].includes(
+              !eligible.includes(
                 first === floorGeomId ? second : first
               )) continue;
-          if (contact.efc_address < 0) continue; // excluded / unsolved
+          // A detected contact need not have a complete solved friction
+          // constraint at this integration stage. Unsolved contacts carry
+          // NO measured load; skip, count and expose them separately instead
+          // of reading out-of-range rows or synthesizing normal forces.
+          if (!hasCompleteSolvedContactRows(
+            contact.efc_address,contact.dim,pyramidal,
+            data.nefc,constraintForce.length)) {
+            unsolvedFloorFootContacts++;
+            continue;
+          }
           // Decode the solved normal *and* tangents from efc_force with
           // the same pyramid formula as MuJoCo's mju_decodePyramid.
           // This avoids the WASM mj_contactForce output-buffer bug.
@@ -543,7 +722,7 @@ export class MujocoSimulation {
             solverRows: constraintForce,
             efcAddress: contact.efc_address,
             dim: contact.dim,
-            pyramidal: Boolean(pyramidal),
+            pyramidal,
             friction: contact.friction as Float64Array,
             adhesionN: contact.adhesion,
           });
@@ -571,12 +750,16 @@ export class MujocoSimulation {
     } finally {
       contacts.delete();
     }
-    return summarizeGroundSupport({
+    return {...summarizeGroundSupport({
       floorGeomId, leftFootGeomId, rightFootGeomId,
+      ...(toes ? {
+        leftToeGeomId:toes.left,rightToeGeomId:toes.right,
+        leftToe:footGeom(toes.left),rightToe:footGeom(toes.right),
+      } : {}),
       leftFoot: footGeom(leftFootGeomId),
       rightFoot: footGeom(rightFootGeomId),
       contacts: samples,
-    });
+    }),unsolvedFloorFootContacts};
   }
 
   dispose(): void {
@@ -586,5 +769,11 @@ export class MujocoSimulation {
     this.model?.delete();
     this.data = undefined;
     this.model = undefined;
+    this.articulatedToeGeomIds = undefined;
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
+    this.wholeBodyBalanceEnabled = false;
+    this.wholeBodyBalanceTicks = 0;
+    this.lastWholeBodyCommand = null;
   }
 }

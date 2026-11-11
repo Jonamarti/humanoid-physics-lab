@@ -148,6 +148,33 @@ describe("Recovery-step FSM requires verified contact events", () => {
     step.observe(sample(0.2,{pelvisHeightM:0.25}));
     expect(step.snapshot().phase).toBe("FALL");
   });
+  it("v3 lateral shift research gain is bounded and does not relax release gate", () => {
+    const low = new ExperimentalStepSequence(
+      "left",[0.12,0],0.8,1,0.48,true,false,0.075);
+    const tuned = new ExperimentalStepSequence(
+      "left",[0.12,0],0.8,1,0.48,true,false,0.115);
+    for(const step of [low,tuned]){
+      step.observe(sample(0.8));
+      expect(step.snapshot().phase).toBe("SHIFT_WEIGHT");
+      step.observe(sample(1.1,{
+        supportLoadN:555,swingLoadN:185,
+        comVelocityWorldMps:[0,0,0],
+      }));
+      // 75% is not 80%; even a bigger COM reference must never
+      // overwrite the actual solved-load qualification.
+      expect(step.snapshot().phase).toBe("SHIFT_WEIGHT");
+    }
+    const base=low.command(1.1,[0,0]);
+    const moved=tuned.command(1.1,[0,0]);
+    expect(moved.referenceComXY[1]).toBeLessThan(base.referenceComXY[1]);
+    expect(moved.referenceComXY[0]).toBeCloseTo(base.referenceComXY[0]);
+    expect(Object.keys(moved.targetsRad).some(key=>key.includes("root"))).toBe(false);
+    expect(() => new ExperimentalStepSequence(
+      "left",[0.12,0],0.8,1,0.48,true,false,0.151)).toThrow(RangeError);
+    expect(() => new ExperimentalStepSequence(
+      "left",[0.12,0],0.8,1,0.48,true,false,0.049)).toThrow(RangeError);
+  });
+
   it("rejects impossible displacements and invalid measurements", () => {
     expect(() => new ExperimentalStepSequence("left",[1,0])).toThrow(RangeError);
     const step = new ExperimentalStepSequence("left",[0.1,0]);

@@ -42,10 +42,12 @@ reactive trigger and a physical attempt, not validated reactive locomotion.
   Because this is an emergency with the capture point already outside
   the former base, the *v3-reactive-only* pre-lift policy replaces the
   voluntary v3 gate (80% load AND capture inside) with an emergency
-  72% stance-foot load, <=28% remaining swing-foot load, pelvis >0.82 m,
+  66% stance-foot load, <=34% remaining swing-foot load, pelvis >0.84 m,
   tilt <25 degrees, COM projection inside solved support, COM horizontal
-  speed <1.2 m/s, and 0.08 s of continuous samples. It also allows a
-  bounded lateral shift of 0.115 m (vs ordinary v3's ~0.075 m).
+  speed <1.5 m/s, and 0.04 s of continuous samples after at least 0.12 s
+  of pre-lift load-transfer phase. It also uses a faster 0.18 s rise
+  to a bounded lateral shift of 0.115 m
+  (vs ordinary v3's ~0.075 m over 0.35 s).
   This is an experimental trade-off, **not a proven safe threshold**;
   all original real lift, landing and step-COMPLETE gates remain.
   The foot must physically unload, lift, move, land, become loaded and

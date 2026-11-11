@@ -638,7 +638,7 @@ function clearLoadedScenario(): void {
   forceMeterFill.style.width = "0%";
   viewer?.clearForceArrow();
   viewer?.clearMultiForces();
-  forceEditor?.reset();
+  forceEditor?.disable();
   forceEditor?.clearCustomAttachments();
   viewer?.clearBalanceProjection();
   viewer?.showSphere();
@@ -983,6 +983,7 @@ resetButton.addEventListener("click", () => {
   viewer?.clearForceArrow();
   viewer?.clearMultiForces();
   forceEditor?.reset();
+  updateCalculation();
   present(simulation.state());
   toggleButton.textContent = "Iniciar";
   physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";

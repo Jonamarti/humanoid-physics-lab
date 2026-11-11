@@ -15,6 +15,7 @@ uv run --quiet --python 3.12 --with mujoco --with numpy --with imageio-ffmpeg --
 | `--view front\|side\|top\|three_quarter` | Cámara (por defecto `side`; en ella +X va a la derecha). |
 | `--slow 0.25` | Segunda pasada a ×0,25 tras la de velocidad real. `0` la desactiva. |
 | `--size 960x540` | Tamaño (par). |
+| `--follow` / `--no-follow` | Fuerza que la cámara siga (o no) al actor. Por defecto decide sola (ver abajo). |
 | `--fps 30` | Fotogramas por segundo del vídeo. |
 | `--sheet hoja.png` | Rejilla de 8 fotogramas clave repartidos en el tiempo, con su instante. |
 
@@ -24,8 +25,11 @@ El vídeo es H.264 `yuv420p` con `faststart`, reproducible en el móvil. Los fot
 
 - **Nunca simula.** Carga `model.mjcf` de la grabación, pone `qpos` de cada muestra, llama a `mj_forward` y renderiza. Una prueba lo comprueba con un modelo sin gravedad cuyas muestras describen una caída.
 - Remuestrea de `record_hz` a `--fps` eligiendo la muestra más cercana. El vídeo incluye la última muestra.
-- La cámara sigue el centro del primer cuerpo con articulación libre (el actor) y deja ver el suelo; se añade una cuadrícula de 0,5 m para percibir el movimiento.
-- Flechas por efector (rojo; el color es fijo por `kind` si la muestra lo trae) con su valor en newtons, y flechas de contacto en amarillo. Escala: 1 m = 1000 N. La flecha nace en el punto de aplicación y apunta en la dirección de la fuerza. Se omiten las menores de 2 N.
+- Luminoso: al cargar el MJCF (sin tocar la grabación) se inyecta un cielo degradado claro, un suelo claro con cuadrícula, más luz ambiente y una luz direccional. Si el MJCF ya trae skybox o material de suelo se respeta.
+- Cámara: se calcula un encuadre inicial con la caja envolvente del primer cuerpo con articulación libre (el actor) en toda la grabación, más los cuerpos fijos. Si cabe sin alejar demasiado la cámara, queda fija y se percibe el desplazamiento real; si no, sigue al actor. `--follow` / `--no-follow` fuerzan una u otra.
+- Rótulo persistente abajo a la izquierda, `<id>: <N> N (pico <N> N)`, mientras el efector está activo y 0,5 s después (no depende de caer en el fotograma exacto).
+- La hoja incluye al menos un fotograma en el pico de cada efector; el resto se reparten.
+- Flechas por efector (rojo; el color es fijo por `kind` si la muestra lo trae) con su valor en newtons, y flechas de contacto en amarillo. Escala: 1 m = 1000 N, con longitud mínima de 8 cm y radio de 1,8 cm para que una fuerza pequeña siga siendo visible. Las etiquetas llevan recuadro semitransparente y su tamaño depende de la resolución. La flecha nace en el punto de aplicación y apunta en la dirección de la fuerza. Se omiten las menores de 2 N.
 - Tiempo de la grabación y velocidad (×1 o ×0,25) en la esquina superior izquierda.
 - Tolerante: sin `effectors`, `contacts`, `qvel`, `peaks` ni `summary` funciona igual. Un `schema` distinto de `hpl.recording.v1` termina con código 2 y un mensaje claro.
 
@@ -45,4 +49,3 @@ Cada entrada de `samples[].effectors` puede llevar `kind` (por ejemplo `prescrib
 ## Limitaciones
 
 - Las etiquetas de texto son un recuadro de Pillow proyectado desde la cámara, no etiquetas de MuJoCo; los contactos muy juntos comparten etiqueta.
-- El fondo por encima del horizonte es negro (los modelos de escenario no definen cielo).

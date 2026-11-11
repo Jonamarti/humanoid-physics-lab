@@ -108,6 +108,30 @@ def test_never_simulates_replays_qpos_without_gravity():
     assert np.abs(first[0].astype(int) - last[0].astype(int)).mean() > 0.5
 
 
+def test_bright_scene_banner_follow_and_sheet_peak():
+    rec = sample.make_recording(duration_s=3.0)
+    fr = rr.FrameRenderer(rec, 320, 180, "side")
+    try:
+        assert fr.follow is False, "el sample cabe en el encuadre: la cámara no debe seguir"
+        series, _ = fr.series["pull"]
+        peak_i = int(np.argmax(series))
+        active = np.nonzero(series >= rr.MIN_ARROW_N)[0]
+        img, info = fr.render(peak_i)
+        assert info["banner"] and "pico" in info["banner"][0] and "pull" in info["banner"][0]
+        assert img.mean() > 120, f"escena poco luminosa: {img.mean()}"
+        # 0,4 s tras soltar sigue el rótulo; 0,6 s después ya no
+        after = min(len(series) - 1, active[-1] + int(0.4 * 125))
+        assert fr.banner_lines(after)
+        gone = min(len(series) - 1, active[-1] + int(0.6 * 125))
+        assert not fr.banner_lines(gone)
+        # follow forzado también funciona
+        assert rr.FrameRenderer(rec, 320, 180, "side", True).follow is True
+    finally:
+        fr.close()
+    idxs = rr.sheet_indices(len(rec["samples"]), [peak_i])
+    assert peak_i in idxs and len(idxs) == 8 and idxs[0] == 0 and idxs[-1] == len(rec["samples"]) - 1
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

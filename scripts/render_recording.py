@@ -123,39 +123,29 @@ def project(point, cam, width, height, fovy_deg):
     return (width / 2.0 + f * float(d @ right) / zc, height / 2.0 - f * float(d @ up) / zc)
 
 
-def add_arrow(scene, start, vec_m, rgba, width=0.02):
-    """Añade una flecha de usuario a la escena (mjv_initGeom + mjv_connector)."""
+MIN_ARROW_LEN_M = 0.08              # longitud mínima visible de una flecha
+ARROW_RADIUS_M = 0.018              # radio mínimo visible (>= 1,5 cm)
+BANNER_AFTER_S = 0.5                # el rótulo persistente sigue 0,5 s tras el último instante activo
+
+
+def add_arrow(scene, start, vec_m, rgba, width=ARROW_RADIUS_M):
+    """Añade una flecha de usuario a la escena (mjv_initGeom + mjv_connector).
+
+    Longitud mínima MIN_ARROW_LEN_M aunque la fuerza sea pequeña.
+    """
     if scene.ngeom >= scene.maxgeom:
         return False
+    vec = np.asarray(vec_m, dtype=float)
+    n = float(np.linalg.norm(vec))
+    if 0.0 < n < MIN_ARROW_LEN_M:
+        vec = vec * (MIN_ARROW_LEN_M / n)
     g = scene.geoms[scene.ngeom]
     mujoco.mjv_initGeom(g, mujoco.mjtGeom.mjGEOM_ARROW, np.zeros(3), np.zeros(3), np.zeros(9),
                         np.asarray(rgba, dtype=np.float32))
-    mujoco.mjv_connector(g, mujoco.mjtGeom.mjGEOM_ARROW, width,
-                         np.asarray(start, dtype=float), np.asarray(start, dtype=float) + np.asarray(vec_m, dtype=float))
+    start = np.asarray(start, dtype=float)
+    mujoco.mjv_connector(g, mujoco.mjtGeom.mjGEOM_ARROW, max(width, ARROW_RADIUS_M), start, start + vec)
     scene.ngeom += 1
     return True
-
-
-def add_grid(scene, center_xy, step=0.5, half=3.0):
-    """Líneas finas en el suelo, para que se perciba el movimiento aunque la cámara siga al actor."""
-    cx = round(center_xy[0] / step) * step
-    cy = round(center_xy[1] / step) * step
-    rgba = np.array([0.55, 0.62, 0.68, 1.0], dtype=np.float32)
-    n = int(half / step)
-    for i in range(-n, n + 1):
-        for horizontal in (True, False):
-            if scene.ngeom >= scene.maxgeom:
-                return
-            g = scene.geoms[scene.ngeom]
-            if horizontal:
-                size = [half, 0.004, 0.0005]
-                pos = [cx, cy + i * step, 0.0012]
-            else:
-                size = [0.004, half, 0.0005]
-                pos = [cx + i * step, cy, 0.0012]
-            mujoco.mjv_initGeom(g, mujoco.mjtGeom.mjGEOM_BOX, np.array(size), np.array(pos),
-                                np.eye(3).flatten(), rgba)
-            scene.ngeom += 1
 
 
 def effector_color(kind: str | None, index: int):
@@ -166,15 +156,108 @@ def effector_color(kind: str | None, index: int):
     return FALLBACK_EFFECTOR_COLORS[sum(ord(c) for c in kind) % len(FALLBACK_EFFECTOR_COLORS)]
 
 
+def brighten_mjcf(mjcf: str) -> str:
+    """Inyecta cielo claro, suelo claro con cuadrícula y una luz direccional.
+
+    Solo afecta al renderizado: no se modifica la grabación. Si el MJCF ya define
+    un skybox o un material en el suelo, se respeta. Si no se puede analizar, se devuelve igual.
+    """
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(mjcf)
+    except ET.ParseError:
+        return mjcf
+    asset = root.find("asset")
+    if asset is None:
+        asset = ET.Element("asset")
+        root.insert(0, asset)
+    if not any(t.get("type") == "skybox" for t in asset.findall("texture")):
+        ET.SubElement(asset, "texture", {"name": "hpl_sky", "type": "skybox", "builtin": "gradient",
+                                         "rgb1": "0.80 0.90 1.00", "rgb2": "0.97 0.98 1.00",
+                                         "width": "256", "height": "256"})
+    ET.SubElement(asset, "texture", {"name": "hpl_grid", "type": "2d", "builtin": "checker", "mark": "edge",
+                                     "rgb1": "0.90 0.92 0.93", "rgb2": "0.84 0.87 0.89",
+                                     "markrgb": "0.45 0.52 0.58", "width": "512", "height": "512"})
+    ET.SubElement(asset, "material", {"name": "hpl_floor", "texture": "hpl_grid", "texuniform": "true",
+                                      "texrepeat": "1 1", "reflectance": "0"})
+    world = root.find("worldbody")
+    if world is not None:
+        for g in world.iter("geom"):
+            if g.get("type") == "plane" and g.get("material") is None:
+                g.set("material", "hpl_floor")
+                g.set("rgba", "1 1 1 1")
+                g.set("size", "30 30 0.1")        # suelo grande: sin borde visible en el horizonte
+        ET.SubElement(world, "light", {"name": "hpl_sun", "directional": "true", "pos": "0 0 4",
+                                       "dir": "-0.4 -0.3 -1", "diffuse": "0.7 0.7 0.7",
+                                       "specular": "0.1 0.1 0.1", "castshadow": "false"})
+    return ET.tostring(root, encoding="unicode")
+
+
+def effector_series(samples):
+    """{id: (normas por muestra, kind)}; normas 0 si falta el efector en la muestra."""
+    ids = []
+    for s in samples:
+        for e in s.get("effectors") or []:
+            if e.get("id") not in ids:
+                ids.append(e.get("id"))
+    out = {}
+    for eid in ids:
+        norms, kind = np.zeros(len(samples)), None
+        for i, s in enumerate(samples):
+            for e in s.get("effectors") or []:
+                if e.get("id") == eid:
+                    try:
+                        norms[i] = float(np.linalg.norm(np.array(e["force_n"], float)))
+                    except (KeyError, TypeError, ValueError):
+                        pass
+                    kind = kind or e.get("kind")
+        out[eid] = (norms, kind)
+    return out
+
+
+def sheet_indices(n: int, peak_indices: list[int], tiles: int = 8) -> list[int]:
+    """8 fotogramas: uno en el pico de cada efector (hasta `tiles`) y el resto repartidos."""
+    if n <= tiles:
+        return list(range(n))
+    grid = [round(k * (n - 1) / (tiles - 1)) for k in range(tiles)]
+    used = set()
+    for p in peak_indices[:tiles]:
+        if p in grid:
+            used.add(grid.index(p))
+            continue
+        cand = [j for j in range(tiles) if j not in used and j not in (0, tiles - 1)] or                [j for j in range(tiles) if j not in used]
+        j = min(cand, key=lambda j: abs(grid[j] - p))
+        grid[j] = p
+        used.add(j)
+    return sorted(set(grid))
+
+
+def rgba_to_rgb(rgba):
+    # Color del texto: el de la flecha aclarado, para contrastar con el recuadro oscuro.
+    return tuple(int(255 * (0.45 * v + 0.55)) for v in rgba[:3])
+
+
+def draw_label(base: Image.Image, xy, text, font, fg, bg=(20, 24, 30, 170)) -> None:
+    """Texto sobre rectángulo semitransparente (se lee sobre cualquier color)."""
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(overlay)
+    x, y = xy
+    w = int(font.getlength(text))
+    pad = max(3, font.size // 5)
+    d.rectangle([x - pad, y - pad // 2, x + w + pad, y + font.size + pad], fill=bg)
+    d.text((x, y), text, font=font, fill=fg + (255,))
+    base.alpha_composite(overlay)
+
+
 # ---------------------------------------------------------------- fotogramas
 
 class FrameRenderer:
-    def __init__(self, rec: dict, width: int, height: int, view: str):
+    def __init__(self, rec: dict, width: int, height: int, view: str, follow: bool | None = None):
         if view not in VIEWS:
             raise RecordingError(f"vista desconocida {view!r}; usa {sorted(VIEWS)}")
         self.rec = rec
         self.samples = rec["samples"]
-        self.model = mujoco.MjModel.from_xml_string(rec["model"]["mjcf"])
+        self.model = mujoco.MjModel.from_xml_string(brighten_mjcf(rec["model"]["mjcf"]))
         self.data = mujoco.MjData(self.model)
         nq = self.model.nq
         for i, s in enumerate(self.samples):
@@ -183,8 +266,8 @@ class FrameRenderer:
         self.width, self.height = width, height
         self.model.vis.global_.offwidth = max(self.model.vis.global_.offwidth, width)
         self.model.vis.global_.offheight = max(self.model.vis.global_.offheight, height)
-        self.model.vis.headlight.ambient[:] = 0.45
-        self.model.vis.headlight.diffuse[:] = 0.8
+        self.model.vis.headlight.ambient[:] = 0.6
+        self.model.vis.headlight.diffuse[:] = 0.6
         self.renderer = mujoco.Renderer(self.model, height=height, width=width, max_geom=4000)
         self.body = find_actor_body(self.model)
         self.extent = actor_extent(self.model, self.body)
@@ -192,10 +275,59 @@ class FrameRenderer:
         self.cam.type = mujoco.mjtCamera.mjCAMERA_FREE
         self.cam.azimuth, self.cam.elevation = VIEWS[view]
         self.view = view
-        self.cam.distance = max(2.4, 1.9 * self.extent)
-        self.font = load_font(max(14, width // 48))
-        self.font_big = load_font(max(18, width // 34))
+        self.font = load_font(max(16, width // 38))
+        self.font_big = load_font(max(20, width // 32))
         self.fovy = float(self.model.vis.global_.fovy)
+        self.series = effector_series(self.samples)
+        self.t = np.array([float(s["t"]) for s in self.samples])
+        self._plan_camera(follow)
+
+    # -- cámara
+
+    def _view_axes(self):
+        az, el = math.radians(self.cam.azimuth), math.radians(self.cam.elevation)
+        fwd = np.array([math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)])
+        up = np.array([0.0, 0.0, 1.0])
+        up = up - fwd * (up @ fwd)
+        up /= np.linalg.norm(up)
+        return fwd, up, np.cross(fwd, up)
+
+    def _plan_camera(self, follow):
+        """Encuadre inicial sobre toda la grabación; sigue al actor solo si no cabe."""
+        pts = []
+        for s in self.samples:
+            self.data.qpos[:] = s["qpos"]
+            mujoco.mj_kinematics(self.model, self.data)
+            pts.append(self.data.xpos[self.body].copy())
+        pts = np.array(pts)
+        r = 0.5 * self.extent
+        lo, hi = pts.min(axis=0) - r, pts.max(axis=0) + r
+        lo[2], hi[2] = 0.0, max(hi[2], self.extent)
+        for g in range(self.model.ngeom):         # elementos fijos (p. ej. el obstáculo) también deben verse
+            if self.model.body_weldid[self.model.geom_bodyid[g]] == 0 and self.model.geom_type[g] != mujoco.mjtGeom.mjGEOM_PLANE:
+                self.data.qpos[:] = self.samples[0]["qpos"]
+                mujoco.mj_kinematics(self.model, self.data)
+                c, s = self.data.geom_xpos[g], float(np.max(self.model.geom_size[g]))
+                lo, hi = np.minimum(lo, c - s), np.maximum(hi, c + s)
+        center = (lo + hi) / 2
+        corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
+        fwd, up, right = self._view_axes()
+        self.base_dist = max(2.4, 1.9 * self.extent)
+        tan_y = math.tan(math.radians(self.fovy) / 2)
+        tan_x = tan_y * self.width / self.height
+        need = 0.0
+        for c in corners - center:
+            # a distancia d, la esquina está a profundidad d + c·fwd; exige |c·right| <= 0.9 tan_x · prof
+            for off, lim in ((abs(c @ right), tan_x), (abs(c @ up), tan_y)):
+                prof_needed = off / (0.9 * lim)
+                need = max(need, prof_needed - float(c @ fwd))
+        self.need_dist = max(self.base_dist, need)
+        fits = self.need_dist <= 1.8 * self.base_dist
+        self.follow = (not fits) if follow is None else follow
+        self.static_center = center
+        self.cam.distance = self.base_dist if self.follow else self.need_dist
+
+    # -- contenido
 
     def _arrows(self, sample):
         """Lista de (inicio, vector en metros, rgba, texto) del instante."""
@@ -219,6 +351,17 @@ class FrameRenderer:
                 out.append((p, f / NEWTONS_PER_METER, CONTACT_RGBA, f"{n:.0f} N"))
         return out
 
+    def banner_lines(self, index: int) -> list[tuple[str, tuple]]:
+        """Rótulos persistentes: efector activo y hasta 0,5 s después."""
+        lines = []
+        for k, (eid, (norms, kind)) in enumerate(self.series.items()):
+            active = np.nonzero(norms[: index + 1] >= MIN_ARROW_N)[0]
+            if active.size == 0 or self.t[index] - self.t[active[-1]] > BANNER_AFTER_S:
+                continue
+            peak = float(norms.max())
+            lines.append((f"{eid}: {norms[index]:.0f} N (pico {peak:.0f} N)", rgba_to_rgb(effector_color(kind, k))))
+        return lines
+
     def render(self, index: int, caption: str = "") -> tuple[np.ndarray, dict]:
         """Renderiza la muestra `index`. Devuelve (imagen RGB uint8, información de depuración)."""
         sample = self.samples[index]
@@ -227,40 +370,47 @@ class FrameRenderer:
             self.data.qvel[:] = sample["qvel"]
         mujoco.mj_forward(self.model, self.data)          # NUNCA mj_step
 
-        center = self.data.xpos[self.body].copy()
-        self.cam.lookat[:] = [center[0], center[1], min(max(center[2], 0.45), 0.9)]
+        if self.follow:
+            c = self.data.xpos[self.body]
+            self.cam.lookat[:] = [c[0], c[1], min(max(c[2], 0.45), 0.9)]
+        else:
+            self.cam.lookat[:] = self.static_center
         self.renderer.update_scene(self.data, camera=self.cam)
         scene = self.renderer.scene
-        add_grid(scene, center[:2])
         arrows = self._arrows(sample)
         for start, vec, rgba, _ in arrows:
             add_arrow(scene, start, vec, rgba)
-        img = Image.fromarray(self.renderer.render().copy())
+        img = Image.fromarray(self.renderer.render().copy()).convert("RGBA")
 
-        draw = ImageDraw.Draw(img)
         cam = scene.camera[0]
         placed = []
         for start, vec, rgba, text in arrows:
+            n = float(np.linalg.norm(vec))
+            if 0.0 < n < MIN_ARROW_LEN_M:
+                vec = vec * (MIN_ARROW_LEN_M / n)
             px = project(start + vec, cam, self.width, self.height, self.fovy)
             if px is None:
                 continue
-            col = tuple(int(255 * v) for v in rgba[:3])
-            x, y = px[0] + 6, px[1] - 6
-            if any(abs(x - ox) < 60 and abs(y - oy) < self.font.size for ox, oy in placed):
+            x, y = px[0] + 8, px[1] - self.font.size
+            if any(abs(x - ox) < 90 and abs(y - oy) < self.font.size * 1.3 for ox, oy in placed):
                 continue                      # evita etiquetas apiladas (contactos muy juntos)
             placed.append((x, y))
-            draw.text((x + 1, y + 1), text, font=self.font, fill=(0, 0, 0))
-            draw.text((x, y), text, font=self.font, fill=col)
+            draw_label(img, (x, y), text, self.font, rgba_to_rgb(rgba))
         label = f"t = {sample['t']:.3f} s"
         if caption:
             label += f"   {caption}"
-        draw.rectangle([6, 6, 6 + int(self.font_big.getlength(label)) + 16, 6 + self.font_big.size + 12],
-                       fill=(0, 0, 0))
-        draw.text((14, 10), label, font=self.font_big, fill=(255, 255, 255))
-        legend = "1 m de flecha = 1000 N   rojo: efector   amarillo: contacto"
-        draw.text((10, self.height - self.font.size - 8), legend, font=self.font, fill=(235, 235, 235))
-        info = {"xpos": self.data.xpos[self.body].copy(), "arrows": len(arrows)}
-        return np.asarray(img), info
+        draw_label(img, (14, 10), label, self.font_big, (255, 255, 255), bg=(20, 24, 30, 200))
+        # banda inferior persistente de efectores
+        y = self.height - 10 - self.font_big.size
+        for text, col in reversed(self.banner_lines(index)):
+            draw_label(img, (14, y), text, self.font_big, col, bg=(20, 24, 30, 200))
+            y -= int(self.font_big.size * 1.5)
+        legend = "1 m de flecha = 1000 N"
+        draw_label(img, (self.width - int(self.font.getlength(legend)) - 14, 10), legend, self.font,
+                   (235, 235, 235), bg=(20, 24, 30, 170))
+        info = {"xpos": self.data.xpos[self.body].copy(), "arrows": len(arrows), "follow": self.follow,
+                "banner": [t for t, _ in self.banner_lines(index)]}
+        return np.asarray(img.convert("RGB")), info
 
     def close(self):
         self.renderer.close()
@@ -291,8 +441,8 @@ def frame_plan(rec: dict, fps: int, slow: float) -> list[tuple[int, str]]:
     return plan
 
 
-def iter_video_frames(rec: dict, view="side", size=(960, 540), fps=30, slow=0.25) -> Iterator[tuple[np.ndarray, dict]]:
-    fr = FrameRenderer(rec, size[0], size[1], view)
+def iter_video_frames(rec: dict, view="side", size=(960, 540), fps=30, slow=0.25, follow=None) -> Iterator[tuple[np.ndarray, dict]]:
+    fr = FrameRenderer(rec, size[0], size[1], view, follow)
     try:
         for idx, caption in frame_plan(rec, fps, slow):
             yield fr.render(idx, caption)
@@ -300,7 +450,7 @@ def iter_video_frames(rec: dict, view="side", size=(960, 540), fps=30, slow=0.25
         fr.close()
 
 
-def write_video(rec: dict, out: Path, view, size, fps, slow) -> int:
+def write_video(rec: dict, out: Path, view, size, fps, slow, follow=None) -> int:
     import imageio_ffmpeg
     out.parent.mkdir(parents=True, exist_ok=True)
     w, h = size
@@ -310,7 +460,7 @@ def write_video(rec: dict, out: Path, view, size, fps, slow) -> int:
     writer.send(None)
     n = 0
     try:
-        for frame, _ in iter_video_frames(rec, view, size, fps, slow):
+        for frame, _ in iter_video_frames(rec, view, size, fps, slow, follow):
             writer.send(np.ascontiguousarray(frame).tobytes())
             n += 1
     finally:
@@ -318,11 +468,12 @@ def write_video(rec: dict, out: Path, view, size, fps, slow) -> int:
     return n
 
 
-def write_sheet(rec: dict, out: Path, view, size, tiles=8, cols=4, tile_w=640) -> None:
-    fr = FrameRenderer(rec, size[0], size[1], view)
+def write_sheet(rec: dict, out: Path, view, size, tiles=8, cols=4, tile_w=640, follow=None) -> None:
+    fr = FrameRenderer(rec, size[0], size[1], view, follow)
     try:
         n = len(fr.samples)
-        idxs = sorted({round(k * (n - 1) / (tiles - 1)) for k in range(tiles)}) if n > 1 else [0]
+        peaks = [int(np.argmax(norms)) for norms, _ in fr.series.values() if norms.max() >= MIN_ARROW_N]
+        idxs = sheet_indices(n, peaks, tiles)
         tile_h = round(tile_w * size[1] / size[0])
         rows = math.ceil(len(idxs) / cols)
         sheet = Image.new("RGB", (cols * tile_w, rows * tile_h), (0, 0, 0))
@@ -361,16 +512,18 @@ def main(argv=None) -> int:
     p.add_argument("--slow", type=float, default=0.25, help="factor de la pasada lenta (0,25 = x0,25); 0 la desactiva")
     p.add_argument("--size", type=parse_size, default=(960, 540), help="ancho x alto, p. ej. 960x540")
     p.add_argument("--fps", type=int, default=30)
+    p.add_argument("--follow", action=argparse.BooleanOptionalAction, default=None,
+                   help="seguir al actor; por defecto solo si su movimiento no cabe en el encuadre inicial")
     p.add_argument("--sheet", type=Path, default=None, help="PNG con 8 fotogramas clave y su tiempo")
     a = p.parse_args(argv)
     if a.fps < 1 or a.slow < 0:
         p.error("--fps debe ser >= 1 y --slow >= 0")
     try:
         rec = load_recording(a.recording)
-        n = write_video(rec, a.out, a.view, a.size, a.fps, a.slow)
+        n = write_video(rec, a.out, a.view, a.size, a.fps, a.slow, a.follow)
         print(f"{a.out}: {n} fotogramas a {a.fps} fps, {a.size[0]}x{a.size[1]}, vista {a.view}")
         if a.sheet:
-            write_sheet(rec, a.sheet, a.view, a.size)
+            write_sheet(rec, a.sheet, a.view, a.size, follow=a.follow)
             print(f"{a.sheet}: hoja de 8 fotogramas")
     except RecordingError as exc:
         print(f"error: {exc}", file=sys.stderr)

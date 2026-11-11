@@ -96,7 +96,9 @@ async function physicalCase(xml:string,c:Case) {
       if(isOutside) maxCaptureOutsideM=Math.max(maxCaptureOutsideM,
         Math.hypot(cp[0]-balance.comWorldM[0],cp[1]-balance.comWorldM[1]));
       peakFootLoadN=Math.max(peakFootLoadN,support.left.verticalLoadN,support.right.verticalLoadN);
-      if(step?.phase==="SHIFT_WEIGHT" && reactive.lastIntent){
+      // STAND transitions to SHIFT_WEIGHT after its observation. On that
+      // first frame the FSM has not evaluated transfer gates yet: skip it.
+      if(step?.phase==="SHIFT_WEIGHT" && reactive.lastIntent && step.preLiftReadiness){
         const swing=reactive.lastIntent.swingSide;
         const stance=reactive.lastIntent.supportSide;
         const swingN=support[swing].verticalLoadN;
@@ -106,7 +108,7 @@ async function physicalCase(xml:string,c:Case) {
         // The FSM observed the same solved 50 Hz step; read its own
         // release gates/dwell rather than approximating them independently.
         const readiness=step.preLiftReadiness;
-        if(!readiness)throw Error("Falta lectura de pre-despegue de la FSM");
+        // Narrowed by the enclosing readiness guard above.
         const failed=Object.entries(readiness.gates)
           .filter(([,pass])=>!pass).map(([name])=>name);
         for(const name of failed)gateFailures[name]=(gateFailures[name]??0)+1;

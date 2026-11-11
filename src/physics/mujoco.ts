@@ -2,7 +2,7 @@ import loadMujoco from "@mujoco/mujoco";
 import wasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import { renderableGeomType, type PhysicsGeomPose, type PhysicsGeomSpec } from "./geometry";
 import { buildBalanceObservation, type BalanceObservation, type FootGeom, type XYZ, type Matrix3 } from "../control/balanceSensors";
-import { makeStandingController, stepActiveStanding, type StandingController } from "../control/standingBaseline";
+import { makeStandingController, stepActiveStanding, NEUTRAL_JOINT_GROUPS, type StandingController } from "../control/standingBaseline";
 import { ExperimentalStepSequence, applyStepJointTargets, type StepSnapshot } from "../control/experimentalStep";
 import { applyCartesianFootImpedance } from "../control/cartesianFootImpedance";
 import { rootTiltDegrees } from "./standingPush";
@@ -11,7 +11,7 @@ import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceS
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "./contactForces";
 import { wholeBodyBalanceCommand, type WholeBodyBalanceCommand } from "../control/wholeBodyBalance";
-import { ReactiveStepCoordinator, type ReactiveRecoveryStatus } from "../control/reactiveStepCoordinator";
+import { ReactiveStepCoordinator, type ReactiveRecoveryStatus, type ReactiveStepOptions } from "../control/reactiveStepCoordinator";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -136,7 +136,7 @@ export class MujocoSimulation {
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
     this.wholeBodyBalanceTicks = 0;
     this.lastWholeBodyCommand = null;
-    if (this.reactiveRecovery) this.reactiveRecovery = new ReactiveStepCoordinator();
+    if (this.reactiveRecovery) this.reactiveRecovery = new ReactiveStepCoordinator(this.reactiveRecovery.options);
     this.reactiveRecoveryTicks = 0;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
@@ -182,13 +182,13 @@ export class MujocoSimulation {
    * measured capture point persistently escapes solved loaded support.
    * The original voluntary step mode remains separate from this experiment.
    */
-  enableExperimentalReactiveRecovery(): void {
+  enableExperimentalReactiveRecovery(options:ReactiveStepOptions = {}): void {
     if (!this.articulatedToeGeomIds || !this.standingController ||
         this.stepExperiment) {
       throw new Error("La recuperación con paso exige bipedestación v3 sin paso activo");
     }
     this.enableExperimentalWholeBodyBalance();
-    this.reactiveRecovery = new ReactiveStepCoordinator();
+    this.reactiveRecovery = new ReactiveStepCoordinator(options);
     this.reactiveRecoveryTicks = 0;
   }
 
@@ -250,6 +250,29 @@ export class MujocoSimulation {
 
   experimentalStepStatus(): StepSnapshot | null {
     return this.stepExperiment?.snapshot() ?? null;
+  }
+
+  /** Read-only controller evidence; never changes state or applies a wrench. */
+  experimentalControlObservation() {
+    const {model,data}=this.ready();
+    const standing=this.standingController;
+    const phase=this.stepExperiment?.snapshot().phase;
+    const terminal=!!this.reactiveRecovery && (phase==="ABORT" || phase==="FALL" || phase==="COMPLETE");
+    const command=standing && !terminal ? this.stepExperiment?.command(data.time,standing.referenceComXY) : null;
+    const names=Object.values(NEUTRAL_JOINT_GROUPS).flat();
+    const joints=standing ? Array.from(standing.gains,([id,gain],i) => ({
+      name:names[i]!,jointId:id,dof:model.jnt_dofadr[id]!,
+      angleRad:data.qpos[model.jnt_qposadr[id]!]!,velocityRadS:data.qvel[model.jnt_dofadr[id]!]!,
+      torqueNm:data.qfrc_applied[model.jnt_dofadr[id]!]!,limitNm:gain.maxTorqueNm,
+    })) : [];
+    return {
+      totalMassKg:standing?.totalMassKg??null,
+      ankleTorqueLimitNm:standing?.ankleLimitNm??null,
+      referenceComXY:command?.referenceComXY??standing?.referenceComXY??null,
+      freeRootApplied:Array.from(data.qfrc_applied as Float64Array).slice(0,6),
+      pelvisAppliedWrench:Array.from(data.xfrc_applied as Float64Array).slice(6,12),
+      joints,
+    };
   }
 
   private sampleStepExperiment(): void {
@@ -315,6 +338,9 @@ export class MujocoSimulation {
     this.stepExperiment=new ExperimentalStepSequence(
       intent.swingSide,intent.deltaXY,intent.timeS,
       1,0.48,true,true,
+      0.075,coordinator.options.emergencyLateralShiftM??0.115,
+      coordinator.options.emergencyShiftRampS??0.35,
+      coordinator.options.transferHipRollRad??0,
     );
     this.cartesianStepScale=0.52;
     this.stepExperimentTicks=0;
@@ -344,10 +370,18 @@ export class MujocoSimulation {
           (stepPhase==="ABORT" || stepPhase==="COMPLETE" || stepPhase==="FALL");
         const command = reactiveTerminal ? null : this.stepExperiment?.command(
           data.time, this.standingController.referenceComXY);
-        const controller = command ? {
+        let controller = command ? {
           ...this.standingController,
           referenceComXY: command.referenceComXY,
         } : this.standingController;
+        const dampingScale=this.reactiveRecovery?.options.transferAnkleDampingScale??1;
+        if(stepPhase==="SHIFT_WEIGHT" && dampingScale!==1) {
+          const ankleDofs=[...controller.anklePitchDofs,...controller.ankleRollDofs];
+          controller={...controller,gains:new Map(Array.from(controller.gains,([id,g])=>[
+            id,ankleDofs.includes(model.jnt_dofadr[id]!) ?
+              {...g,dampingNmsPerRad:g.dampingNmsPerRad*dampingScale} : g,
+          ]))};
+        }
         stepActiveStanding(model, data, controller);
         if (this.wholeBodyBalanceEnabled && !command) {
           if (++this.wholeBodyBalanceTicks % 10 === 0) {

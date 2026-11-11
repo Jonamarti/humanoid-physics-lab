@@ -847,6 +847,9 @@ async function prepareEditorModel():Promise<void> {
       (error instanceof Error ? error.message : String(error));
   } finally {
     preparingEditorModel=false;
+    // ensureStandingModel redraws rows while loading disables editing.
+    // Rebuild them after preparation; refresh() only updates action buttons.
+    forceEditor?.reset();
     updateCalculation();
     forceEditor?.refresh();
   }

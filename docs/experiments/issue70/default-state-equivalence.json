@@ -1,0 +1,50 @@
+[
+  {
+    "label": "backward-100",
+    "identical": true
+  },
+  {
+    "label": "backward-130",
+    "identical": true
+  },
+  {
+    "label": "backward-160",
+    "identical": true
+  },
+  {
+    "label": "forward-120",
+    "identical": true
+  },
+  {
+    "label": "forward-160",
+    "identical": true
+  },
+  {
+    "label": "forward-200",
+    "identical": true
+  },
+  {
+    "label": "left-160",
+    "identical": true
+  },
+  {
+    "label": "left-220",
+    "identical": true
+  },
+  {
+    "label": "left-300",
+    "identical": true
+  },
+  {
+    "label": "right-160",
+    "identical": true
+  },
+  {
+    "label": "right-220",
+    "identical": true
+  },
+  {
+    "label": "right-300",
+    "identical": true
+  }
+]

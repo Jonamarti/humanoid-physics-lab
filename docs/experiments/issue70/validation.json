@@ -1,0 +1,30 @@
+{
+  "toolingWorkaround": "Vite/Vitest --configLoader runner; development dependency optimizer disabled locally because esbuild cannot traverse user directory",
+  "platform": "Windows; Node 23.7.0; MuJoCo WASM 3.17.0",
+  "npm_ci": "passed in Programs with cache in Programs",
+  "experimentalResetDeterminism": "exact state and status repeated",
+  "lint": "passed",
+  "defaultTrajectoryEquivalence": "12/12 exact qpos traces at 50 Hz",
+  "typecheck": "passed",
+  "tests": {
+    "todo": 3,
+    "skipped": 10,
+    "passed": 176,
+    "filesPassed": 58
+  },
+  "build": "passed; Vite chunk size warning unchanged",
+  "browser": {
+    "recordings": 8,
+    "physicalBodyPickErrorM": 0,
+    "physicalSequence": "passed",
+    "fieldEditing": "passed after fixing preparation refresh",
+    "dragEvents": 8,
+    "appErrors": 0
+  },
+  "manualBenchmarks": {
+    "cases": "v3 standing 10 s; v3 both feet and friction 0.9/1.0/1.1; 14 directional/chained; reactive versus whole-body",
+    "filesPassed": 3,
+    "testsPassed": 5
+  },
+  "rootZeroSamples": 32400
+}

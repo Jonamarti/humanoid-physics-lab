@@ -129,6 +129,9 @@ export class ExperimentalStepSequence {
      * This is a research tuning parameter, NOT an acceptance criterion.
      */
     readonly articulatedLateralShiftM = 0.075,
+    readonly emergencyLateralShiftM = 0.115,
+    readonly emergencyShiftRampS = 0.35,
+    readonly transferHipRollRad = 0,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
@@ -136,7 +139,10 @@ export class ExperimentalStepSequence {
       !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1 ||
       !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1 ||
       !Number.isFinite(articulatedLateralShiftM) ||
-      articulatedLateralShiftM < 0.05 || articulatedLateralShiftM > 0.15) {
+      articulatedLateralShiftM < 0.05 || articulatedLateralShiftM > 0.15 ||
+      !Number.isFinite(emergencyLateralShiftM) || emergencyLateralShiftM<0.05 || emergencyLateralShiftM>0.15 ||
+      !Number.isFinite(emergencyShiftRampS) || emergencyShiftRampS<0.04 || emergencyShiftRampS>0.5 ||
+      !Number.isFinite(transferHipRollRad) || Math.abs(transferHipRollRad)>0.3) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -399,13 +405,13 @@ export class ExperimentalStepSequence {
       } : gaitIntent;
     const active = ["SHIFT_WEIGHT","LIFT","SWING","LAND"].includes(this.phase);
     const fraction = this.phase === "SHIFT_WEIGHT"
-      ? Math.min(1,elapsed/0.35) : active ? 1 : 0;
+      ? Math.min(1,elapsed/(this.reactiveEmergencyStep ? this.emergencyShiftRampS : 0.35)) : active ? 1 : 0;
     // For v3, do not inject more and more lateral bias once loads have
     // reached their target; keep the reference bounded. v1/v2 stay exact.
     const shiftM=this.reactiveEmergencyStep && this.phase==="SHIFT_WEIGHT" ?
       // A bounded, quicker transfer only for explicitly enabled emergency
       // stepping. This may still fail and must be assessed in MuJoCo.
-      0.115*fraction :
+      this.emergencyLateralShiftM*fraction :
       this.articulatedSupportTransfer && this.phase==="SHIFT_WEIGHT"
         ? this.articulatedLateralShiftM*fraction*
           Math.max(0.55,Math.min(1.10,1.10-this.latestSupportFraction*0.20))
@@ -435,6 +441,11 @@ export class ExperimentalStepSequence {
       ];
     }
     const joints: Record<string,number> = {};
+    if(this.reactiveEmergencyStep && this.phase==="SHIFT_WEIGHT" && this.transferHipRollRad!==0) {
+      const q=-supportSign*this.transferHipRollRad*fraction;
+      joints.left_hip_roll=q;
+      joints.right_hip_roll=q;
+    }
     if (["LIFT","SWING","LAND","RECOVER","COMPLETE"].includes(this.phase)) {
       const dx = this.targetDeltaXY[0],dy = this.targetDeltaXY[1];
       const lift = this.phase === "LIFT" || this.phase === "SWING";

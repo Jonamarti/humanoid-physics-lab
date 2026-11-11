@@ -6,6 +6,28 @@ import { editedForceAtTime, type EditedForce } from "../../src/physics/forceSequ
 
 const xml=()=>readFile(new URL("../../public/models/humanoid_gait_v3.xml",import.meta.url),"utf8");
 describe("Opt-in reactive stepping with measured MuJoCo support",()=>{
+  it("preserves research settings on reset and repeats the same free-root physical trajectory",async()=>{
+    const sim=await MujocoSimulation.create(await xml());
+    try {
+      sim.enableExperimentalStanding();
+      sim.enableExperimentalReactiveRecovery({captureLookaheadS:.2,planningDelayS:.04});
+      const pulse:EditedForce={id:"repeat",site:"sternum_impact",forceN:[0,300,0],
+        startS:1,durationS:.16,waveform:"half-sine"};
+      const run=()=>{
+        sim.step(3000,t=>{
+          const f=editedForceAtTime(t,pulse);
+          if(Math.hypot(...f)>0)sim.applyWorldForceAtSite(pulse.site,f);
+        });
+        expect(sim.experimentalControlObservation().freeRootApplied).toEqual([0,0,0,0,0,0]);
+        expect(sim.experimentalControlObservation().pelvisAppliedWrench).toEqual([0,0,0,0,0,0]);
+        return {state:sim.state(),status:sim.experimentalReactiveRecoveryStatus()};
+      };
+      const first=run();sim.reset();const second=run();
+      expect(second).toEqual(first);
+      expect(first.status!.lastIntent!.timeS).toBeLessThan(1.2);
+      expect(first.status!.phase).toBe("FALL");
+    }finally{sim.dispose();}
+  },60000);
   it("is v3 only and remains at MONITORING during nominal unperturbed standing",async()=>{
     const v1Text=await readFile(new URL("../../public/models/humanoid_v1.xml",import.meta.url),"utf8");
     const [v1,sim]=await Promise.all([

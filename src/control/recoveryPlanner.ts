@@ -15,6 +15,8 @@ export interface RecoveryInput {
   readonly unstableDurationS: number;
   readonly maxStepReachM?: number;
   readonly stepReactionDelayS?: number;
+  /** Decision hysteresis, separately from the capture prediction horizon. */
+  readonly planningLatencyS?: number;
   readonly captureMarginM?: number;
 }
 
@@ -49,11 +51,12 @@ export function planRecovery(input: RecoveryInput): RecoveryPlan {
   const reach = input.maxStepReachM ?? 0.38;
   const delay = input.stepReactionDelayS ?? 0.13;
   const margin = input.captureMarginM ?? 0.012;
+  const latency = input.planningLatencyS ?? delay;
   if (![...comXY, ...comVelocityXY, comHeightM, unstableDurationS,
-    reach, delay, margin, ground.totalVerticalLoadN,
+    reach, delay, latency, margin, ground.totalVerticalLoadN,
     ground.left.verticalLoadN, ground.right.verticalLoadN].every(Number.isFinite) ||
     comHeightM <= 0 || unstableDurationS < 0 || reach <= 0 ||
-    delay < 0 || margin < 0 || ground.totalVerticalLoadN < 0 ||
+    delay < 0 || latency < 0 || margin < 0 || ground.totalVerticalLoadN < 0 ||
     ground.left.verticalLoadN < 0 || ground.right.verticalLoadN < 0 ||
     !finite(ground.left.centerXY) || !finite(ground.right.centerXY)) {
     throw new RangeError("Observaciones o parámetros de recuperación inválidos");
@@ -71,7 +74,7 @@ export function planRecovery(input: RecoveryInput): RecoveryPlan {
   if (insideConvexHullXY(capture, ground.loadedSupportPolygonXY, margin)) {
     return result("NONE", "Punto de captura dentro de la base cargada");
   }
-  if (unstableDurationS < delay) {
+  if (unstableDurationS < latency) {
     return result("SHIFT_WEIGHT", "Esperando la latencia del planificador");
   }
   if (!ground.left.isLoaded || !ground.right.isLoaded) {

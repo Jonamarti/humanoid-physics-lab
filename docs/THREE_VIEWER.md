@@ -25,6 +25,10 @@ La página permite elegir dos escenarios con el mismo motor MuJoCo WASM:
 
 **Limitaciones:** no hay control activo ni resultados de equilibrio 10 s, stepping, golpe ni ukemi. La calculadora de N·s no inyecta fuerzas físicas. Las pruebas de navegador real en móvil y E2E siguen pendientes; los tests de geometría se ejecutan en CI con el WASM real.
 
+## Reproducción de grabaciones
+
+El botón **Cargar grabación** reproduce un `hpl.recording.v1` con las geometrías del `model.mjcf` grabado y `mj_forward` (sin `mj_step`). Ver [REPLAY.md](REPLAY.md).
+
 ## Tests
 
 - `tests/unit/geometry.test.ts`: enum de primitivas y arrays `geom_xpos` / `geom_xmat` del MuJoCo real.

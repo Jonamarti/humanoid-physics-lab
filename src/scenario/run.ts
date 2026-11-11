@@ -30,6 +30,11 @@ const MIN_CONTACT_NORMAL_N = 1e-6;
 export interface RunOptions {
   /** Versión del motor para `meta.engine_version`; por defecto, la de `package.json` del directorio de trabajo. */
   engineVersion?: string;
+  /**
+   * Observador opcional, llamado tras grabar cada muestra con el modelo y los datos de MuJoCo (solo lectura).
+   * Lo usa la prueba de reproducción para comparar `xpos` de la simulación real con `mj_forward`.
+   */
+  onSample?: (model: unknown, data: unknown, sampleIndex: number) => void;
 }
 
 /** Ganancia (0 a 1) de la forma de onda en el instante `t` (s del escenario) de un efector. */
@@ -314,6 +319,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           effectors: sampleEffectors,
           contacts: readContacts(),
         });
+        options.onSample?.(model, data, samples.length - 1);
       }
 
       if (i === totalSteps) {

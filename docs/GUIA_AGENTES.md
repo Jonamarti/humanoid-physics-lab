@@ -55,6 +55,10 @@ uv run --quiet --python 3.12 --with mujoco --with numpy --with imageio-ffmpeg --
 
 Prueba del script: `uv run --quiet --python 3.12 --with mujoco --with numpy --with imageio-ffmpeg --with pillow python scripts/test_render_recording.py`. Grabación de ejemplo: `scripts/make_sample_recording.py`.
 
+## Reproducir una grabación en el visor web
+
+En la web, **Cargar grabación** abre un `recording.json(.gz)` y lo reproduce con controles de tiempo y velocidad, sin ejecutar `mj_step`. Detalles en [REPLAY.md](REPLAY.md); la lógica vive en `src/recording/player.ts`, `read.ts` y `src/renderer/replayView.ts` (no en `main.ts`).
+
 ## Reglas (sección 9 del plan)
 
 - CI en verde no es prueba de física: la prueba son las métricas y el vídeo.

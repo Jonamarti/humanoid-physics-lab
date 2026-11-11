@@ -115,12 +115,18 @@ export class ExperimentalStepSequence {
      * a genuine emergency. Maintain separate support/load/tilt gates.
      */
     readonly reactiveEmergencyStep = false,
+    /** V3 voluntary pre-lift lateral COM reference, kept bounded in metres.
+     * This is a research tuning parameter, NOT an acceptance criterion.
+     */
+    readonly articulatedLateralShiftM = 0.075,
   ) {
     if (!targetDeltaXY.every(Number.isFinite) ||
       Math.hypot(...targetDeltaXY) > 0.38 ||
       Math.hypot(...targetDeltaXY) < 0.03 || startTimeS < 0 || !Number.isFinite(startTimeS) ||
       !Number.isFinite(coordinatedGaitProfile) || coordinatedGaitProfile < 0 || coordinatedGaitProfile > 1 ||
-      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1) {
+      !Number.isFinite(swingExtensionGuard) || swingExtensionGuard < 0 || swingExtensionGuard > 1 ||
+      !Number.isFinite(articulatedLateralShiftM) ||
+      articulatedLateralShiftM < 0.05 || articulatedLateralShiftM > 0.15) {
       throw new RangeError("Solicitud de paso fuera de alcance");
     }
     this.supportSide = swingSide === "left" ? "right" : "left";
@@ -394,7 +400,8 @@ export class ExperimentalStepSequence {
       // stepping. This may still fail and must be assessed in MuJoCo.
       0.115*fraction :
       this.articulatedSupportTransfer && this.phase==="SHIFT_WEIGHT"
-        ? 0.075*fraction*Math.max(0.55,Math.min(1.10,1.10-this.latestSupportFraction*0.20))
+        ? this.articulatedLateralShiftM*fraction*
+          Math.max(0.55,Math.min(1.10,1.10-this.latestSupportFraction*0.20))
         : 0.075*fraction;
     const weightShiftRef: XY = [
       referenceComXY[0]+(gait?.forwardComBiasM ?? 0),

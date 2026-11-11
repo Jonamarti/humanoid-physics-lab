@@ -73,3 +73,32 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 #step-run { border-color: #92c9aa; background: #285b51; }
 #push-run:disabled, #step-run:disabled { opacity: .48; cursor: not-allowed; }
 #step-run:focus-visible, #push-run:focus-visible { outline: 3px solid #7ddbf4; outline-offset: 3px; }
+
+/* Provenance of the exact bundle currently in the browser.
+   Fixed to the bottom-right independent of app/scenario rendering. */
+.build-stamp {
+  position: fixed;
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 8px 11px;
+  color: #bfcedb;
+  background: rgba(11, 25, 43, .94);
+  border: 1px solid #3b5970;
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .28);
+  backdrop-filter: blur(8px);
+  font: 600 .72rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: nowrap;
+}
+.build-stamp-version { color: #e1f6ff; }
+.build-stamp-separator { opacity: .5; }
+.build-stamp a { color: #83d6e8; }
+.build-stamp a:focus-visible { outline: 2px solid #7ddbf4; outline-offset: 3px; }
+@media (max-width: 440px) {
+  .build-stamp { right: 8px; bottom: 8px; padding: 6px 9px; font-size: .65rem; }
+}

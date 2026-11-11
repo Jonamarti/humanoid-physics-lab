@@ -1038,7 +1038,10 @@ resetButton.addEventListener("click", () => {
   physicsStatus.textContent = "Estado reiniciado. Los parámetros cargados siguen siendo los mismos.";
 });
 
-const forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
+// Editor initialization invokes canEdit() synchronously. Declare the binding
+// before construction to avoid the TDZ crash in production-minified JavaScript.
+let forceEditor!: ReturnType<typeof installForceEditor>;
+forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
   getSimulation: () => mode === "standing" ? simulation : undefined,
   getViewer: () => viewer,
   canEdit: () => !playing && !preparingEditorModel &&

@@ -156,7 +156,7 @@ try {
     return {
       viewport: "390x844",
       tReadout: await page.locator("#physics-readout").innerText(),
-      status: await page.locator("#physics-status").innerText(),
+      physicsStatus: await page.locator("#physics-status").innerText(),
     };
   });
 } finally {

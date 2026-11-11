@@ -8,7 +8,7 @@
  * se aplica al escribir (`src/recording/write.ts`).
  */
 import { createHash } from "node:crypto";
-import { classifyTilt, fallDirectionDeg, tiltDeg } from "../metrics/outcome";
+import { FALL_MIN_TILT_DEG, classifyTilt, fallDirectionDeg, tiltDeg } from "../metrics/outcome";
 import { RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type Recording, type RecordingSample } from "../recording/schema";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
 import { buildScenarioModel } from "./buildModel";
@@ -185,7 +185,11 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     let currentClass: Outcome | undefined;
     let classSinceS = 0;
     let finalTilt = 0;
-    let finalDirection: number | null = null;
+    // Dirección de caída: la del eje en el primer paso en que la inclinación supera el umbral de caída; si nunca
+    // lo supera, la del eje en la inclinación máxima. (La dirección del eje final no sirve: un cilindro tumbado
+    // tiene el mismo aspecto con la tapa hacia +X o hacia -X.)
+    let directionAtFall: number | null | undefined;
+    let directionAtMax: number | null = null;
     let finalComHeight = 0;
     let finalXY: [number, number] = startXY;
 
@@ -196,7 +200,13 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       // Veredicto a 500 Hz sobre el estado actual.
       const xmat = data.xmat as Float64Array;
       const tilt = tiltDeg(xmat, 9 * actorBodyId);
-      if (tilt > maxTilt) maxTilt = tilt;
+      if (tilt > maxTilt) {
+        maxTilt = tilt;
+        directionAtMax = fallDirectionDeg(xmat, 9 * actorBodyId);
+      }
+      if (directionAtFall === undefined && tilt > FALL_MIN_TILT_DEG) {
+        directionAtFall = fallDirectionDeg(xmat, 9 * actorBodyId);
+      }
       const cls = classifyTilt(tilt);
       if (cls !== currentClass) {
         currentClass = cls;
@@ -264,7 +274,6 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
       if (i === totalSteps) {
         finalTilt = tilt;
-        finalDirection = fallDirectionDeg(xmat, 9 * actorBodyId);
         finalComHeight = (data.xipos as Float64Array)[3 * actorBodyId + 2]!;
         finalXY = [(data.xpos as Float64Array)[3 * actorBodyId]!, (data.xpos as Float64Array)[3 * actorBodyId + 1]!];
         break;
@@ -275,7 +284,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const outcome = currentClass!;
     const summary = {
       outcome,
-      direction_deg: finalDirection,
+      direction_deg: directionAtFall !== undefined ? directionAtFall : directionAtMax,
       t_outcome_s: classSinceS,
       final_tilt_deg: finalTilt,
       max_tilt_deg: maxTilt,

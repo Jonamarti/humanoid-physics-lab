@@ -34,7 +34,9 @@ El ejecutor solo funciona en Node (usa `node:crypto` y carga MuJoCo WASM una vez
   `expect` (`pass`, `fail` o `none`) y `expect_diffs`.
 
 Veredicto del cilindro: inclinación del eje < 15° `standing`; > 60° `fall`; en otro caso `tilted`. Dirección: hacia donde apunta el eje
-(0 = +X, 90 = +Y).
+(0 = +X, 90 = +Y). Se mide cuando el eje cruza los 60° y no al final porque un cilindro tumbado tiene el mismo
+aspecto con la tapa hacia +X o hacia -X: en el escenario de 80 cm, que pasa por encima del obstáculo, la dirección del
+eje final salía a 180° aunque la caída empezó hacia +X.
 
 En memoria (`Recording`) los números conservan toda la precisión; al escribir (`serializeRecording`, `gzipRecording`) se redondean
 a 6 cifras significativas y se comprime con gzip nivel 9 sin marca de tiempo (mismo resultado byte a byte en el mismo entorno).

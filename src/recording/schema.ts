@@ -74,7 +74,10 @@ export type ExpectResult = "pass" | "fail" | "none";
 
 export interface RecordingSummary {
   outcome: Outcome;
-  /** Dirección de caída en grados (0 = +X, 90 = +Y) o `null` si la inclinación final es < 5 grados. */
+  /**
+   * Dirección de caída en grados (0 = +X, 90 = +Y): la del eje del actor cuando su inclinación supera 60 grados
+   * por primera vez o, si nunca la supera, en su inclinación máxima; `null` si esa inclinación es < 5 grados.
+   */
   direction_deg: number | null;
   /** Instante en que el veredicto adoptó su valor final y ya no cambió, en s. */
   t_outcome_s: number;

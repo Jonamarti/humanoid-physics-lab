@@ -1,0 +1,20 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "cylinder_obstacle_above_com",
+  "duration_s": 3.0,
+  "record_hz": 125,
+  "ground": { "friction": 0.6 },
+  "actors": [
+    { "id": "uke", "kind": "rigid_cylinder", "mass_kg": 75, "height_m": 1.75, "radius_m": 0.18 }
+  ],
+  "props": [
+    { "id": "obstacle", "kind": "fixed_box", "size_m": [0.12, 0.8, 1.2], "pos_m": [0.26, 0, 0.6] }
+  ],
+  "effectors": [
+    { "id": "pull", "kind": "prescribed_force", "actor": "uke",
+      "body": "cylinder", "local_point_m": [0.18, 0, 0.525],
+      "frame": "world", "force_n": [1500, 0, 450],
+      "start_s": 0.3, "duration_s": 0.15, "waveform": "constant" }
+  ],
+  "expect": { "outcome": "standing" }
+}

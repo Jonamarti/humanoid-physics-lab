@@ -27,7 +27,7 @@ const results=[];
 async function waitPhysicalTime(page,minTimeS){
   await page.waitForFunction(t=>{
     const s=document.querySelector("#physics-readout")?.textContent||"";
-    const m=s.match(/t\\s*=\\s*([\\d.]+)\\s*s/);
+    const m=s.match(/t\s*=\s*([\d.]+)\s*s/);
     return m && Number(m[1])>=t;
   },minTimeS,{timeout:120000,polling:"raf"});
 }

@@ -35,11 +35,6 @@ jobs:
         run: npm run lint
       - name: Vitest unit tests
         run: npm test
-      # One-off v3 controller experiment; remove after capturing measurements.
-      - name: V3 lateral support-reference eight-trial sweep (one-off)
-        env:
-          HPL_RUN_V3_SHIFT_SWEEP: "1"
-        run: npx vitest run tests/manual/v3LateralShiftSweep.test.ts
       - name: Production build
         run: npm run build
       - name: Verify production output

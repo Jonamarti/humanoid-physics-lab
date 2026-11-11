@@ -43,6 +43,18 @@ uso es incorrecto, 3 si el ejecutor lanza una excepción. Formatos: [SCENARIO_V1
 - Un paso de CI que ejecute `npm run sim` con un escenario está pendiente (tocaría `.github/workflows/`, que exige fusión
   humana); mientras tanto `tests/unit/simCommand.test.ts` prueba la misma función principal.
 
+## Vídeo de una grabación (sin navegador)
+
+Flujo completo en dos pasos: `npm run sim -- <escenario> --out <carpeta>` y después `scripts/render_recording.py <carpeta>/recording.json.gz <carpeta>/video.mp4` (comando exacto abajo).
+
+Detalles en [VIDEO.md](VIDEO.md). Comando comprobado en esta máquina (no hay que instalar nada global):
+
+```sh
+uv run --quiet --python 3.12 --with mujoco --with numpy --with imageio-ffmpeg --with pillow python scripts/render_recording.py out/cyl_low/recording.json.gz out/cyl_low/video.mp4 --view side --sheet out/cyl_low/hoja.png
+```
+
+Prueba del script: `uv run --quiet --python 3.12 --with mujoco --with numpy --with imageio-ffmpeg --with pillow python scripts/test_render_recording.py`. Grabación de ejemplo: `scripts/make_sample_recording.py`.
+
 ## Reglas (sección 9 del plan)
 
 - CI en verde no es prueba de física: la prueba son las métricas y el vídeo.

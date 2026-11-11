@@ -41,7 +41,7 @@ async function trial(xml:string,label:string,forces:readonly EditedForce[],
       }
     }
     const b=sim.humanoidBalanceObservation();
-    const state=sim.state(), step=sim.experimentalStepStatus();
+    const step=sim.experimentalStepStatus();
     const r=sim.experimentalReactiveRecoveryStatus();
     const comDelta=Math.hypot(b.comWorldM[0]-origin[0],b.comWorldM[1]-origin[1]);
     const speed=Math.hypot(b.comVelocityWorldMps[0],b.comVelocityWorldMps[1]);

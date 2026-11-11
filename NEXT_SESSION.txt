@@ -5,6 +5,8 @@ UBICACIÓN Y ALCANCE
 Repositorio local: C:\Users\Marty\Documents\Work\Programs\humanoid-physics-lab
 Repositorio GitHub: Jonamarti/humanoid-physics-lab
 Una sola rama de trabajo: experiment/70-load-aware-recovery
+Una sola PR: https://github.com/Jonamarti/humanoid-physics-lab/pull/71
+Estado de la PR: abierta, DRAFT, etiqueta no-merge. Mantener sin fusionar.
 Base: main, 90727886d51e117fc0ca47716878ac0ecbee376d (PR #69).
 Issue abierta: https://github.com/Jonamarti/humanoid-physics-lab/issues/70
 No crear una rama por variante: las variantes son carpetas de resultados.

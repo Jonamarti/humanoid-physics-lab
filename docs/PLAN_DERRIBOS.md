@@ -353,7 +353,7 @@ Fallos encontrados en la primera versión del plan y cómo se corrigen. **Donde 
 | 22 | **«Idéntico byte a byte» solo vale en el mismo entorno.** Las funciones matemáticas de JavaScript pueden diferir entre motores. | Determinismo exacto dentro de Node; entre Node y navegador, tolerancia en los primeros pasos. |
 | 23 | **Captura de vídeo frágil.** Playwright no está en `package.json` y el entorno Windows ya ha dado problemas. | Vídeo de desarrollo con el renderizador sin ventana de MuJoCo en Python a partir de la grabación (comprobado en este PC: funciona). El visor web queda para la revisión interactiva de Jon. |
 | 24 | **El paso de recuperación sigue siendo investigación.** | Como el motor es un generador fuera de línea, no hace falta un controlador universal: el segundo intento es **buscar por simulación** los pocos parámetros del paso (dónde, cuándo, cuánto) para cada escenario. Medido: 10 s de simulación del humanoide pasivo tardan 0,2 s en MuJoCo nativo; en WASM hay que medirlo. |
-| 25 | **Poco disco.** | Grabaciones a 120 Hz comprimidas, solo las de referencia pequeñas en Git, y borrado de fotogramas tras codificar. |
+| 25 | **Poco disco.** | Grabaciones a 125 Hz comprimidas, solo las de referencia pequeñas en Git, y borrado de fotogramas tras codificar. |
 | 26 | **El lado del consumidor no tenía issue.** | Issue de seguimiento en AnimSpec para pista de Tori, fichas de técnica y conversión a rig. |
 
 ### 12.5 Detector de artefactos

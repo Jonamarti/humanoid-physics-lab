@@ -1,0 +1,28 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "cylinder_three_phase",
+  "duration_s": 3.0,
+  "record_hz": 125,
+  "ground": { "friction": 0.6 },
+  "actors": [
+    { "id": "uke", "kind": "rigid_cylinder", "mass_kg": 75, "height_m": 1.75, "radius_m": 0.18 }
+  ],
+  "props": [
+    { "id": "obstacle", "kind": "fixed_box", "size_m": [0.12, 0.8, 0.3], "pos_m": [0.26, 0, 0.15] }
+  ],
+  "effectors": [
+    { "id": "phase_a", "kind": "prescribed_force", "actor": "uke",
+      "body": "cylinder", "local_point_m": [0.18, 0, 0.525],
+      "frame": "world", "force_n": [100, 0, 30],
+      "start_s": 0.3, "duration_s": 0.5, "waveform": "constant" },
+    { "id": "phase_b", "kind": "prescribed_force", "actor": "uke",
+      "body": "cylinder", "local_point_m": [0.18, 0, 0.525],
+      "frame": "world", "force_n": [200, 0, 60],
+      "start_s": 0.8, "duration_s": 0.3, "waveform": "constant" },
+    { "id": "phase_c", "kind": "prescribed_force", "actor": "uke",
+      "body": "cylinder", "local_point_m": [0.18, 0, 0.525],
+      "frame": "world", "force_n": [650, 0, 195],
+      "start_s": 1.1, "duration_s": 0.15, "waveform": "constant" }
+  ],
+  "expect": { "outcome": "fall", "direction_deg": 0, "tolerance_deg": 30 }
+}

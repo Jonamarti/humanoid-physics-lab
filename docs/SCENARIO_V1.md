@@ -101,6 +101,13 @@ Cuerpos referenciables por los efectores: `rigid_cylinder` tiene `cylinder`.
 | `direction_deg` | grados | Opcional. Solo con `outcome: "fall"`. 0 = +X, 90 = +Y. Exige `tolerance_deg`. |
 | `tolerance_deg` | grados | Opcional, solo junto a `direction_deg`. > 0 y <= 180. |
 
+## Escenarios incluidos
+
+`scenarios/*.json` son los escenarios del cilindro (issue #74, PR 4); `tests/unit/scenarios.test.ts` valida y ejecuta cada uno y exige
+que cumpla su `expect`. Todo escenario de esa carpeta debe declarar `expect`. Resultados y umbrales medidos:
+[CYLINDER_BENCHMARK.md](CYLINDER_BENCHMARK.md). Salida de la ejecución: [RECORDING_V1.md](RECORDING_V1.md).
+Las tres fases de un derribo se escriben como tres efectores `prescribed_force` consecutivos (`phase_a`, `phase_b`, `phase_c`).
+
 ## Notas y límites
 
 - **`record_hz` y el ejemplo de la issue #74.** El ejemplo de la issue usa `record_hz: 120`, pero su propia regla

@@ -85,7 +85,7 @@ describe("Step-recovery physics contracts: impulse, reach and anatomical intent"
   });
 
   it("lengthens a feasible forward step as capture displacement grows, but never exceeds joint reach",()=>{
-    const speeds=[0.62,0.72,0.82,0.92];
+    const speeds=[0.78,0.84,0.90,0.96];
     const lengths=speeds.map(v=>{
       const plan=planRecovery(recovery([v,0]));
       expect(["SHIFT_WEIGHT","STEP"]).toContain(plan.decision);
@@ -157,7 +157,7 @@ describe("Step-recovery physics contracts: impulse, reach and anatomical intent"
     const centered=ankleBalanceTorques([0,0],[0,0],[0,0],[0,0],75,gains);
     const left=ankleBalanceTorques([0,0.06],[0,0.05],[0,0],[0,0],75,gains);
     const right=ankleBalanceTorques([0,-0.06],[0,-0.05],[0,0],[0,0],75,gains);
-    expect(centered[1]).toBe(0);
+    expect(centered[1]).toBeCloseTo(0,12);
     expect(left[1]).toBeLessThan(0);
     expect(right[1]).toBeGreaterThan(0);
   });

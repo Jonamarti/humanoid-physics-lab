@@ -2,6 +2,10 @@
 
 **Estado:** propuesta arquitectónica (9 de noviembre de 2026). Esta ADR no implica que el contrato JSON ni el exportador estén implementados.
 
+## Estado
+
+Actualizado el 11-11-2026. Esta ADR sigue vigente. El contrato de escenario y grabación (`hpl.scenario.v1` y `hpl.recording.v1`) **todavía no está implementado**: se implementa en la fase 1 del [plan de derribos](PLAN_DERRIBOS.md), issue #74. El plan también fija el reparto de trabajo entre este repositorio (toda la física) y el consumidor privado (técnicas con nombre y conversión a rigs). Las referencias de la sección «Plan de implementación sin ruptura» a #10, #14 y #17 quedan absorbidas por #74 y #75, y las de #12, #13 y #49 por el plan (#77 para el paso reactivo).
+
 ## Decisión
 
 Humanoid Physics Lab (HPL) es el **único propietario de la simulación física hacia delante** de humanoides articulados y objetos. Su interfaz web Three.js es un laboratorio de observación y ensayo, no el motor de animación. Un consumidor como AnimSpec define la intención y las técnicas y puede incorporar después la trayectoria física a sus propios rigs. HPL no conoce las técnicas marciales por nombre ni depende del consumidor.

@@ -25,6 +25,14 @@ npm run build
 npm run preview
 ```
 
+## Hoja de ruta
+
+El rumbo del proyecto es un laboratorio físico de derribos, golpes y reacciones de Uke, sin aprendizaje automático. El plan completo está en [docs/PLAN_DERRIBOS.md](docs/PLAN_DERRIBOS.md) y se ejecuta por fases en las issues #73 a #80 (etiquetas `derribos` y `fase-0` a `fase-7`).
+Primero se ordena el repositorio (#73), después se define el contrato de escenario y grabación con ejecución sin navegador (#74) y se construye un Uke paramétrico (#75), los efectores de Tori (#76) y un paso de recuperación reactivo (#77).
+Los encadenados (#78), un Tori con cuerpo (#79) y la salida de clips por lotes (#80) cierran el plan.
+La marcha, el antepié articulado v3 y la propulsión del pie quedan aparcados (etiqueta `aparcada`) y se conservan como evidencia.
+Los agentes que trabajen aquí deben empezar por [docs/GUIA_AGENTES.md](docs/GUIA_AGENTES.md).
+
 ## CI, dependencias y publicación
 
 GitHub Actions ejecuta comprobación de tipos, ESLint, Vitest y compilación en cada push y pull request. El archivo `package-lock.json` está confirmado y el workflow utiliza `npm ci` y caché npm para instalaciones reproducibles. El lockfile se generó inicialmente en un runner de GitHub conectado al registro npm.

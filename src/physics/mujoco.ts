@@ -11,6 +11,7 @@ import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceS
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "./contactForces";
 import { wholeBodyBalanceCommand, type WholeBodyBalanceCommand } from "../control/wholeBodyBalance";
+import { ReactiveStepCoordinator, type ReactiveRecoveryStatus } from "../control/reactiveStepCoordinator";
 
 export type PhysicsState = Readonly<{
   time: number;
@@ -59,6 +60,9 @@ export class MujocoSimulation {
   private wholeBodyBalanceEnabled = false;
   private wholeBodyBalanceTicks = 0;
   private lastWholeBodyCommand: WholeBodyBalanceCommand | null = null;
+  /** Only enabled by explicit v3 reactive mode (not by standing or plain WB). */
+  private reactiveRecovery: ReactiveStepCoordinator | undefined;
+  private reactiveRecoveryTicks = 0;
 
   private constructor(module: Module) {
     this.module = module;
@@ -110,6 +114,8 @@ export class MujocoSimulation {
     this.wholeBodyBalanceEnabled = false;
     this.wholeBodyBalanceTicks = 0;
     this.lastWholeBodyCommand = null;
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
@@ -130,6 +136,8 @@ export class MujocoSimulation {
     this.standingController = standingWasEnabled ? makeStandingController(model, data) : undefined;
     this.wholeBodyBalanceTicks = 0;
     this.lastWholeBodyCommand = null;
+    if (this.reactiveRecovery) this.reactiveRecovery = new ReactiveStepCoordinator();
+    this.reactiveRecoveryTicks = 0;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
     this.lastStepFootWorld = undefined;
@@ -146,6 +154,8 @@ export class MujocoSimulation {
     this.wholeBodyBalanceEnabled = false;
     this.lastWholeBodyCommand = null;
     this.wholeBodyBalanceTicks = 0;
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
   }
 
   /** First research iteration: opt-in whole-body angular-momentum response.
@@ -165,6 +175,35 @@ export class MujocoSimulation {
   disableExperimentalWholeBodyBalance(): void {
     this.wholeBodyBalanceEnabled = false;
     this.lastWholeBodyCommand = null;
+    this.disableExperimentalReactiveRecovery();
+  }
+
+  /** Arm/hip/trunk balance first; try at most one real v3 step when the
+   * measured capture point persistently escapes solved loaded support.
+   * The original voluntary step mode remains separate from this experiment.
+   */
+  enableExperimentalReactiveRecovery(): void {
+    if (!this.articulatedToeGeomIds || !this.standingController ||
+        this.stepExperiment) {
+      throw new Error("La recuperación con paso exige bipedestación v3 sin paso activo");
+    }
+    this.enableExperimentalWholeBodyBalance();
+    this.reactiveRecovery = new ReactiveStepCoordinator();
+    this.reactiveRecoveryTicks = 0;
+  }
+
+  disableExperimentalReactiveRecovery(): void {
+    if (this.reactiveRecovery && this.stepExperiment) {
+      this.stepExperiment = undefined;
+      this.stepExperimentTicks = 0;
+      this.cartesianStepScale = 0;
+    }
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
+  }
+
+  experimentalReactiveRecoveryStatus(): ReactiveRecoveryStatus | null {
+    return this.reactiveRecovery?.snapshot() ?? null;
   }
 
   experimentalWholeBodyBalanceStatus(): WholeBodyBalanceCommand | null {
@@ -190,8 +229,8 @@ export class MujocoSimulation {
       throw new RangeError("Perfil de marcha fuera de 0..1");
     }
     if (!this.standingController) throw new Error("Activa bipedestación antes de probar un paso");
-    if (this.wholeBodyBalanceEnabled) {
-      throw new Error("Desactiva el control corporal antes de iniciar el ensayo de paso");
+    if (this.wholeBodyBalanceEnabled || this.reactiveRecovery) {
+      throw new Error("Desactiva la recuperación automática antes de un paso voluntario");
     }
     this.stepExperiment = new ExperimentalStepSequence(
       swingFoot, targetDeltaXY, startTimeS, coordinatedGaitProfile,
@@ -242,6 +281,44 @@ export class MujocoSimulation {
     });
   }
 
+  /** Called at 50 Hz after MuJoCo has resolved contacts. The coordinator
+   * chooses a reachable landing candidate, but the actual lift, flight and
+   * landing are controlled/verified by the existing physical step FSM.
+   */
+  private sampleReactiveRecovery(): void {
+    const coordinator=this.reactiveRecovery;
+    if (!coordinator || !this.standingController) return;
+    const {model,data}=this.ready();
+    this.module.mj_subtreeVel(model,data);
+    const com=data.subtree_com as Float64Array;
+    const vel=data.subtree_linvel as Float64Array;
+    const pelvis=data.qpos as Float64Array;
+    const ground=this.humanoidGroundSupportObservation();
+    const current=this.stepExperiment?.snapshot();
+    if(current) coordinator.observePhysicalStep(current.phase,current.reason);
+    const intent=coordinator.observe({
+      timeS:data.time,
+      comWorldM:[com[3]!,com[4]!,com[5]!],
+      comVelocityWorldMps:[vel[3]!,vel[4]!,vel[5]!],
+      totalMassKg:this.standingController.totalMassKg,
+      rootTiltDeg:rootTiltDegrees(Array.from(pelvis.subarray(0,7))),
+      pelvisHeightM:pelvis[2]!,
+      ground,
+    });
+    if (!intent || this.stepExperiment) return;
+    // This is an actual internal-joint step attempt; no root trajectory,
+    // hidden translation or fixed-to-world swing foot is introduced.
+    this.stepExperiment=new ExperimentalStepSequence(
+      intent.swingSide,intent.deltaXY,intent.timeS,
+      1,0.48,true,
+    );
+    this.cartesianStepScale=0.52;
+    this.stepExperimentTicks=0;
+    this.lastStepFootWorld=this.siteWorldPosition(intent.swingSide+"_sole");
+    this.lastStepFootTimeS=data.time;
+    this.footSpeedWorldMps=[0,0,0];
+  }
+
   /** Advances count physical steps. Each optional callback runs immediately
    * before the step so force pulses respect physical time, not screen FPS.
    * External wrenches are cleared on EVERY step to avoid stale impulses.
@@ -255,7 +332,13 @@ export class MujocoSimulation {
       (data.xfrc_applied as Float64Array).fill(0);
       if (this.standingController) {
         this.module.mj_subtreeVel(model, data);
-        const command = this.stepExperiment?.command(
+        // Once an automatic step has ABORTED / COMPLETED, release the
+        // swing controller so joint-balance can resume (while still reading
+        // the original FSM for evidence of a subsequent physical fall).
+        const stepPhase=this.stepExperiment?.snapshot().phase;
+        const reactiveTerminal=!!this.reactiveRecovery &&
+          (stepPhase==="ABORT" || stepPhase==="COMPLETE" || stepPhase==="FALL");
+        const command = reactiveTerminal ? null : this.stepExperiment?.command(
           data.time, this.standingController.referenceComXY);
         const controller = command ? {
           ...this.standingController,
@@ -322,6 +405,9 @@ export class MujocoSimulation {
         // Read solved loads at 50 Hz, with the prior physical step's
         // contact solution (a <=2ms lag), not on render frames.
         this.sampleStepExperiment();
+      }
+      if (this.reactiveRecovery && ++this.reactiveRecoveryTicks % 10 === 0) {
+        this.sampleReactiveRecovery();
       }
     }
     return this.state();
@@ -680,6 +766,8 @@ export class MujocoSimulation {
     this.data = undefined;
     this.model = undefined;
     this.articulatedToeGeomIds = undefined;
+    this.reactiveRecovery = undefined;
+    this.reactiveRecoveryTicks = 0;
     this.wholeBodyBalanceEnabled = false;
     this.wholeBodyBalanceTicks = 0;
     this.lastWholeBodyCommand = null;

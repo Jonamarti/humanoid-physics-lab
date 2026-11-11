@@ -40,7 +40,7 @@ async function record(c){
   });
   const page=await context.newPage();
   const errors=[];
-  page.on("pageerror",e=>errors.push(e.message));
+  page.on("pageerror",e=>errors.push(e.stack||e.message));
   let outcome={name:c.name,peakN:c.peakN,direction:c.direction,durationS:0.16};
   try{
     await page.goto(url,{waitUntil:"domcontentloaded",timeout:30000});

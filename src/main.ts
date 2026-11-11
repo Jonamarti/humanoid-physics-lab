@@ -49,11 +49,12 @@ app.innerHTML = `
           <h2>Probar un empujón real</h2>
           <label for="force-editor-balance-mode">Recuperación de equilibrio al aplicar varias fuerzas y ángulos</label>
           <select id="force-editor-balance-mode">
-            <option value="whole-body" selected>v3 — intentar compensar con brazos, caderas y tronco</option>
+            <option value="whole-body-step" selected>v3 — compensar y dar un paso reactivo si es necesario</option>
+            <option value="whole-body">v3 — solo brazos, caderas y tronco (sin paso)</option>
             <option value="v3-posture">v3 — solo controlador postural de referencia</option>
             <option value="v1-posture">v1 — controlador original para comparación</option>
           </select>
-          <p class="muted">Al activar el editor avanzado se prepara el modelo elegido. Cada fuerza sigue aplicada en MuJoCo y el humanoide intenta recuperar el equilibrio mediante pares articulares internos. No se garantiza evitar la caída y todavía no da pasos reactivos.</p>
+          <p class="muted">El paso reactivo se intenta solo cuando el punto de captura sale persistentemente de los apoyos y hay un destino viable. Primero actúan los músculos; el pie solo se mueve por dinámica física, sin fijar ni desplazar artificialmente la pelvis. Puede abortar o caer.</p>
           <div id="multi-force-editor"></div>
           <p class="muted">El impacto se aplica en el esternón del humanoide, mediante una fuerza externa en MuJoCo. No se fija la pelvis ni se mueve ningún pie artificialmente.</p>
           <label for="push-direction">Dirección</label>
@@ -127,6 +128,7 @@ app.innerHTML = `
             <select id="v3-balance-mode">
               <option value="ankles" selected>Referencia: control de tobillos y postura</option>
               <option value="whole-body">Compensación articular: hombros, caderas y tronco</option>
+              <option value="whole-body-step">Compensación corporal + paso reactivo (experimental)</option>
             </select>
             <button id="v3-stand-run" type="button" disabled>Probar bipedestación con v3 (10 s)</button>
             <button id="v3-push-run" type="button" disabled>Probar empujón con v3 (6 s)</button>
@@ -359,12 +361,20 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
         const left=ground.left.segments, right=ground.right.segments;
         if (!left || !right) throw new Error("Modelo v3 sin sensores de antepié");
         const momentum=simulation.experimentalWholeBodyBalanceStatus();
-        v3MomentumReadout.textContent = momentum
+        const reactive=simulation.experimentalReactiveRecoveryStatus();
+        const intent=reactive?.lastIntent;
+        v3MomentumReadout.textContent = (reactive
+          ? "Recuperación reactiva: "+reactive.phase+" · "+reactive.reason+
+            " · intentos "+reactive.attempts+
+            (intent ? " · pie "+intent.swingSide+" · paso XY "+
+              intent.deltaXY.map(x=>(100*x).toFixed(1)).join(" / ")+" cm"+
+              " · fase física "+(reactive.physicalStepPhase??"sin iniciar") : "")
+          : "Paso reactivo desactivado.")+" · "+(momentum
           ? "Compensación corporal " + (momentum.active ? "activa" : "en reposo/sin apoyo") +
             " · momento angular normalizado X/Y/Z: " +
             momentum.normalizedMomentumXYZ.map(x=>x.toFixed(3)).join(" / ") +
             " · apoyo disponible: " + (momentum.supportFraction*100).toFixed(0) + " %"
-          : "Compensación corporal desactivada: solo control postural de referencia.";
+          : "Compensación corporal desactivada: solo control postural de referencia.");
         const percent=(toe:number,total:number):string=>
           total>1 ? (100*toe/total).toFixed(1)+" %" : "sin apoyo";
         v3ContactReadout.textContent =
@@ -561,8 +571,11 @@ function animate(timestampMs: number): void {
       const displacement=initialPushCom ?
         Math.hypot(b.comWorldM[0]-initialPushCom[0],
           b.comWorldM[1]-initialPushCom[1]) : Infinity;
-      const strategy=editorBalanceMode.value==="whole-body"
-        ? "compensación corporal" : "postura de referencia";
+      const step=activeSimulation.experimentalReactiveRecoveryStatus();
+      const strategy=editorBalanceMode.value==="whole-body-step"
+        ? "compensación corporal + paso reactivo" :
+        editorBalanceMode.value==="whole-body" ? "compensación corporal" :
+          "postura de referencia";
       physicsStatus.textContent="Fuerzas 3D ("+strategy+"): "+
         (fell ? "CAÍDA detectada" : recovered ? "equilibrio recuperado sin paso" :
           "equilibrio NO recuperado con los criterios del ensayo")+
@@ -570,7 +583,10 @@ function animate(timestampMs: number): void {
         ", pelvis mínima "+minimumPushPelvisM.toFixed(3)+" m"+
         ", deriva final de pies "+(footDrift*100).toFixed(1)+" cm"+
         ", desplazamiento final COM "+(displacement*100).toFixed(1)+
-        " cm. Diagnóstico muestreado, no certificación biomecánica.";
+        " cm. "+(step ? "Paso reactivo: "+step.phase+
+          " · fase física: "+(step.physicalStepPhase??"ninguna")+
+          " · "+step.reason+". " : "")+
+        "Diagnóstico muestreado, no certificación biomecánica.";
     }
     if (mode === "standing" && activePush && state.time >= 6) {
       playing = false;
@@ -805,7 +821,9 @@ async function prepareEditorModel():Promise<void> {
       editorRequestedModel()!==requested) return;
     simulation.reset();
     simulation.disableExperimentalWholeBodyBalance();
-    if(editorBalanceMode.value==="whole-body"){
+    if(editorBalanceMode.value==="whole-body-step"){
+      simulation.enableExperimentalReactiveRecovery();
+    } else if(editorBalanceMode.value==="whole-body"){
       simulation.enableExperimentalWholeBodyBalance();
     }
     activePush=undefined;
@@ -815,7 +833,9 @@ async function prepareEditorModel():Promise<void> {
     clock.reset();
     lastFrame=undefined;
     physicsStatus.textContent="Editor avanzado preparado con "+
-      (editorBalanceMode.value==="whole-body"
+      (editorBalanceMode.value==="whole-body-step"
+        ? "control corporal y paso reactivo hacia el punto de captura (v3)"
+        : editorBalanceMode.value==="whole-body"
         ? "control experimental de brazos, caderas y tronco (v3)"
         : editorBalanceMode.value==="v3-posture"
           ? "control postural original sobre v3"
@@ -879,7 +899,10 @@ v3StandRun.addEventListener("click", async () => {
     if (!simulation || mode !== "standing") return;
     simulation.reset();
     simulation.disableExperimentalWholeBodyBalance();
-    if (v3BalanceMode.value==="whole-body") simulation.enableExperimentalWholeBodyBalance();
+    if (v3BalanceMode.value==="whole-body-step")
+      simulation.enableExperimentalReactiveRecovery();
+    else if (v3BalanceMode.value==="whole-body")
+      simulation.enableExperimentalWholeBodyBalance();
     activeStepTrial = false;
     stepReadout.textContent = "Sin paso: ensayo de bipedestación del modelo articulado v3.";
     clock.reset(); lastFrame = undefined;
@@ -907,7 +930,10 @@ v3PushRun.addEventListener("click", async () => {
     if (!simulation || mode!=="standing") return;
     simulation.reset();
     simulation.disableExperimentalWholeBodyBalance();
-    if (v3BalanceMode.value==="whole-body") simulation.enableExperimentalWholeBodyBalance();
+    if (v3BalanceMode.value==="whole-body-step")
+      simulation.enableExperimentalReactiveRecovery();
+    else if (v3BalanceMode.value==="whole-body")
+      simulation.enableExperimentalWholeBodyBalance();
     activeStepTrial=false;
     stepReadout.textContent="Sin paso: ensayo físico del equilibrio corporal ante empujón.";
     clock.reset(); lastFrame=undefined;
@@ -924,8 +950,9 @@ v3PushRun.addEventListener("click", async () => {
     playing=true;
     toggleButton.textContent="Pausar";
     physicsStatus.textContent="Empujón físico v3, " +
-      (v3BalanceMode.value==="whole-body" ? "compensación de momento con brazos/caderas" :
-        "control de tobillos de referencia") + ", 6 s de integración.";
+      (v3BalanceMode.value==="whole-body-step" ? "compensación corporal y paso reactivo" :
+        v3BalanceMode.value==="whole-body" ? "compensación de momento con brazos/caderas" :
+          "control de tobillos de referencia") + ", 6 s de integración.";
     present(simulation.state());
   } catch(error) {
     playing=false;
@@ -1037,7 +1064,9 @@ const forceEditor = installForceEditor(required<HTMLElement>("#multi-force-edito
     playing = false;
     simulation.reset();
     simulation.disableExperimentalWholeBodyBalance();
-    if(editorBalanceMode.value==="whole-body")
+    if(editorBalanceMode.value==="whole-body-step")
+      simulation.enableExperimentalReactiveRecovery();
+    else if(editorBalanceMode.value==="whole-body")
       simulation.enableExperimentalWholeBodyBalance();
     const initial=simulation.humanoidBalanceObservation();
     initialPushCom=[initial.comWorldM[0],initial.comWorldM[1]];
@@ -1059,8 +1088,11 @@ const forceEditor = installForceEditor(required<HTMLElement>("#multi-force-edito
     toggleButton.textContent = "Pausar";
     physicsStatus.textContent = "Fuerzas 3D activas: el humanoide intenta "+
       "recuperar el equilibrio mediante "+
-      (editorBalanceMode.value==="whole-body" ? "brazos, caderas, tronco y tobillos." :
-        "su controlador postural original.");
+      (editorBalanceMode.value==="whole-body-step"
+        ? "articulaciones y, si pierde el apoyo, un paso físico reactivo."
+        : editorBalanceMode.value==="whole-body"
+          ? "brazos, caderas, tronco y tobillos."
+          : "su controlador postural original.");
     editorBalanceMode.disabled=true;
     present(simulation.state());
     forceEditor?.refresh();

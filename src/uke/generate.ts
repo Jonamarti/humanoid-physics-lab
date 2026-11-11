@@ -51,6 +51,8 @@ export interface GenerateOptions {
   modelName?: string;
   /** Amortiguación de las articulaciones (v2: 1,6). */
   jointDamping?: number;
+  /** Amortiguación por articulación (N·m·s/rad); manda sobre `jointDamping`. Se integra de forma implícita. */
+  jointDampingByName?: Readonly<Record<string, number>>;
   /** Armadura de las articulaciones (v2: 0,015). */
   jointArmature?: number;
 }
@@ -192,7 +194,10 @@ export function generateHumanoidMJCF(params: HumanoidParams, options: GenerateOp
   const footPos = [0.065 * sFoot, 0, -0.035 * hs] as const;
 
   const ell = (a: number, c: number, dz: number): number => a * Math.sqrt(Math.max(0, 1 - (dz / c) ** 2));
-  const rng = (j: string): string => `range="${rangeAttr(j)}"`;
+  const rng = (j: string): string => {
+    const d = options.jointDampingByName?.[j];
+    return `range="${rangeAttr(j)}"${d === undefined ? "" : ` damping="${f(d)}"`}`;
+  };
   const site = (name: string, x: number, y: number, z: number, kind: "impact" | "grip" | "ref", size = 0.015): string => {
     const color = kind === "impact" ? SITE_IMPACT : kind === "grip" ? SITE_GRIP : `rgba="0.96 0.77 0.3 1"`;
     return `<site name="${name}" pos="${f(x)} ${f(y)} ${f(z)}" size="${f(size)}" ${color}/>`;
@@ -296,6 +301,14 @@ ${leg("left", 1)}
 ${leg("right", -1)}
     </body>
   </worldbody>
+  <!-- Segmentos vecinos cuyas geometrías se solapan en las tallas gruesas (cápsula del abdomen contra el muslo: 10 kN
+       en 150 kg con las rodillas flexionadas): no colisionan entre sí. -->
+  <contact>
+    <exclude body1="abdomen" body2="left_thigh"/>
+    <exclude body1="abdomen" body2="right_thigh"/>
+    <exclude body1="pelvis" body2="left_shin"/>
+    <exclude body1="pelvis" body2="right_shin"/>
+  </contact>
 </mujoco>
 `;
 }

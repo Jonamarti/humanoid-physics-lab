@@ -8,8 +8,11 @@
  * se aplica al escribir (`src/recording/write.ts`).
  */
 import { createHash } from "node:crypto";
-import { FALL_MIN_TILT_DEG, classifyTilt, fallDirectionDeg, tiltDeg } from "../metrics/outcome";
-import { RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type Recording, type RecordingSample } from "../recording/schema";
+import type { StandingModel, StandingState } from "../control/standingBaseline";
+import { FALL_MIN_TILT_DEG, classifyHumanoid, classifyTilt, fallDirectionDeg, tiltDeg } from "../metrics/outcome";
+import { createUkeController, type UkeController } from "../uke/attitudes";
+import { applyStance } from "../uke/stances";
+import { RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type Recording, type RecordingSample, type RecordingSummary } from "../recording/schema";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
 import { buildScenarioModel } from "./buildModel";
 import { readEngineVersion } from "./engineVersion";
@@ -92,6 +95,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const settleSteps = Math.round(SETTLE_S / dt);
     const totalSteps = Math.round(scenario.duration_s / dt);
     const actorBodyId = built.bodies.indexOf(built.actorBody);
+    const humanoid = built.humanoid;
+    // Cuerpo cuya inclinación se mide: el tronco (`chest`) del humanoide o el propio actor.
+    const tiltBodyId = humanoid ? built.bodies.indexOf("chest") : actorBodyId;
 
     const effectors = scenario.effectors.map((spec) => ({
       spec,
@@ -107,18 +113,42 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const rootOfBody = model.body_rootid as Int32Array;
     const pyramidal = Boolean(mj.mj_isPyramidal(model));
 
-    // 1. Asentamiento sin efectores.
-    for (let i = 0; i < settleSteps; i++) {
-      xfrc.fill(0);
-      mj.mj_step(model, data);
-    }
-
-    // 2. Escenario. `data.time` no se usa: el tiempo del escenario es `i * dt`.
     const updateKinematics = (): void => {
       mj.mj_kinematics(model, data);
       mj.mj_comPos(model, data);
       mj.mj_comVel(model, data);
     };
+
+    // Humanoide: postura inicial cinemática y controlador (se llama antes de cada `mj_step`, también al asentar).
+    let uke: UkeController | undefined;
+    let rootForceMax = 0;
+    const runUke = (t: number): void => {
+      mj.mj_subtreeVel(model, data);
+      uke!.step(model as unknown as StandingModel, data as unknown as StandingState, t);
+      const applied = data.qfrc_applied as Float64Array;
+      for (let k = 0; k < 6; k++) rootForceMax = Math.max(rootForceMax, Math.abs(applied[k]!));
+      if (rootForceMax !== 0) throw new Error("El controlador de Uke escribió fuerza generalizada en la raíz");
+    };
+    if (humanoid) {
+      const placement = applyStance(mj, model, data, humanoid.stance);
+      mj.mj_forward(model, data); // también deja `qfrc_bias` (gravedad) listo para el controlador
+      uke = createUkeController({
+        attitude: humanoid.attitude, stance: humanoid.stance, mass_kg: humanoid.mass_kg,
+        height_m: humanoid.height_m, strength: humanoid.strength, targets: placement.targets,
+      }, model as unknown as StandingModel, data as unknown as StandingState);
+    }
+
+    // 1. Asentamiento sin efectores.
+    for (let i = 0; i < settleSteps; i++) {
+      xfrc.fill(0);
+      if (uke) {
+        updateKinematics();
+        runUke(-SETTLE_S + i * dt);
+      }
+      mj.mj_step(model, data);
+    }
+
+    // 2. Escenario. `data.time` no se usa: el tiempo del escenario es `i * dt`.
 
     const pointState = (bodyId: number, local: Vec3): { point: Vec3; velocity: Vec3 } => {
       const xpos = data.xpos as Float64Array;
@@ -177,6 +207,18 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
     // Estado inicial del escenario: ejes del actor en t = 0 (para `actor_initial`) y posición inicial.
     updateKinematics();
+    // Humanoide: referencias del veredicto tras el asentamiento.
+    let initialPelvisZ = 0;
+    let initialComZ = 0;
+    let settleComSpeed = 0;
+    let minPelvisZ = Infinity;
+    if (humanoid) {
+      mj.mj_subtreeVel(model, data);
+      initialPelvisZ = (data.xpos as Float64Array)[3 * actorBodyId + 2]!;
+      initialComZ = (data.subtree_com as Float64Array)[3 * actorBodyId + 2]!;
+      const lv = data.subtree_linvel as Float64Array;
+      settleComSpeed = Math.hypot(lv[3 * actorBodyId]!, lv[3 * actorBodyId + 1]!, lv[3 * actorBodyId + 2]!);
+    }
     const initialRotation = Array.from((data.xmat as Float64Array).subarray(9 * actorBodyId, 9 * actorBodyId + 9));
     const startXY: [number, number] = [(data.xpos as Float64Array)[3 * actorBodyId]!, (data.xpos as Float64Array)[3 * actorBodyId + 1]!];
 
@@ -199,15 +241,17 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
       // Veredicto a 500 Hz sobre el estado actual.
       const xmat = data.xmat as Float64Array;
-      const tilt = tiltDeg(xmat, 9 * actorBodyId);
+      const tilt = tiltDeg(xmat, 9 * tiltBodyId);
+      const pelvisZ = (data.xpos as Float64Array)[3 * actorBodyId + 2]!;
+      if (humanoid) minPelvisZ = Math.min(minPelvisZ, pelvisZ);
+      const cls = humanoid ? classifyHumanoid(tilt, pelvisZ / initialPelvisZ) : classifyTilt(tilt);
       if (tilt > maxTilt) {
         maxTilt = tilt;
-        directionAtMax = fallDirectionDeg(xmat, 9 * actorBodyId);
+        directionAtMax = fallDirectionDeg(xmat, 9 * tiltBodyId);
       }
-      if (directionAtFall === undefined && tilt > FALL_MIN_TILT_DEG) {
-        directionAtFall = fallDirectionDeg(xmat, 9 * actorBodyId);
+      if (directionAtFall === undefined && (humanoid ? cls === "fall" : tilt > FALL_MIN_TILT_DEG)) {
+        directionAtFall = fallDirectionDeg(xmat, 9 * tiltBodyId);
       }
-      const cls = classifyTilt(tilt);
       if (cls !== currentClass) {
         currentClass = cls;
         classSinceS = t;
@@ -274,15 +318,18 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
       if (i === totalSteps) {
         finalTilt = tilt;
-        finalComHeight = (data.xipos as Float64Array)[3 * actorBodyId + 2]!;
+        finalComHeight = humanoid
+          ? (data.subtree_com as Float64Array)[3 * actorBodyId + 2]!
+          : (data.xipos as Float64Array)[3 * actorBodyId + 2]!;
         finalXY = [(data.xpos as Float64Array)[3 * actorBodyId]!, (data.xpos as Float64Array)[3 * actorBodyId + 1]!];
         break;
       }
+      if (uke) runUke(t);
       mj.mj_step(model, data);
     }
 
     const outcome = currentClass!;
-    const summary = {
+    const summary: RecordingSummary = {
       outcome,
       direction_deg: directionAtFall !== undefined ? directionAtFall : directionAtMax,
       t_outcome_s: classSinceS,
@@ -290,9 +337,20 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       max_tilt_deg: maxTilt,
       final_com_height_m: finalComHeight,
       slide_m: Math.hypot(finalXY[0] - startXY[0], finalXY[1] - startXY[1]),
-      expect: "none" as "pass" | "fail" | "none",
-      expect_diffs: [] as string[],
+      expect: "none",
+      expect_diffs: [],
     };
+    if (humanoid && uke) {
+      summary.uke = {
+        max_trunk_tilt_deg: maxTilt,
+        initial_pelvis_height_m: initialPelvisZ,
+        min_pelvis_height_m: minPelvisZ,
+        settle_com_speed_mps: settleComSpeed,
+        initial_com_height_m: initialComZ,
+        max_root_generalized_force: rootForceMax,
+        controller: uke.status(),
+      };
+    }
     if (scenario.expect) {
       const result = compareExpect(summary, scenario.expect);
       summary.expect = result === "pass" ? "pass" : "fail";

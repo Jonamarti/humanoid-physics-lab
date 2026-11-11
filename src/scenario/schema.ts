@@ -19,7 +19,7 @@ export const SCENARIO_RECORD_HZ_MAX = 500;
 /** Terna de números `[x, y, z]`. Ejes: X adelante, Y izquierda, Z arriba. */
 export type Vec3 = readonly [number, number, number];
 
-export type ActorKind = "rigid_cylinder";
+export type ActorKind = "rigid_cylinder" | "humanoid";
 export type PropKind = "fixed_box";
 export type EffectorKind = "prescribed_force";
 
@@ -29,7 +29,24 @@ export type EffectorKind = "prescribed_force";
  */
 export const ACTOR_BODIES: Readonly<Record<ActorKind, readonly string[]>> = {
   rigid_cylinder: ["cylinder"],
+  // La raíz (pelvis) va primero: es el cuerpo principal del actor. Nombres del modelo `src/uke/generate.ts`.
+  humanoid: [
+    "pelvis", "abdomen", "chest", "head", "left_upperarm", "left_forearm", "right_upperarm", "right_forearm",
+    "left_thigh", "left_shin", "left_foot", "right_thigh", "right_shin", "right_foot",
+  ],
 };
+
+/** Actitudes de Uke. De momento solo `tense`. */
+export const UKE_ATTITUDES = ["tense"] as const;
+export type UkeAttitude = (typeof UKE_ATTITUDES)[number];
+
+/** Posturas iniciales de Uke (tabla en `src/uke/stances.ts`). */
+export const UKE_STANCES = ["neutral", "natural_grip", "defensive", "staggered_left", "staggered_right"] as const;
+export type UkeStance = (typeof UKE_STANCES)[number];
+
+/** Claves de `segment_lengths_m` del humanoide (en m; definiciones en `docs/UKE_MODEL.md`). */
+export const SEGMENT_LENGTH_KEYS = ["thigh", "shin", "foot", "upper_arm", "forearm", "trunk", "neck"] as const;
+export type SegmentLengthKey = (typeof SEGMENT_LENGTH_KEYS)[number];
 
 /** Marcos en los que se expresa `force_n`. */
 export const EFFECTOR_FRAMES = ["world", "actor_initial", "actor_current"] as const;
@@ -59,7 +76,26 @@ export interface RigidCylinderActor {
   radius_m: number;
 }
 
-export type ActorSpec = RigidCylinderActor;
+export interface HumanoidActor {
+  id: string;
+  kind: "humanoid";
+  /** Masa en kg (50 a 150). */
+  mass_kg: number;
+  /** Altura en m (1,50 a 2,05). */
+  height_m: number;
+  /** Factor de fuerza (0,5 a 1,5). Por defecto 1. Escala el par máximo. */
+  strength: number;
+  /** Fracción (0 a 1) del exceso de masa del tronco para IMC > 27. Por defecto, la de `src/uke/generate.ts` (0,6). */
+  build?: number;
+  /** Longitudes explícitas de segmentos, en m. */
+  segment_lengths_m?: Partial<Record<SegmentLengthKey, number>>;
+  /** Por defecto `tense`. */
+  attitude: UkeAttitude;
+  /** Por defecto `neutral`. */
+  stance: UkeStance;
+}
+
+export type ActorSpec = RigidCylinderActor | HumanoidActor;
 
 export interface FixedBoxProp {
   id: string;

@@ -1,14 +1,20 @@
+import { HEIGHT_RANGE_M, MASS_RANGE_KG, V2_SEGMENT_LENGTHS_M } from "../uke/generate";
 import {
   ACTOR_BODIES,
   EFFECTOR_FRAMES,
   EFFECTOR_WAVEFORMS,
   OUTCOMES,
+  SEGMENT_LENGTH_KEYS,
+  UKE_ATTITUDES,
+  UKE_STANCES,
   SCENARIO_MAX_DURATION_S,
   SCENARIO_PHYSICS_HZ,
   SCENARIO_RECORD_HZ_MAX,
   SCENARIO_RECORD_HZ_MIN,
   SCENARIO_SCHEMA_ID,
   type ActorSpec,
+  type HumanoidActor,
+  type SegmentLengthKey,
   type EffectorSpec,
   type ExpectSpec,
   type PropSpec,
@@ -120,11 +126,47 @@ function asVec3(value: unknown, path: string, element: (v: unknown, p: string) =
   return [element(arr[0], `${path}[0]`), element(arr[1], `${path}[1]`), element(arr[2], `${path}[2]`)];
 }
 
+function asRange(value: unknown, path: string, [lo, hi]: readonly [number, number], unit: string): number {
+  const n = asFinite(value, path);
+  if (n < lo || n > hi) fail(path, `debe estar entre ${lo} y ${hi} ${unit}, no ${n}`);
+  return n;
+}
+
+function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
+  checkKeys(obj, path, ["id", "kind", "mass_kg", "height_m"], [
+    "strength", "build", "segment_lengths_m", "attitude", "stance",
+  ]);
+  const actor: HumanoidActor = {
+    id,
+    kind: "humanoid",
+    mass_kg: asRange(obj.mass_kg, join(path, "mass_kg"), MASS_RANGE_KG, "kg"),
+    height_m: asRange(obj.height_m, join(path, "height_m"), HEIGHT_RANGE_M, "m"),
+    strength: "strength" in obj ? asRange(obj.strength, join(path, "strength"), [0.5, 1.5], "") : 1,
+    attitude: "attitude" in obj ? asEnum(obj.attitude, join(path, "attitude"), UKE_ATTITUDES) : "tense",
+    stance: "stance" in obj ? asEnum(obj.stance, join(path, "stance"), UKE_STANCES) : "neutral",
+  };
+  if ("build" in obj) actor.build = asRange(obj.build, join(path, "build"), [0, 1], "");
+  if ("segment_lengths_m" in obj) {
+    const p = join(path, "segment_lengths_m");
+    const lengths = asObject(obj.segment_lengths_m, p);
+    checkKeys(lengths, p, [], SEGMENT_LENGTH_KEYS);
+    const result: Partial<Record<SegmentLengthKey, number>> = {};
+    for (const key of SEGMENT_LENGTH_KEYS) {
+      if (!(key in lengths)) continue;
+      const base = V2_SEGMENT_LENGTHS_M[key];
+      result[key] = asRange(lengths[key], join(p, key), [0.5 * base, 2 * base], "m");
+    }
+    actor.segment_lengths_m = result;
+  }
+  return actor;
+}
+
 function validateActor(value: unknown, path: string): ActorSpec {
   const obj = asObject(value, path);
+  if (obj.kind === "humanoid") return validateHumanoid(obj, path, asId(obj.id, join(path, "id")));
   checkKeys(obj, path, ["id", "kind", "mass_kg", "height_m", "radius_m"]);
   const id = asId(obj.id, join(path, "id"));
-  asEnum(obj.kind, join(path, "kind"), ["rigid_cylinder"]);
+  asEnum(obj.kind, join(path, "kind"), ["rigid_cylinder", "humanoid"]);
   return {
     id,
     kind: "rigid_cylinder",

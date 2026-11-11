@@ -10,7 +10,8 @@ con raíz libre en la pelvis y bisagras internas. Con 75 kg y 1,76 m reproduce `
 mismos nombres de cuerpos, articulaciones (y orden) y sitios, masas por cuerpo, posiciones de articulación y altura de pelvis (0,99 m).
 Usa `worldOptionTag()` para `<option>` (no las opciones de v2) y, por geometría, los parámetros de contacto de v2
 (`solref="0.015 1" solimp="0.9 0.95 0.001"`, rozamiento `1.0 0.025 0.002`; el deslizante se cambia con `options.friction`).
-`options.extraWorldXml` permite insertar props en `<worldbody>`.
+`options.extraWorldXml` permite insertar props en `<worldbody>` y `options.jointDampingByName` fija el `damping` (implícito) de cada articulación.
+El MJCF lleva cuatro `<contact><exclude>` (abdomen con ambos muslos y pelvis con ambas piernas): con las tallas gruesas esas geometrías se solapan (medido: 10 kN entre el abdomen y los muslos de 150 kg con las rodillas flexionadas).
 
 Añadidos respecto a v2: mano (esfera de radio 4 cm, 0,45 kg descontados del antebrazo), articulación `neck_yaw` (añadida la última del
 cuello, para no cambiar el orden de composición de las existentes), rangos articulares nuevos y sitios de agarre e impacto

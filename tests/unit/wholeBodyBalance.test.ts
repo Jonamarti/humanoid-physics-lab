@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { MujocoSimulation } from "../../src/physics/mujoco";
-import { WHOLE_BODY_JOINTS, wholeBodyBalanceCommand } from "../../src/control/wholeBodyBalance";
+import { WHOLE_BODY_JOINTS, wholeBodyBalanceCommand, armOnlyBalanceTargets } from "../../src/control/wholeBodyBalance";
 import { pushForceAtTime, type PushTrial } from "../../src/physics/standingPush";
 
 const reading=(h:readonly [number,number,number])=>({
@@ -11,6 +11,36 @@ const reading=(h:readonly [number,number,number])=>({
 });
 
 describe("Opt-in whole-body momentum redistribution",()=>{
+  it("allows only six finite internal shoulder targets during reactive transfer",()=>{
+    const body=wholeBodyBalanceCommand(reading([10,12,8])).targetsRad;
+    const arms=armOnlyBalanceTargets(body);
+    expect(Object.keys(arms).sort()).toEqual([
+      "left_shoulder_pitch","left_shoulder_roll","left_shoulder_yaw",
+      "right_shoulder_pitch","right_shoulder_roll","right_shoulder_yaw",
+    ].sort());
+    expect(arms.left_hip_pitch).toBeUndefined();
+    expect(arms.lumbar_roll).toBeUndefined();
+    expect(arms.pelvis_root).toBeUndefined();
+    expect(Object.values(arms).every(v=>Number.isFinite(v)&&Math.abs(v)<=0.33)).toBe(true);
+    expect(armOnlyBalanceTargets({pelvis_root:999,left_knee:999})).toEqual({});
+    expect(()=>armOnlyBalanceTargets({left_shoulder_pitch:NaN})).toThrow(RangeError);
+  });
+  it("keeps the reactive arm-transfer experiment explicit and v3-only",async()=>{
+    const xml=await readFile(new URL("../../public/models/humanoid_gait_v3.xml",import.meta.url),"utf8");
+    const sim=await MujocoSimulation.create(xml);
+    try{
+      sim.enableExperimentalStanding();
+      expect(()=>sim.enableExperimentalReactiveRecovery(1 as unknown as boolean)).toThrow(RangeError);
+      sim.enableExperimentalReactiveRecovery(true);
+      sim.step(25);
+      expect(sim.experimentalReactiveRecoveryStatus()?.attempts).toBe(0);
+      expect(sim.experimentalStepStatus()).toBeNull();
+      sim.disableExperimentalReactiveRecovery();
+      sim.enableExperimentalReactiveRecovery();
+      expect(sim.experimentalReactiveRecoveryStatus()?.attempts).toBe(0);
+    }finally{sim.dispose();}
+  });
+
   it("does not move limbs at zero momentum or with no solved floor support",()=>{
     expect(wholeBodyBalanceCommand(reading([0,0,0])).targetsRad).toEqual({});
     expect(wholeBodyBalanceCommand({...reading([10,0,0]),

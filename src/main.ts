@@ -466,18 +466,23 @@ function present(state: PhysicsState, forceAppliedThisFrameN: readonly [number,n
             : "Condiciones pendientes: primero debe despegar y apoyar físicamente.";
         }
       }
-      if (mode === "standing" && activePush && initialPushCom) {
+      if (mode === "standing" && (activePush || forceEditor?.running) && initialPushCom) {
         minimumPushPelvisM = Math.min(minimumPushPelvisM, state.qpos[2]!);
         maximumPushTiltDeg = Math.max(maximumPushTiltDeg, rootTiltDegrees(state.qpos));
         const delta = Math.hypot(b.comWorldM[0] - initialPushCom[0], b.comWorldM[1] - initialPushCom[1]);
         const speed = Math.hypot(b.comVelocityWorldMps[0], b.comVelocityWorldMps[1]);
-        if (state.time > 5 && (delta > 0.03 || speed > 0.08 || rootTiltDegrees(state.qpos) > 8)) {
+        const settlingWindow=forceEditor?.running ?
+          forceEditor.horizonS-1 : 5;
+        if (state.time > settlingWindow &&
+            (delta > 0.03 || speed > 0.08 || rootTiltDegrees(state.qpos) > 8)) {
           settledAfterPush = false;
         }
-        pushReadout.textContent = "Empujón máximo " + activePush.peakForceN + " N · impulso teórico " +
-          expectedPushImpulseNs(activePush).toFixed(2) + " N·s · inclinación máxima muestreada " +
-          maximumPushTiltDeg.toFixed(1) + "° · pelvis mínima " + minimumPushPelvisM.toFixed(3) +
-          " m · desviación de COM actual " + (delta * 100).toFixed(1) + " cm.";
+        if(activePush) {
+          pushReadout.textContent = "Empujón máximo " + activePush.peakForceN + " N · impulso teórico " +
+            expectedPushImpulseNs(activePush).toFixed(2) + " N·s · inclinación máxima muestreada " +
+            maximumPushTiltDeg.toFixed(1) + "° · pelvis mínima " + minimumPushPelvisM.toFixed(3) +
+            " m · desviación de COM actual " + (delta * 100).toFixed(1) + " cm.";
+        }
       }
       const fmt = (n: number) => n.toFixed(3);
       balanceReadout.textContent =
@@ -537,19 +542,35 @@ function animate(timestampMs: number): void {
       state = activeSimulation.step(steps);
     }
     if (!(mode === "standing" && (activePush || forceEditor?.running))) present(state);
+    let finishedForceSequence=false;
     if (mode === "standing" && forceEditor?.running && state.time >= forceEditor.horizonS) {
       playing = false;
       forceEditor.finish();
+      finishedForceSequence=true;
       toggleButton.textContent = "Iniciar";
       editorBalanceMode.disabled=false;
-      const final=activeSimulation.state();
-      const wholeBody=activeSimulation.experimentalWholeBodyBalanceStatus();
-      physicsStatus.textContent = "Secuencia de fuerzas 3D completada ("+
-        (wholeBody || editorBalanceMode.value==="whole-body" ?
-          "compensación corporal experimental" : "control postural de referencia")+
-        "). Altura final de pelvis: "+final.qpos[2]!.toFixed(3)+
-        " m. Revisa inclinación, apoyos y deslizamiento: completar el tiempo "+
-        "no significa recuperar el equilibrio.";
+      const b=activeSimulation.humanoidBalanceObservation();
+      const footDrift=initialPushFeet ?
+        Math.max(...Array.from(initialPushFeet,([id,before])=>{
+          const now=activeSimulation.geometryPoses().find(p=>p.id===id)?.position;
+          return now ? Math.hypot(now[0]-before[0]!,now[1]-before[1]!) : Infinity;
+        })) : Infinity;
+      const recovered=minimumPushPelvisM>0.86 && maximumPushTiltDeg<25 &&
+        footDrift<0.02 && settledAfterPush;
+      const fell=minimumPushPelvisM<0.70 || maximumPushTiltDeg>50;
+      const displacement=initialPushCom ?
+        Math.hypot(b.comWorldM[0]-initialPushCom[0],
+          b.comWorldM[1]-initialPushCom[1]) : Infinity;
+      const strategy=editorBalanceMode.value==="whole-body"
+        ? "compensación corporal" : "postura de referencia";
+      physicsStatus.textContent="Fuerzas 3D ("+strategy+"): "+
+        (fell ? "CAÍDA detectada" : recovered ? "equilibrio recuperado sin paso" :
+          "equilibrio NO recuperado con los criterios del ensayo")+
+        ". Inclinación máxima "+maximumPushTiltDeg.toFixed(2)+"°"+
+        ", pelvis mínima "+minimumPushPelvisM.toFixed(3)+" m"+
+        ", deriva final de pies "+(footDrift*100).toFixed(1)+" cm"+
+        ", desplazamiento final COM "+(displacement*100).toFixed(1)+
+        " cm. Diagnóstico muestreado, no certificación biomecánica.";
     }
     if (mode === "standing" && activePush && state.time >= 6) {
       playing = false;
@@ -584,7 +605,8 @@ function animate(timestampMs: number): void {
         ? "El intento de paso terminó en una caída física."
         : "Paso experimental no completado: " + (status?.reason ?? "sin diagnóstico");
     }
-    if (mode === "standing" && !activePush && !activeStepTrial && !forceEditor?.running && state.time >= 10) {
+    if (mode === "standing" && !activePush && !activeStepTrial &&
+        !forceEditor?.running && !finishedForceSequence && state.time >= 10) {
       playing = false;
       toggleButton.textContent = "Iniciar";
       physicsStatus.textContent = loadedStandingModel === "gait_v3"
@@ -1017,6 +1039,18 @@ const forceEditor = installForceEditor(required<HTMLElement>("#multi-force-edito
     simulation.disableExperimentalWholeBodyBalance();
     if(editorBalanceMode.value==="whole-body")
       simulation.enableExperimentalWholeBodyBalance();
+    const initial=simulation.humanoidBalanceObservation();
+    initialPushCom=[initial.comWorldM[0],initial.comWorldM[1]];
+    const footIds=simulation.geometrySpecs().filter(spec=>
+      spec.shape==="box" &&
+      (loadedStandingModel==="gait_v3"
+        ? Math.abs(spec.size[0]-0.0825)<1e-6
+        : Math.abs(spec.size[2]-0.035)<1e-6)).map(spec=>spec.id);
+    initialPushFeet=new Map(simulation.geometryPoses().filter(p=>
+      footIds.includes(p.id)).map(p=>[p.id,p.position]));
+    minimumPushPelvisM=simulation.state().qpos[2]!;
+    maximumPushTiltDeg=0;
+    settledAfterPush=true;
     clock.reset(); lastFrame = undefined;
     activePush = undefined;
     activeStepTrial = false;

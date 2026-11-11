@@ -47,6 +47,13 @@ app.innerHTML = `
       <article class="panel controls">
         <div id="standing-push-controls" hidden>
           <h2>Probar un empujón real</h2>
+          <label for="force-editor-balance-mode">Recuperación de equilibrio al aplicar varias fuerzas y ángulos</label>
+          <select id="force-editor-balance-mode">
+            <option value="whole-body" selected>v3 — intentar compensar con brazos, caderas y tronco</option>
+            <option value="v3-posture">v3 — solo controlador postural de referencia</option>
+            <option value="v1-posture">v1 — controlador original para comparación</option>
+          </select>
+          <p class="muted">Al activar el editor avanzado se prepara el modelo elegido. Cada fuerza sigue aplicada en MuJoCo y el humanoide intenta recuperar el equilibrio mediante pares articulares internos. No se garantiza evitar la caída y todavía no da pasos reactivos.</p>
           <div id="multi-force-editor"></div>
           <p class="muted">El impacto se aplica en el esternón del humanoide, mediante una fuerza externa en MuJoCo. No se fija la pelvis ni se mueve ningún pie artificialmente.</p>
           <label for="push-direction">Dirección</label>
@@ -208,6 +215,7 @@ const v3StandRun = required<HTMLButtonElement>("#v3-stand-run");
 const v3PushRun = required<HTMLButtonElement>("#v3-push-run");
 const v3BalanceMode = required<HTMLSelectElement>("#v3-balance-mode");
 const v3MomentumReadout = required<HTMLElement>("#v3-momentum-readout");
+const editorBalanceMode = required<HTMLSelectElement>("#force-editor-balance-mode");
 const v3ContactReadout = required<HTMLElement>("#v3-contact-readout");
 const stepReadout = required<HTMLElement>("#step-readout");
 const stepGatesReadout = required<HTMLElement>("#step-gates-readout");
@@ -265,6 +273,8 @@ function updateCalculation(): void {
   stepRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
   v3StandRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled;
   v3PushRun.disabled = !simulation || mode !== "standing" || !!forceEditor?.enabled || !validPushInputs();
+  editorBalanceMode.disabled = !simulation || mode !== "standing" || playing ||
+    preparingEditorModel || !!forceEditor?.running;
   cylinderControls.hidden = !cylinderSelected;
   forceDescription.textContent = cylinderSelected
     ? "Fuerza horizontal aplicada a 1,40 m de altura desde t = 0,30 s. Cargar simulación activa el ensayo; cambiar parámetros requiere recargarlo."
@@ -301,6 +311,9 @@ if (viewport) {
 let simulation: MujocoSimulation | undefined;
 type StandingModelVariant = "nominal" | "gait" | "gait_v3";
 let loadedStandingModel: StandingModelVariant = "nominal";
+let preparingEditorModel = false;
+const editorRequestedModel = (): StandingModelVariant =>
+  editorBalanceMode.value==="v1-posture" ? "nominal" : "gait_v3";
 let mode: Scenario = "ball";
 let activeTrial: CylinderTrial | undefined;
 let activePush: PushTrial | undefined;
@@ -528,7 +541,15 @@ function animate(timestampMs: number): void {
       playing = false;
       forceEditor.finish();
       toggleButton.textContent = "Iniciar";
-      physicsStatus.textContent = "Secuencia múltiple completada; resultados físicos, no validación biomecánica.";
+      editorBalanceMode.disabled=false;
+      const final=activeSimulation.state();
+      const wholeBody=activeSimulation.experimentalWholeBodyBalanceStatus();
+      physicsStatus.textContent = "Secuencia de fuerzas 3D completada ("+
+        (wholeBody || editorBalanceMode.value==="whole-body" ?
+          "compensación corporal experimental" : "control postural de referencia")+
+        "). Altura final de pelvis: "+final.qpos[2]!.toFixed(3)+
+        " m. Revisa inclinación, apoyos y deslizamiento: completar el tiempo "+
+        "no significa recuperar el equilibrio.";
     }
     if (mode === "standing" && activePush && state.time >= 6) {
       playing = false;
@@ -618,6 +639,7 @@ function clearLoadedScenario(): void {
   viewer?.clearForceArrow();
   viewer?.clearMultiForces();
   forceEditor?.reset();
+  forceEditor?.clearCustomAttachments();
   viewer?.clearBalanceProjection();
   viewer?.showSphere();
   clock.reset();
@@ -741,7 +763,57 @@ async function ensureStandingModel(requested: StandingModelVariant): Promise<voi
   lastFrame=undefined;
   toggleButton.textContent="Iniciar";
   forceEditor?.reset();
+  const invalidated=forceEditor?.clearCustomAttachments()??0;
+  if(invalidated>0){
+    physicsStatus.textContent="Cambio de modelo: se han invalidado "+invalidated+
+      " punto(s) de fuerza anclados manualmente. Selecciónalos otra vez.";
+  }
 }
+
+async function prepareEditorModel():Promise<void> {
+  if (!forceEditor?.enabled || !simulation || mode!=="standing" || playing ||
+    preparingEditorModel) return;
+  preparingEditorModel=true;
+  editorBalanceMode.disabled=true;
+  forceEditor.refresh();
+  try {
+    const requested=editorRequestedModel();
+    await ensureStandingModel(requested);
+    if (!simulation || mode!=="standing" || !forceEditor.enabled ||
+      editorRequestedModel()!==requested) return;
+    simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if(editorBalanceMode.value==="whole-body"){
+      simulation.enableExperimentalWholeBodyBalance();
+    }
+    activePush=undefined;
+    activeStepTrial=false;
+    initialPushCom=undefined;
+    initialPushFeet=undefined;
+    clock.reset();
+    lastFrame=undefined;
+    physicsStatus.textContent="Editor avanzado preparado con "+
+      (editorBalanceMode.value==="whole-body"
+        ? "control experimental de brazos, caderas y tronco (v3)"
+        : editorBalanceMode.value==="v3-posture"
+          ? "control postural original sobre v3"
+          : "control postural original sobre v1")+
+      ". Vuelve a seleccionar los puntos manuales si has cambiado de modelo.";
+    present(simulation.state());
+  } catch(error) {
+    physicsStatus.textContent="No se pudo preparar el modelo de fuerzas 3D: "+
+      (error instanceof Error ? error.message : String(error));
+  } finally {
+    preparingEditorModel=false;
+    updateCalculation();
+    forceEditor?.refresh();
+  }
+}
+
+editorBalanceMode.addEventListener("change",()=>{
+  if(!forceEditor?.enabled) return;
+  void prepareEditorModel();
+});
 
 pushRun.addEventListener("click", async () => {
   if (!simulation || mode !== "standing" || forceEditor?.enabled) return;
@@ -919,27 +991,42 @@ resetButton.addEventListener("click", () => {
 const forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
   getSimulation: () => mode === "standing" ? simulation : undefined,
   getViewer: () => viewer,
-  canEdit: () => !playing,
+  canEdit: () => !playing && !preparingEditorModel &&
+    (!forceEditor?.enabled || loadedStandingModel===editorRequestedModel()),
   onToggle: () => {
     if (!simulation || mode !== "standing" || playing) return;
     if (forceEditor?.enabled) {
       activePush = undefined;
       viewer?.clearForceArrow();
-    } else viewer?.clearMultiForces();
+      void prepareEditorModel();
+    } else {
+      simulation.disableExperimentalWholeBodyBalance();
+      viewer?.clearMultiForces();
+    }
     updateCalculation();
     present(simulation.state());
   },
   onRun: () => {
-    if (!simulation || mode !== "standing") return;
+    if (!simulation || mode !== "standing" || preparingEditorModel ||
+      loadedStandingModel!==editorRequestedModel()) {
+      throw new Error("El modelo de equilibrio aún no está preparado para las fuerzas 3D");
+    }
     playing = false;
     simulation.reset();
+    simulation.disableExperimentalWholeBodyBalance();
+    if(editorBalanceMode.value==="whole-body")
+      simulation.enableExperimentalWholeBodyBalance();
     clock.reset(); lastFrame = undefined;
     activePush = undefined;
     activeStepTrial = false;
     stepReadout.textContent = "El paso todavía no se ha ensayado.";
     playing = true;
     toggleButton.textContent = "Pausar";
-    physicsStatus.textContent = "Secuencia de fuerzas externas 3D activa.";
+    physicsStatus.textContent = "Fuerzas 3D activas: el humanoide intenta "+
+      "recuperar el equilibrio mediante "+
+      (editorBalanceMode.value==="whole-body" ? "brazos, caderas, tronco y tobillos." :
+        "su controlador postural original.");
+    editorBalanceMode.disabled=true;
     present(simulation.state());
     forceEditor?.refresh();
   },

@@ -83,7 +83,8 @@ async function record(c){
   }catch(e){
     outcome={...outcome,error:String(e),errors};
     console.error("RECORDED-V3-ERROR",JSON.stringify(outcome));
-    try{await page.screenshot({path:path.join(dir,"error.png")});}catch{}
+    try{await page.screenshot({path:path.join(dir,"error.png")});}
+    catch(err){console.warn("Diagnostic screenshot unavailable",String(err));}
   }finally{
     const video=page.video();
     await page.close();

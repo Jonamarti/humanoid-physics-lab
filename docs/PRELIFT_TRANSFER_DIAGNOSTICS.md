@@ -62,3 +62,23 @@ tests; if no real unload occurs, record it as a negative result.
 No fresh physical MuJoCo results are asserted by this diagnostic
 change. The last established outcomes remain those in
 `docs/DIRECTIONAL_RECOVERY_TEST_MATRIX.md`.
+
+## FSM-exact transfer readout
+
+The step controller now exposes `preLiftReadiness`,
+`preLiftReadyDurationS` and `longestPreLiftReadyDurationS`
+on its snapshot. These are calculated *inside* `ExperimentalStepSequence`
+from the existing 50 Hz release gates and continuous dwell clock.
+
+The manual benchmark consumes these FSM snapshots directly rather than
+recomputing the gates from a second observation. Each timeline sample
+contains `fsmReadyDurationS`; the trial summary contains
+`maxFsmReadyDurationS`. Unit tests cover uninterrupted readiness,
+contact-load failures and sampling gaps over 60 ms. A gate-ready
+sample or 80 ms dwell alone never proves an actual unloaded foot
+flight, landing or balance recovery.
+
+Implementation and tests have been committed, but the new package
+checks and physical MuJoCo sweeps have **not** been executed in this
+environment because GitHub cannot be cloned here. Run the commands
+above on a machine with the project's dependencies to verify.

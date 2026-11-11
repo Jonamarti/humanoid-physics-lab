@@ -19,6 +19,30 @@ npm.cmd run build -- --configLoader runner
 - `npm ci` borra paquetes instalados con `--no-save` (por ejemplo Playwright); reinstálalos si los necesitas.
 - Usa cachés y carpetas temporales fuera del directorio de usuario y del repositorio. Hay poco disco: borra los fotogramas intermedios tras codificar y verificar un vídeo.
 
+## Ejecutar un escenario sin navegador
+
+```sh
+npm.cmd run sim -- scenarios/cylinder_obstacle_low.json --out out/cyl_low
+npm.cmd run sim -- --batch scenarios --out out/batch
+```
+
+(En CI y en Linux: `npm run sim -- ...`.) Escribe `recording.json.gz` y `summary.json` en la carpeta de `--out` (por defecto
+`out/<id>`), e imprime el resumen. Con `--batch <carpeta>` ejecuta todos los `.json` de la carpeta, deja una subcarpeta por
+escenario y una tabla `batch.csv`. Código de salida: 0 si `expect` pasa o no existe, 1 si falla, 2 si el escenario es inválido o el
+uso es incorrecto, 3 si el ejecutor lanza una excepción. Formatos: [SCENARIO_V1.md](SCENARIO_V1.md) y [RECORDING_V1.md](RECORDING_V1.md).
+
+- El script `sim` compila `scripts/sim.ts` con `vite build --ssr` a `dist-cli/` y lo ejecuta con `node`. Se eligió esto y no
+  `vite-node` porque `vite build` admite `--configLoader runner` (ya incluido en el script) y la ayuda de `vite-node` no ofrece
+  ninguna opción para elegir el cargador de la configuración. Ojo: al probarlo, en esta sesión funcionaron las dos vías (también
+  `vite`, `vitest` y `vite-node` sin la opción), así que no se reprodujo el fallo de esbuild: la elección es por previsión, no por un
+  fallo medido. Cuesta ~1 s de compilación por llamada. Las dependencias se cargan de `node_modules` (no se empaqueta MuJoCo).
+- Hay que ejecutarlo desde la raíz del repositorio (la versión del motor se lee de `package.json` del directorio actual).
+- `out/` y `dist-cli/` están en `.gitignore`. No dejes grabaciones sueltas: son ~30 kB cada una comprimidas, pero `--batch` crea
+  una carpeta por escenario.
+- Para escribir un escenario a mano con PowerShell 5.1: `Set-Content -Encoding utf8` añade un BOM; el comando lo ignora.
+- Un paso de CI que ejecute `npm run sim` con un escenario está pendiente (tocaría `.github/workflows/`, que exige fusión
+  humana); mientras tanto `tests/unit/simCommand.test.ts` prueba la misma función principal.
+
 ## Reglas (sección 9 del plan)
 
 - CI en verde no es prueba de física: la prueba son las métricas y el vídeo.
@@ -48,7 +72,7 @@ src/uke/         generador MJCF, actitudes, reflejos de caída, paso
 src/metrics/     equilibrio, resultado, artefactos
 src/recording/   grabador, esquema de grabación, lectura
 scenarios/       escenarios JSON con su expectativa
-scripts/         sim.mjs (comando), render_recording.py (vídeo)
+scripts/         sim.ts (comando, lógica en src/scenario/cli.ts), render_recording.py (vídeo)
 ```
 
 ## Flujo de PR

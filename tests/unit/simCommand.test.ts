@@ -119,7 +119,7 @@ describe("runCli (comando sim)", () => {
       expect(readdirSync(join(outDir, id)).sort()).toEqual(["recording.json.gz", "summary.json"]);
     }
     expect(log.out[log.out.length - 1]).toContain(`${ids.length}/${ids.length}`);
-  });
+  }, 60000);
 
   it("--batch con un escenario inválido lo marca en la tabla y sale con 2", async () => {
     const dir = join(tempRoot, "batch_invalid");

@@ -69,6 +69,27 @@ Los `id` de actores, props y efectores siguen la misma regla `[a-z0-9_]` y no pu
 
 Cuerpos referenciables por los efectores: `rigid_cylinder` tiene `cylinder`.
 
+### `actors[]` (`kind: "humanoid"`)
+
+Uke humanoide paramétrico ([UKE_MODEL.md](UKE_MODEL.md), [UKE_CONTROL.md](UKE_CONTROL.md)). Cuerpo principal (el que se mide): `pelvis`.
+Cuerpos referenciables por los efectores: `pelvis`, `abdomen`, `chest`, `head`, `left/right_upperarm`, `left/right_forearm`,
+`left/right_thigh`, `left/right_shin`, `left/right_foot`.
+
+| Campo | Unidad | Regla |
+|---|---|---|
+| `id`, `kind` | | `kind` es `humanoid`. |
+| `mass_kg` | kg | Obligatorio, de 50 a 150. |
+| `height_m` | m | Obligatorio, de 1,50 a 2,05. |
+| `strength` | | Opcional, de 0,5 a 1,5 (por defecto 1). Escala el par máximo. |
+| `build` | | Opcional, de 0 a 1: fracción del exceso de masa (IMC > 27) que va al tronco (por defecto 0,6). |
+| `segment_lengths_m` | m | Opcional. Claves `thigh`, `shin`, `foot`, `upper_arm`, `forearm`, `trunk`, `neck`; cada una entre 0,5 y 2 veces el valor de v2. |
+| `attitude` | | Opcional (por defecto `tense`). De momento solo `tense`. |
+| `stance` | | Opcional (por defecto `neutral`): `neutral`, `natural_grip`, `defensive`, `staggered_left`, `staggered_right`. |
+
+Con un humanoide, el asentamiento de 0,5 s ya lleva el controlador activo y el veredicto es el mínimo del humanoide (tronco < 3° y pelvis > 90 %
+de su altura: `standing`; pelvis < 50 %: `fall`; otro caso: `tilted`). `summary.uke` lleva medidas adicionales ([RECORDING_V1.md](RECORDING_V1.md)).
+El campo `fall` del ejemplo de la issue #75 todavía no existe (es de otra PR) y se rechaza como campo desconocido.
+
 ### `props[]` (`kind: "fixed_box"`)
 
 | Campo | Unidad | Regla |
@@ -103,7 +124,7 @@ Cuerpos referenciables por los efectores: `rigid_cylinder` tiene `cylinder`.
 
 ## Escenarios incluidos
 
-`scenarios/*.json` son los escenarios del cilindro (issue #74, PR 4); `tests/unit/scenarios.test.ts` valida y ejecuta cada uno y exige
+`scenarios/*.json`: los escenarios del cilindro (issue #74, PR 4) y `uke_stand_<talla>_<postura>.json` (humanoide de pie 10 s, `expect: standing`); `tests/unit/scenarios.test.ts` valida y ejecuta cada uno y exige
 que cumpla su `expect`. Todo escenario de esa carpeta debe declarar `expect`. Resultados y umbrales medidos:
 [CYLINDER_BENCHMARK.md](CYLINDER_BENCHMARK.md). Salida de la ejecución: [RECORDING_V1.md](RECORDING_V1.md).
 Las tres fases de un derribo se escriben como tres efectores `prescribed_force` consecutivos (`phase_a`, `phase_b`, `phase_c`).

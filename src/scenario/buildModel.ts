@@ -3,7 +3,9 @@
  * (cono elíptico, ver `docs/CONTACT_CALIBRATION.md`) y los parámetros de contacto de `humanoid_step_v2.xml`.
  * No depende de `src/physics/`.
  */
-import { ACTOR_BODIES, type Scenario } from "./schema";
+import { generateHumanoidMJCF } from "../uke/generate";
+import { ukeJointDamping } from "../uke/gains";
+import { ACTOR_BODIES, type HumanoidActor, type Scenario } from "./schema";
 import { worldOptionTag } from "./worldOptions";
 
 /** Contacto de las geometrías (los de `humanoid_step_v2.xml`). */
@@ -28,6 +30,8 @@ export interface ScenarioModel {
   joints: string[];
   /** Cuerpo principal del actor (el que se mide para el veredicto). */
   actorBody: string;
+  /** Presente si el actor es un humanoide (ver `src/uke/`). */
+  humanoid?: HumanoidActor;
 }
 
 function num(x: number): string {
@@ -45,6 +49,7 @@ export function buildScenarioModel(scenario: Scenario): ScenarioModel {
   const actor = scenario.actors[0]!;
   const actorBody = ACTOR_BODIES[actor.kind][0]!;
   const friction = `${num(scenario.ground.friction)} ${TORSIONAL} ${ROLLING}`;
+  if (actor.kind === "humanoid") return buildHumanoidModel(scenario, actor, friction);
 
   const bodies = ["world"];
   const joints: string[] = [];
@@ -87,4 +92,46 @@ ${propBlocks.join("\n")}
 </mujoco>
 `;
   return { mjcf, bodies, joints, actorBody };
+}
+
+/** Nombres en el orden de aparición en el MJCF (el de MuJoCo): cuerpos tras `world` y articulaciones. */
+function namesInOrder(mjcf: string, tags: readonly string[]): string[] {
+  const re = new RegExp(`<(?:${tags.join("|")})\\s+name="([^"]+)"`, "g");
+  return Array.from(mjcf.matchAll(re), (m) => m[1]!);
+}
+
+/** Actor humanoide: el modelo lo genera `src/uke/generate.ts`; los props se insertan tras el suelo. */
+function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: string): ScenarioModel {
+  const reserved = new Set<string>(["world", "floor", ...ACTOR_BODIES.humanoid]);
+  const propBlocks = scenario.props.map((prop) => {
+    if (reserved.has(prop.id) || reserved.has(`${prop.id}_geom`)) {
+      throw new Error(`props[].id "${prop.id}" colisiona con un nombre reservado del modelo`);
+    }
+    reserved.add(prop.id);
+    const [sx, sy, sz] = prop.size_m;
+    const [px, py, pz] = prop.pos_m;
+    return `    <body name="${prop.id}" pos="${num(px)} ${num(py)} ${num(pz)}">
+      <geom name="${prop.id}_geom" type="box" size="${num(sx / 2)} ${num(sy / 2)} ${num(sz / 2)}"
+            rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
+    </body>`;
+  });
+  const mjcf = generateHumanoidMJCF({
+    mass_kg: actor.mass_kg,
+    height_m: actor.height_m,
+    ...(actor.build !== undefined ? { build: actor.build } : {}),
+    ...(actor.segment_lengths_m !== undefined ? { segment_lengths_m: actor.segment_lengths_m } : {}),
+  }, {
+    friction: scenario.ground.friction,
+    extraWorldXml: propBlocks.join("\n"),
+    optionAttrs: COLLISION_ATTRS,
+    modelName: scenario.id,
+    jointDampingByName: ukeJointDamping(actor.mass_kg, actor.height_m, actor.strength),
+  });
+  return {
+    mjcf,
+    bodies: ["world", ...namesInOrder(mjcf, ["body"])],
+    joints: namesInOrder(mjcf, ["joint", "freejoint"]),
+    actorBody: ACTOR_BODIES.humanoid[0]!,
+    humanoid: actor,
+  };
 }

@@ -19,6 +19,14 @@ El ejecutor solo funciona en Node (usa `node:crypto` y carga MuJoCo WASM una vez
 5. A 500 Hz acumula `peaks` (no a `record_hz`): módulo máximo, impulso `∫ F dt` y trabajo `∫ F · v_punto dt`
    (velocidad del punto desde `cvel` y regla del trapecio en cada paso).
 
+## Humanoide
+
+Con un actor `humanoid` el cuerpo principal es `pelvis` y el veredicto el mínimo de `src/metrics/outcome.ts` (`classifyHumanoid`): tronco
+(`chest`) < 3° y pelvis > 90 % de su altura inicial, `standing`; pelvis < 50 %, `fall`; otro caso, `tilted`. `final_com_height_m` es la altura
+del centro de masas de todo el cuerpo. `summary.uke` (opcional, solo humanoide): `max_trunk_tilt_deg`, `initial_pelvis_height_m`,
+`min_pelvis_height_m`, `settle_com_speed_mps`, `initial_com_height_m`, `max_root_generalized_force` y `controller` (`UkeController.status()`).
+Detalle en [UKE_CONTROL.md](UKE_CONTROL.md).
+
 ## Contenido
 
 - `meta`: `scenario_id`, `scenario_sha256` (del escenario validado), `engine_version` (`package.json`), `mujoco_version`,

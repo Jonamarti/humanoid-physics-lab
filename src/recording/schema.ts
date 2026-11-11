@@ -72,6 +72,24 @@ export interface RecordingPeaks {
 
 export type ExpectResult = "pass" | "fail" | "none";
 
+/** Medidas del humanoide (solo con actor `humanoid`). */
+export interface UkeSummary {
+  /** Inclinación máxima del tronco (cuerpo `chest`) durante el escenario, en grados. */
+  max_trunk_tilt_deg: number;
+  /** Altura inicial de la pelvis (tras el asentamiento), en m. */
+  initial_pelvis_height_m: number;
+  /** Altura mínima de la pelvis durante el escenario, en m. */
+  min_pelvis_height_m: number;
+  /** Velocidad del centro de masas al terminar el asentamiento de 0,5 s, en m/s. */
+  settle_com_speed_mps: number;
+  /** Altura del centro de masas de pie tras el asentamiento, en m. */
+  initial_com_height_m: number;
+  /** Mayor |fuerza generalizada| escrita en los 6 grados de la raíz (debe ser 0). */
+  max_root_generalized_force: number;
+  /** Estado del controlador (`UkeController.status()`). */
+  controller: Record<string, unknown>;
+}
+
 export interface RecordingSummary {
   outcome: Outcome;
   /**
@@ -91,6 +109,8 @@ export interface RecordingSummary {
   expect: ExpectResult;
   /** Diferencias con `expect` (vacía si pasa o no hay `expect`). */
   expect_diffs: string[];
+  /** Solo con actor humanoide. */
+  uke?: UkeSummary;
 }
 
 export interface Recording {

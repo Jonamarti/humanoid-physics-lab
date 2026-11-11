@@ -42,3 +42,19 @@ export function angularDifferenceDeg(a: number, b: number): number {
   const d = Math.abs(a - b) % 360;
   return d > 180 ? 360 - d : d;
 }
+
+/** Veredicto mínimo del humanoide (el completo es de otra PR): de pie si el tronco se inclina menos de este ángulo (grados)... */
+export const HUMANOID_STANDING_MAX_TRUNK_TILT_DEG = 3;
+/** ...y la pelvis sigue por encima de esta fracción de su altura inicial. */
+export const HUMANOID_STANDING_MIN_PELVIS_RATIO = 0.9;
+/** Caído si la pelvis baja de esta fracción de su altura inicial. */
+export const HUMANOID_FALL_MAX_PELVIS_RATIO = 0.5;
+
+/** `fall` si la pelvis < 50 % de su altura inicial; `standing` si el tronco < 3° y la pelvis > 90 %; si no, `tilted`. */
+export function classifyHumanoid(trunkTiltDegrees: number, pelvisHeightRatio: number): Outcome {
+  if (pelvisHeightRatio < HUMANOID_FALL_MAX_PELVIS_RATIO) return "fall";
+  if (trunkTiltDegrees < HUMANOID_STANDING_MAX_TRUNK_TILT_DEG && pelvisHeightRatio > HUMANOID_STANDING_MIN_PELVIS_RATIO) {
+    return "standing";
+  }
+  return "tilted";
+}

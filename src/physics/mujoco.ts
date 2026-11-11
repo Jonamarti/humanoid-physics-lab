@@ -10,7 +10,7 @@ import type { FootSide } from "../control/recoveryPlanner";
 import { capturePointXY, insideConvexHullXY, type XY } from "../control/balanceSensors";
 import { summarizeGroundSupport, type GroundContactSample, type GroundSupportObservation } from "../control/footContacts";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "./contactForces";
-import { wholeBodyBalanceCommand, type WholeBodyBalanceCommand } from "../control/wholeBodyBalance";
+import { wholeBodyBalanceCommand, armOnlyBalanceTargets, type WholeBodyBalanceCommand } from "../control/wholeBodyBalance";
 import { ReactiveStepCoordinator, type ReactiveRecoveryStatus } from "../control/reactiveStepCoordinator";
 
 export type PhysicsState = Readonly<{
@@ -63,6 +63,8 @@ export class MujocoSimulation {
   /** Only enabled by explicit v3 reactive mode (not by standing or plain WB). */
   private reactiveRecovery: ReactiveStepCoordinator | undefined;
   private reactiveRecoveryTicks = 0;
+  /** Disabled unless explicitly requested in a physical A/B benchmark. */
+  private retainArmBalanceDuringReactiveTransfer = false;
 
   private constructor(module: Module) {
     this.module = module;
@@ -116,6 +118,7 @@ export class MujocoSimulation {
     this.lastWholeBodyCommand = null;
     this.reactiveRecovery = undefined;
     this.reactiveRecoveryTicks = 0;
+    this.retainArmBalanceDuringReactiveTransfer = false;
     this.standingController = undefined;
     this.stepExperiment = undefined;
     this.stepExperimentTicks = 0;
@@ -156,6 +159,7 @@ export class MujocoSimulation {
     this.wholeBodyBalanceTicks = 0;
     this.reactiveRecovery = undefined;
     this.reactiveRecoveryTicks = 0;
+    this.retainArmBalanceDuringReactiveTransfer = false;
   }
 
   /** First research iteration: opt-in whole-body angular-momentum response.
@@ -182,7 +186,10 @@ export class MujocoSimulation {
    * measured capture point persistently escapes solved loaded support.
    * The original voluntary step mode remains separate from this experiment.
    */
-  enableExperimentalReactiveRecovery(): void {
+  enableExperimentalReactiveRecovery(retainArmBalanceDuringTransfer = false): void {
+    if (typeof retainArmBalanceDuringTransfer !== "boolean") {
+      throw new RangeError("La opción de conservar brazos debe ser booleana");
+    }
     if (!this.articulatedToeGeomIds || !this.standingController ||
         this.stepExperiment) {
       throw new Error("La recuperación con paso exige bipedestación v3 sin paso activo");
@@ -190,6 +197,7 @@ export class MujocoSimulation {
     this.enableExperimentalWholeBodyBalance();
     this.reactiveRecovery = new ReactiveStepCoordinator();
     this.reactiveRecoveryTicks = 0;
+    this.retainArmBalanceDuringReactiveTransfer = retainArmBalanceDuringTransfer;
   }
 
   disableExperimentalReactiveRecovery(): void {
@@ -200,6 +208,7 @@ export class MujocoSimulation {
     }
     this.reactiveRecovery = undefined;
     this.reactiveRecoveryTicks = 0;
+    this.retainArmBalanceDuringReactiveTransfer = false;
   }
 
   experimentalReactiveRecoveryStatus(): ReactiveRecoveryStatus | null {
@@ -349,7 +358,14 @@ export class MujocoSimulation {
           referenceComXY: command.referenceComXY,
         } : this.standingController;
         stepActiveStanding(model, data, controller);
-        if (this.wholeBodyBalanceEnabled && !command) {
+        // During the optional A/B trial, retain ONLY bounded shoulder
+        // compensation in SHIFT_WEIGHT; the original gait/reference commands
+        // remain in charge of hips, ankles and trunk. Normal behavior is
+        // unchanged because this switch defaults to false.
+        const transferArms = !!command && !!this.reactiveRecovery &&
+          this.retainArmBalanceDuringReactiveTransfer &&
+          command.phase === "SHIFT_WEIGHT";
+        if (this.wholeBodyBalanceEnabled && (!command || transferArms)) {
           if (++this.wholeBodyBalanceTicks % 10 === 0) {
             const ang = data.subtree_angmom as Float64Array;
             const vel = data.qvel as Float64Array;
@@ -362,8 +378,10 @@ export class MujocoSimulation {
             });
           }
           if (this.lastWholeBodyCommand?.active) {
-            applyStepJointTargets(model,data,this.standingController.gains,
-              this.lastWholeBodyCommand.targetsRad);
+            const targets = transferArms
+              ? armOnlyBalanceTargets(this.lastWholeBodyCommand.targetsRad)
+              : this.lastWholeBodyCommand.targetsRad;
+            applyStepJointTargets(model,data,this.standingController.gains, targets);
           }
         }
         if (command) {
@@ -772,6 +790,7 @@ export class MujocoSimulation {
     this.articulatedToeGeomIds = undefined;
     this.reactiveRecovery = undefined;
     this.reactiveRecoveryTicks = 0;
+    this.retainArmBalanceDuringReactiveTransfer = false;
     this.wholeBodyBalanceEnabled = false;
     this.wholeBodyBalanceTicks = 0;
     this.lastWholeBodyCommand = null;

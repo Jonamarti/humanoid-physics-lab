@@ -14,3 +14,7 @@ coverage/
 *.fbx
 *.blend
 *.blend1
+
+# Salidas de simulación y vídeo
+out/
+__pycache__/

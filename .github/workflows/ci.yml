@@ -35,11 +35,6 @@ jobs:
         run: npm run lint
       - name: Vitest unit tests
         run: npm test
-      # Diagnostic-only experiment; remove once results are recorded.
-      - name: Directional push and chained-step physical benchmark (one-off)
-        env:
-          HPL_RUN_DIRECTIONAL_PUSHES: "1"
-        run: npx vitest run tests/manual/directionalStepRecoveryBench.test.ts
       - name: Production build
         run: npm run build
       - name: Verify production output

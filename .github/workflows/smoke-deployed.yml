@@ -1,0 +1,46 @@
+name: Smoke deployed Humanoid Physics Lab in Chromium
+
+on:
+  push:
+    branches: [feat/deployed-browser-smoke-20261111]
+    paths:
+      - scripts/smoke-deployed.mjs
+      - .github/workflows/smoke-deployed.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployed-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HPL_EXPECTED_DEPLOY_SHA: a1558d1d3472973b89e593b9d6e69443a2aeec87
+    steps:
+      - name: Checkout tests from this PR
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install Playwright browser controller without modifying lockfile
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --no-package-lock --no-audit --no-fund playwright@1.58.2
+          command -v google-chrome || command -v chromium || npx playwright install chromium
+      - name: Run against https://jonamarti.github.io (never localhost)
+        run: node scripts/smoke-deployed.mjs
+      - name: Upload diagnostic screenshots and per-scenario JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-pages-smoke
+          path: media/deployed-smoke/
+          retention-days: 7
+          if-no-files-found: warn

@@ -29,7 +29,7 @@ describe("Emergency capture-point step transfer (reactive v3 only)",()=>{
     const cmd=emergency.command(.52,[0,0]);
     expect(cmd.targetsRad.left_knee).toBeLessThan(0);
     expect(cmd.referenceComXY[1]).toBeLessThan(-.07);
-    expect(cmd.pelvis_root).toBeUndefined();
+    expect(cmd.targetsRad.pelvis_root).toBeUndefined();
     expect(emergency.snapshot().stepContactConfirmed).toBe(false);
   });
   it("will not release swing foot with inadequate load or excessive tilt",()=>{

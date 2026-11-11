@@ -56,6 +56,19 @@ describe("v3 solved-contact pre-lift diagnostics (no changes to release gates)",
     expect(unloaded.ready).toBe(false);
   });
 
+  it("never lifts the overloaded swing leg when the selected stance leg has zero solved load",()=>{
+    const diagnostic=assessSupportTransfer(sample({
+      supportLoadN:0,swingLoadN:600,
+      comProjectionInsideLoadedSupport:true,
+      capturePointInsideLoadedSupport:false,
+      pelvisHeightM:1.0,rootTiltDeg:4,
+    }),true);
+    expect(diagnostic.gates.comProjection).toBe(true);
+    expect(diagnostic.gates.supportLoad).toBe(false);
+    expect(diagnostic.gates.swingUnloaded).toBe(false);
+    expect(diagnostic.supportFraction).toBe(0);
+    expect(diagnostic.ready).toBe(false);
+  });
   it("does not accidentally require old capture support for emergency readiness", () => {
     const a = assessSupportTransfer(sample({ capturePointInsideLoadedSupport: false }), true);
     const b = assessSupportTransfer(sample({ capturePointInsideLoadedSupport: true }), true);

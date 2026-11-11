@@ -19,6 +19,16 @@ npm.cmd run build -- --configLoader runner
 - `npm ci` borra paquetes instalados con `--no-save` (por ejemplo Playwright); reinstálalos si los necesitas.
 - Usa cachés y carpetas temporales fuera del directorio de usuario y del repositorio. Hay poco disco: borra los fotogramas intermedios tras codificar y verificar un vídeo.
 
+## Vídeo de una grabación (sin navegador)
+
+Detalles en [VIDEO.md](VIDEO.md). Comando comprobado en esta máquina (no hay que instalar nada global):
+
+```sh
+uv run --quiet --python 3.12 --with mujoco --with numpy --with imageio-ffmpeg --with pillow python scripts/render_recording.py out/cyl_low/recording.json.gz out/cyl_low/video.mp4 --view side --sheet out/cyl_low/hoja.png
+```
+
+Prueba del script: `uv run --quiet --python 3.12 --with mujoco --with numpy --with imageio-ffmpeg --with pillow python scripts/test_render_recording.py`. Grabación de ejemplo: `scripts/make_sample_recording.py`.
+
 ## Reglas (sección 9 del plan)
 
 - CI en verde no es prueba de física: la prueba son las métricas y el vídeo.

@@ -35,6 +35,11 @@ jobs:
         run: npm run lint
       - name: Vitest unit tests
         run: npm test
+      # One-time research measurement; remove after recording results.
+      - name: Compare reactive capture steps against whole-body pushes (one-off)
+        env:
+          HPL_RUN_REACTIVE_BENCH: "1"
+        run: npx vitest run tests/manual/reactiveStepBench.test.ts
       - name: Production build
         run: npm run build
       - name: Verify production output

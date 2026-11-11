@@ -4,7 +4,6 @@ import {MujocoSimulation} from "../../src/physics/mujoco";
 import {editedForceAtTime,editedForceImpulseNs,type EditedForce} from "../../src/physics/forceSequence";
 import {capturePointXY,insideConvexHullXY} from "../../src/control/balanceSensors";
 import {rootTiltDegrees} from "../../src/physics/standingPush";
-import {assessSupportTransfer} from "../../src/control/supportTransferDiagnostics";
 
 /** Honest physical diagnostic rather than a passing animation.
  * Run explicitly:
@@ -70,6 +69,7 @@ async function physicalCase(xml:string,c:Case) {
     const gateFailures:Record<string,number>={};
     let readyFrames=0,consecutiveReady=0,maxConsecutiveReady=0;
     let minSwingLoadN=Infinity,maxSupportFractionInShift=0;
+    let maxFsmReadyDurationS=0;
     for(let i=0;i<Math.round(c.durationS/0.02);i++){
       sim.step(10,timeS=>{
         for(const f of c.forces){
@@ -103,14 +103,10 @@ async function physicalCase(xml:string,c:Case) {
         const supportN=support[stance].verticalLoadN;
         const comInside=insideConvexHullXY(
           [balance.comWorldM[0],balance.comWorldM[1]],support.loadedSupportPolygonXY);
-        const readiness=assessSupportTransfer({
-          supportLoadN:supportN,swingLoadN:swingN,
-          comVelocityWorldMps:balance.comVelocityWorldMps,
-          comProjectionInsideLoadedSupport:comInside,
-          capturePointInsideLoadedSupport:!isOutside,
-          pelvisHeightM:state.qpos[2]!,
-          rootTiltDeg:rootTiltDegrees(state.qpos),
-        },true);
+        // The FSM observed the same solved 50 Hz step; read its own
+        // release gates/dwell rather than approximating them independently.
+        const readiness=step.preLiftReadiness;
+        if(!readiness)throw Error("Falta lectura de pre-despegue de la FSM");
         const failed=Object.entries(readiness.gates)
           .filter(([,pass])=>!pass).map(([name])=>name);
         for(const name of failed)gateFailures[name]=(gateFailures[name]??0)+1;
@@ -121,6 +117,7 @@ async function physicalCase(xml:string,c:Case) {
         }else consecutiveReady=0;
         minSwingLoadN=Math.min(minSwingLoadN,swingN);
         maxSupportFractionInShift=Math.max(maxSupportFractionInShift,readiness.supportFraction);
+        maxFsmReadyDurationS=Math.max(maxFsmReadyDurationS,step.longestPreLiftReadyDurationS);
         if(transferTrace.length<100)transferTrace.push({
           t:Number(state.time.toFixed(3)),swing,stance,swingN,supportN,
           fraction:readiness.supportFraction,
@@ -129,6 +126,7 @@ async function physicalCase(xml:string,c:Case) {
           captureXY:cp,captureInside:!isOutside,comInside,
           pelvisM:state.qpos[2]!,tiltDeg:rootTiltDegrees(state.qpos),
           gates:readiness.gates,failed,
+          fsmReadyDurationS:step.preLiftReadyDurationS,
         });
       }
       if(step){
@@ -185,7 +183,7 @@ async function physicalCase(xml:string,c:Case) {
       transferDiagnosis:{
         samples:transferTrace.length,readyFrames,maxConsecutiveReady,
         minSwingLoadN:Number.isFinite(minSwingLoadN)?minSwingLoadN:null,
-        maxSupportFractionInShift,gateFailures,trace:transferTrace,
+        maxSupportFractionInShift,maxFsmReadyDurationS,gateFailures,trace:transferTrace,
       },
       phaseHistory,physicalPhase:physical?.phase??null,
       landed:physical?.stepContactConfirmed??false,

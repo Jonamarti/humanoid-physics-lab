@@ -1,5 +1,6 @@
 # Contribuir
 
+0. Si eres un agente, lee antes la [guía rápida para agentes](docs/GUIA_AGENTES.md) y el [plan de derribos](docs/PLAN_DERRIBOS.md).
 1. Revisa la [épica #1](https://github.com/Jonamarti/humanoid-physics-lab/issues/1), elige una issue y comprueba las dependencias.
 2. Implementa cambios pequeños con unidades SI y referencias verificables.
 3. Ejecuta `npm run typecheck && npm run lint && npm test && npm run build`.

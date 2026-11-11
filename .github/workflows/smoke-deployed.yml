@@ -1,12 +1,14 @@
 name: Smoke deployed Humanoid Physics Lab in Chromium
 
+# Manual only: Pages deployment must have finished before checking its exact commit.
+# The remote browser tests run against the PUBLIC site, never a PR preview.
 on:
-  push:
-    branches: [feat/deployed-browser-smoke-20261111]
-    paths:
-      - scripts/smoke-deployed.mjs
-      - .github/workflows/smoke-deployed.yml
   workflow_dispatch:
+    inputs:
+      deployed_commit:
+        description: Full 40-character SHA visible in the live site's build stamp
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      HPL_EXPECTED_DEPLOY_SHA: a1558d1d3472973b89e593b9d6e69443a2aeec87
+      HPL_EXPECTED_DEPLOY_SHA: ${{ inputs.deployed_commit }}
     steps:
       - name: Checkout tests from this PR
         uses: actions/checkout@v4

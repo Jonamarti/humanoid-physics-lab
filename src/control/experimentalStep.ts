@@ -4,6 +4,7 @@ import type { NamedHingeModel } from "./standingBaseline";
 import type { FootSide } from "./recoveryPlanner";
 import { controlledStepPosture } from "./controlledStepPosture";
 import { assessStepStability, type StepStabilityAssessment } from "./stepStabilityDiagnostics";
+import { assessSupportTransfer } from "./supportTransferDiagnostics";
 
 /** EXPERIMENTAL: physical joints only. No root actuation, foot teleportation
  * or fake contact. An aborted attempt is NOT a simulated fall.
@@ -223,20 +224,8 @@ export class ExperimentalStepSequence {
       // A single 50 Hz load spike is insufficient to release the swing leg.
       // The capture point must remain in *solved loaded* support and the
       // support leg must carry its share continuously before LIFT.
-      const comSpeed=Math.hypot(
-        info.comVelocityWorldMps[0],info.comVelocityWorldMps[1]);
-      const steady = this.reactiveEmergencyStep ?
-        // Deliberately reduced load fraction for an EMERGENCY triggered
-        // outside the old capture region; the foot still MUST physically
-        // unload, rise and land, and all original completion gates remain.
-        loadTotal>250 && supportFraction>=0.72 &&
-        info.swingLoadN<loadTotal*0.28 &&
-        info.comProjectionInsideLoadedSupport &&
-        info.pelvisHeightM>0.82 && info.rootTiltDeg<25 &&
-        comSpeed<1.2 :
-        supportFraction>=0.80 && info.swingLoadN<loadTotal*0.20 &&
-        info.capturePointInsideLoadedSupport &&
-        info.comProjectionInsideLoadedSupport && comSpeed<0.18;
+      const readiness = assessSupportTransfer(info, this.reactiveEmergencyStep);
+      const steady = readiness.ready;
       if (steady && sampleGapS <= 0.06) this.stableTransferSinceS ??= info.timeS;
       else this.stableTransferSinceS = undefined;
     }

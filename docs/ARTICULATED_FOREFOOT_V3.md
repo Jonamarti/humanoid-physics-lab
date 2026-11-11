@@ -117,6 +117,47 @@ sacrificing the 6 s fall-free result. This has **not** been implemented or
 validated in the current revision. Do not relax the 80% gate to manufacture
 lift, and do not add propulsive toe torque before stable support transfer.
 
+## Bounded lateral shift sweep: physically measured (2026-11-11)
+
+The [eight-trial GitHub Actions benchmark](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42934308595)
+compared four lateral COM-reference amplitudes on both swing legs, using the
+unmodified 75 kg v3 model, original strict **80% sustained support-load gate**
+and the same 12 cm forward step command. Default remains 0.075 m.
+
+| Lateral reference (m) | Max pre-lift support load | Left | Right |
+| --- | ---: | --- | --- |
+| 0.075 | 71.35% | ABORT, no fall | ABORT, no fall |
+| 0.095 | 76.77% | ABORT, no fall | ABORT, no fall |
+| 0.115 | 82.07% | LIFT -> SWING -> ABORT -> FALL | LIFT -> SWING -> ABORT -> FALL |
+| 0.135 | 83.99% | LIFT -> SWING -> ABORT -> FALL | LIFT -> SWING -> LAND -> ABORT -> FALL |
+
+For 0.115 m, lift began at ~1.50 s, swing at ~1.84 s, and the first
+physical FALL occurred ~3.32 s (left) or ~3.38 s (right). For 0.135 m,
+lift began at ~1.40 s. **Neither setting confirmed a stable landing**.
+The 0.135 m right-foot trial reached LAND but not a confirmed loaded
+touchdown with sustained equilibrium. It ultimately fell.
+
+**Interpretation:** a larger lateral COM reference clears the original
+physical takeoff-load threshold, but existing swing/landing control is
+still unable to complete the maneuver. This is *not* an improved walking
+controller. Raising the reference at the default v3 setting would
+regress its fall-free ABORT behavior; therefore **0.075 m is retained
+as default** and the wider [0.05, 0.15] m parameter range is opt-in
+for diagnostics. The previous v1/v2 controller and all release and
+acceptance gates are unchanged.
+
+Run explicitly when desired:
+
+```sh
+HPL_RUN_V3_SHIFT_SWEEP=1 npx vitest run tests/manual/v3LateralShiftSweep.test.ts
+```
+
+The temporary extra CI step was removed after measurement. Next action:
+diagnose actual support-foot heel/toe contact, capture-point displacement
+and unloading during SWING; then independently tune the landing target and
+post-ABORT torque response. Do not claim success based on the earlier
+release gate or falsely count the fall as a stable landing.
+
 ## Separate optional whole-body angular-momentum controller
 
 The v3-only, **disabled-by-default** arm/hip/spine momentum response is

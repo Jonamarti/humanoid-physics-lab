@@ -1040,6 +1040,8 @@ resetButton.addEventListener("click", () => {
 
 // Editor initialization invokes canEdit() synchronously. Declare the binding
 // before construction to avoid the TDZ crash in production-minified JavaScript.
+// A const initializer would reintroduce the synchronous canEdit() TDZ bug.
+// eslint-disable-next-line prefer-const -- deliberately initialize after declaring.
 let forceEditor!: ReturnType<typeof installForceEditor>;
 forceEditor = installForceEditor(required<HTMLElement>("#multi-force-editor"), {
   getSimulation: () => mode === "standing" ? simulation : undefined,

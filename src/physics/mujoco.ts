@@ -310,7 +310,7 @@ export class MujocoSimulation {
     // hidden translation or fixed-to-world swing foot is introduced.
     this.stepExperiment=new ExperimentalStepSequence(
       intent.swingSide,intent.deltaXY,intent.timeS,
-      1,0.48,true,
+      1,0.48,true,true,
     );
     this.cartesianStepScale=0.52;
     this.stepExperimentTicks=0;

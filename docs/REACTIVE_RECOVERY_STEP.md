@@ -42,12 +42,11 @@ reactive trigger and a physical attempt, not validated reactive locomotion.
   Because this is an emergency with the capture point already outside
   the former base, the *v3-reactive-only* pre-lift policy replaces the
   voluntary v3 gate (80% load AND capture inside) with an emergency
-  66% stance-foot load, <=34% remaining swing-foot load, pelvis >0.84 m,
+  72% stance-foot load, <=28% remaining swing-foot load, pelvis >0.82 m,
   tilt <25 degrees, COM projection inside solved support, COM horizontal
-  speed <1.5 m/s, and 0.04 s of continuous samples after at least 0.12 s
-  of pre-lift load-transfer phase. It also uses a faster 0.18 s rise
-  to a bounded lateral shift of 0.115 m
-  (vs ordinary v3's ~0.075 m over 0.35 s).
+  speed <1.2 m/s, and 0.08 s of continuous samples after at least 0.25 s
+  of pre-lift load-transfer phase. It also allows a bounded lateral
+  shift of 0.115 m (vs ordinary v3's ~0.075 m).
   This is an experimental trade-off, **not a proven safe threshold**;
   all original real lift, landing and step-COMPLETE gates remain.
   The foot must physically unload, lift, move, land, become loaded and
@@ -101,3 +100,38 @@ support-load transfer and joint trajectories **only based on measured
 outcomes**. A fully viable solution likely requires contact-aware
 whole-body inverse dynamics with a foot-placement/reachability planner,
 rather than simply increasing joint torques.
+
+
+## Physical A/B experiment: currently no successful reactive lift
+
+[MuJoCo Actions #42930304415](https://github.com/Jonamarti/humanoid-physics-lab/actions/runs/42930304415)
+compared the initial conservative capture-point controller against full-body
+balance without a step, then exercised an **experimental faster** release
+variant (66% measured support, 0.04 s dwell and quicker reference ramp).
+All four 7 s trials finished in a physical FALL with both policies:
+
+| Force sequence | Step selected | First physical phases | Landed | Recovery |
+| --- | --- | --- | --- | --- |
+| Backward 240 N, 0.16 s | Right, backward | STAND → SHIFT_WEIGHT → FALL | no | no |
+| Forward 240 N, 0.16 s | Right, forward | STAND → SHIFT_WEIGHT → FALL | no | no |
+| Leftward 240 N, 0.16 s | Left, leftward | STAND → SHIFT_WEIGHT → FALL | no | no |
+| Backward + diagonal 370/70 N | Right, backward/diagonal | STAND → SHIFT_WEIGHT → FALL | no | no |
+
+The automatic decision really **issued** a foot target; **no trial
+reached the LIFT phase**, despite a nonzero apparent maximum world-space
+sole displacement. That displacement can result from the whole body
+falling and is **not evidence of a voluntary foot lift**. No landing
+was confirmed, so step recovery cannot be claimed.
+
+The experimental faster release did not improve any of these four
+outcomes; it was **reverted**. The conservative, opt-in emergency gate
+is retained only for diagnosis and further development. An end-to-end
+recovery step remains unvalidated. Full-body joint compensation remains
+the default outside the advanced editor's explicitly selected
+reactive mode.
+
+The next engineering milestone must produce a physically unloaded
+swing foot while keeping the support leg loaded and the pelvis high
+enough to continue; this is not solved by decreasing the release
+threshold alone. Subsequent tests should include controlled, weaker
+and diagonal perturbations, not only falls under strong forces.

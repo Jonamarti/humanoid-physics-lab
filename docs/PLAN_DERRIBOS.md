@@ -1,6 +1,6 @@
 # Plan: laboratorio físico de derribos, golpes y reacciones de Uke
 
-**Estado:** propuesta del 11-11-2026, pendiente de aprobación de Jon. Nada de este plan está implementado.
+**Estado:** aprobado por Jon el 11-11-2026 y revisado el mismo día (sección 12, que prevalece sobre las anteriores). Nada de este plan está implementado.
 **Para quién:** cualquier agente que vaya a implementar una fase. Lee el documento entero antes de tocar código.
 
 ## 1. Objetivo
@@ -305,3 +305,79 @@ Los fotogramas intermedios se borran tras codificar y verificar el vídeo (hay p
 - **Sin tela, los agarres de judogi son aproximados.** La holgura y el tope cubren lo esencial; se revisa si los vídeos lo delatan.
 - **Sin datos de fuerza reales por técnica.** Las magnitudes son estimaciones calibradas con literatura general y con las referencias de vídeo.
 - **Captura de vídeo desde el visor web** depende de Playwright y del entorno Windows; si resulta frágil, valorar un render sin navegador.
+
+## 12. Revisión crítica (v2, 11-11-2026)
+
+Fallos encontrados en la primera versión del plan y cómo se corrigen. **Donde esta sección contradiga a las anteriores, manda esta.** El detalle de implementación está en las issues #73–#80.
+
+### 12.1 Fallos de física
+
+| # | Fallo | Corrección |
+|---|---|---|
+| 1 | **Fuerza prescrita = energía ilimitada.** Una fuerza de 500 N que sigue a Uke 2 m aporta 1000 J; una mano real tiene alcance y velocidad limitados. | El efector normal es una **mano virtual**: un punto objetivo unido al agarre por muelle y amortiguador, con tope de fuerza, tope de potencia (F·v) y alcance máximo desde un hombro. La fuerza prescrita queda solo para las pruebas analíticas (cilindro). |
+| 2 | **Obstáculo fijo = fuerza infinita.** Un fulcro inmóvil es una pared; es el mismo fallo del Tori cinemático. | Los obstáculos son cuerpos con masa sobre guías, sujetos a su trayectoria por actuadores con tope de fuerza. Si Uke empuja más que el tope, el obstáculo cede y se mide cuánto. |
+| 3 | **Un agarre de tela no puede empujar.** La manga o la solapa solo transmiten tracción, en la línea mano–agarre. | Tres tipos de unión: `cuerda` (solo tracción, con holgura: ropa, collar tie), `pinza` (tracción y empuje: muñeca, tobillo, corva), `apoyo` (solo empuje por contacto: hombro, cadera, mano abierta). |
+| 4 | **La solapa no tira del pecho.** Tirar de la solapa carga la nuca y la espalda alta; el cinturón carga el lado contrario de la pelvis. | El catálogo de agarres define, para cada uno, en qué puntos del cuerpo se reparte la fuerza y en qué proporción. |
+| 5 | **Contacto puntual entre cápsulas.** Uke resbala de lado sobre un fulcro redondo (medido en el seoi nage de AnimSpec). | El fulcro de cadera es una barra transversal (contacto en línea) con rozamiento de tela; prueba de robustez con el agarre desplazado ±1 cm. |
+| 6 | **El contacto actual fluye.** Medido: un bloque de 75 kg con los parámetros de contacto de `humanoid_step_v2.xml` resbala 2,5 mm/s en una rampa de 30° y 6,7 mm/s en una de 40°, cuando no debería moverse hasta los 45°. Con cono elíptico baja a 0,10–0,15 mm/s y con `noslip` a 0. | Calibrar el contacto en la fase 1 con la prueba de la rampa antes de construir nada encima. Es además una hipótesis para el deslizamiento de suelas de #49 (no comprobada). |
+| 7 | **PD explícito con cuerpos de otra talla.** Las ganancias actuales están ajustadas para 75 kg; con 50 o 150 kg el control puede oscilar o quedarse corto. | Función de escalado de ganancias y límites por masa, altura y fuerza, y prueba de estabilidad por articulación en las cuatro tallas. |
+| 8 | **150 kg no es un 75 kg ampliado.** Las proporciones de De Leva son de adultos jóvenes atléticos. | Parámetro de complexión: el grosor de los segmentos crece con masa/altura y la fracción de masa del tronco crece con el índice de masa corporal. Regla sencilla, documentada como aproximación. |
+| 9 | **Un golpe no es solo un impulso.** | Dos modos: impulso en un punto, y **ariete** (cuerpo con masa efectiva y velocidad que choca), donde la duración del contacto sale de la física. |
+
+### 12.2 Fallos de realismo
+
+| # | Fallo | Corrección |
+|---|---|---|
+| 10 | **Las caídas parecerán de maniquí.** `relajado` cae como un cadáver y `tenso` como una tabla. Un humano se protege: encoge la barbilla, saca los brazos, flexiona rodillas, redondea la espalda. Para un generador de clips esto es el producto, no un extra. | Capa de **reflejos de caída** en la fase 2: reglas disparadas por lo medido (inclinación, velocidad del centro de masas, dirección) que cambian los objetivos articulares, siempre con pares limitados. Parámetro `caida`: `ninguna`, `instintiva` (no entrenado) o `ukemi` (entrenado). |
+| 11 | **No hay verdad de referencia; todo depende del ojo de Jon.** | Detector automático de artefactos en cada grabación (sección 12.5) antes de enviar nada a Jon, y lista de comprobación de naturalidad por clip. |
+| 12 | **Uke empieza con los brazos colgando.** En AnimSpec ya se vio que eso falsea el derribo. | Posturas iniciales con nombre (neutra, natural con brazos en agarre, defensiva, un pie adelantado), medio segundo de asentamiento y, opcionalmente, agarres de Uke sobre Tori. |
+| 13 | **Rangos articulares cortos.** El hombro del modelo llega a ±1,9 rad; levantar el brazo del todo son unos 3,1 rad. | Tabla de rangos articulares de fuente pública en la fase 2, y mano y cuello revisados. |
+
+### 12.3 Fallos de producto
+
+| # | Fallo | Corrección |
+|---|---|---|
+| 14 | **El clip final necesita también a Tori.** Un Uke que vuela sobre una cadera invisible no sirve al juego. | Segunda vía de entrada: una **pista de Tori** (trayectorias de manos, cadera, hombro y pierna que da el consumidor a partir de su animación guionizada). Los efectores siguen esa pista con fuerza limitada. La grabación devuelve cuánto se separó cada efector de su pista, para que el consumidor corrija los brazos de Tori. |
+| 15 | **Tori no se adapta a Uke.** Con tiempos fijos, el derribo llega aunque Uke aún no haya reaccionado. | Las fases pueden empezar por **condición** (pie de Uke en el aire, punto de captura fuera del apoyo, contacto con el fulcro) con tiempo límite. |
+| 16 | **«Tira hacia arriba» no es un número.** Traducir lenguaje natural a newtons es el eslabón más débil. | Capa de **intención** con verbos (tirar, empujar, levantar, bloquear, segar, barrer, pescar), direcciones relativas a Uke e intensidad como fracción de la capacidad de Tori. Se compila a escenario. Un buscador de umbral halla la intensidad mínima que logra el derribo. |
+| 17 | **¿Qué pasa si Tori no puede con un Uke de 150 kg?** | El resultado «no cae» es válido y se guarda: es el clip de intento fallido. El lote informa del resultado de cada combinación. |
+| 18 | **Proporciones del rig.** Si el Uke simulado no mide como el personaje, al pasar el clip los pies patinan. | El escenario admite longitudes de segmento explícitas, que el consumidor inyecta en local desde su personaje. |
+
+### 12.4 Fallos de proceso
+
+| # | Fallo | Corrección |
+|---|---|---|
+| 19 | **Fases demasiado grandes para un agente económico.** | Cada issue se divide en PRs pequeñas y ordenadas, con archivos, interfaces, pruebas y criterio de «hecho». |
+| 20 | **Riesgo de espagueti.** `main.ts` tiene 1117 líneas y `MujocoSimulation` lleva los experimentos cableados. | Código nuevo en carpetas nuevas (sección 12.6). El ejecutor usa el módulo MuJoCo directamente, como hacen las pruebas. No se tocan los controladores existentes y las pruebas actuales deben seguir pasando. |
+| 21 | **Pruebas frágiles cerca del umbral.** Las caídas son caóticas. | Las pruebas afirman lejos del umbral (nominal ≥ 1,3× y fallo ≤ 0,6×); la banda intermedia se informa, no se afirma. Cada escenario lleva su expectativa en el propio fichero. |
+| 22 | **«Idéntico byte a byte» solo vale en el mismo entorno.** Las funciones matemáticas de JavaScript pueden diferir entre motores. | Determinismo exacto dentro de Node; entre Node y navegador, tolerancia en los primeros pasos. |
+| 23 | **Captura de vídeo frágil.** Playwright no está en `package.json` y el entorno Windows ya ha dado problemas. | Vídeo de desarrollo con el renderizador sin ventana de MuJoCo en Python a partir de la grabación (comprobado en este PC: funciona). El visor web queda para la revisión interactiva de Jon. |
+| 24 | **El paso de recuperación sigue siendo investigación.** | Como el motor es un generador fuera de línea, no hace falta un controlador universal: el segundo intento es **buscar por simulación** los pocos parámetros del paso (dónde, cuándo, cuánto) para cada escenario. Medido: 10 s de simulación del humanoide pasivo tardan 0,2 s en MuJoCo nativo; en WASM hay que medirlo. |
+| 25 | **Poco disco.** | Grabaciones a 120 Hz comprimidas, solo las de referencia pequeñas en Git, y borrado de fotogramas tras codificar. |
+| 26 | **El lado del consumidor no tenía issue.** | Issue de seguimiento en AnimSpec para pista de Tori, fichas de técnica y conversión a rig. |
+
+### 12.5 Detector de artefactos
+
+Toda grabación se comprueba automáticamente. Si falla algo, no se envía a Jon como candidata:
+
+- Algún cuerpo atraviesa el suelo más de 1 cm, o dos segmentos se atraviesan más de 2 cm.
+- Velocidad angular articular por encima de 25 rad/s.
+- Fuerza de contacto por encima de 10 kN.
+- Pie apoyado y cargado que patina más de 2 cm sin que el escenario lo provoque.
+- Temblor: una articulación cambia de sentido más de 10 veces por segundo.
+- La energía mecánica sube sin que ningún efector ni par interno la aporte.
+- Algún efector supera su tope, o hay fuerza sobre la raíz de Uke.
+
+Los umbrales son puntos de partida a calibrar con los primeros clips.
+
+### 12.6 Arquitectura de carpetas
+
+```
+src/scenario/    esquema, validación, intención → escenario, ejecutor
+src/effectors/   mano virtual, obstáculo, ariete, presupuesto de Tori
+src/uke/         generador MJCF, actitudes, reflejos de caída, paso
+src/metrics/     equilibrio, resultado, artefactos
+src/recording/   grabador, esquema de grabación, lectura
+scenarios/       escenarios JSON con su expectativa
+scripts/         sim.mjs (comando), render_recording.py (vídeo)
+```

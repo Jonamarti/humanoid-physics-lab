@@ -39,8 +39,17 @@ reactive trigger and a physical attempt, not validated reactive locomotion.
 - During active attempted stepping, transfer control to the existing
   MuJoCo hip/knee/ankle/joint PD and bounded Cartesian foot impedance.
   **No teleportation, no root force or artificial contact**.
-  The actual foot must be unloaded, lifted, moved, landed, loaded and
-  settled according to the existing physics gates before COMPLETE.
+  Because this is an emergency with the capture point already outside
+  the former base, the *v3-reactive-only* pre-lift policy replaces the
+  voluntary v3 gate (80% load AND capture inside) with an emergency
+  72% stance-foot load, <=28% remaining swing-foot load, pelvis >0.82 m,
+  tilt <25 degrees, COM projection inside solved support, COM horizontal
+  speed <1.2 m/s, and 0.08 s of continuous samples. It also allows a
+  bounded lateral shift of 0.115 m (vs ordinary v3's ~0.075 m).
+  This is an experimental trade-off, **not a proven safe threshold**;
+  all original real lift, landing and step-COMPLETE gates remain.
+  The foot must physically unload, lift, move, land, become loaded and
+  settle before COMPLETE.
 - If no safe step exists, keep the whole-body controller on and report
   `NO_SAFE_STEP` instead of inventing a path. Following an ABORT or FALL,
   do not try repeatedly within the same trial; reset before another

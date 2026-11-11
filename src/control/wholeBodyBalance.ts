@@ -76,3 +76,27 @@ export function wholeBodyBalanceCommand(input:WholeBodyBalanceInput):WholeBodyBa
   return {active:true,targetsRad:targets,
     normalizedMomentumXYZ:normalized,supportFraction:fraction};
 }
+
+/** Only arm joints may retain angular-momentum compensation during a
+ * reactive v3 SHIFT_WEIGHT trial. The stance controller remains responsible
+ * for ankles/hips/trunk; swing commands never receive arm-balancing torques.
+ * This is a bounded opt-in A/B experiment, NOT verified gait recovery.
+ */
+export function armOnlyBalanceTargets(
+  targets: Readonly<Record<string,number>>,
+): Readonly<Record<string,number>> {
+  const allowed = [
+    "left_shoulder_pitch", "right_shoulder_pitch",
+    "left_shoulder_roll", "right_shoulder_roll",
+    "left_shoulder_yaw", "right_shoulder_yaw",
+  ] as const;
+  const result: Record<string,number> = {};
+  for (const name of allowed) {
+    const target = targets[name];
+    if (target !== undefined) {
+      if (!Number.isFinite(target)) throw new RangeError("Objetivo de hombro no finito");
+      result[name] = target;
+    }
+  }
+  return result;
+}

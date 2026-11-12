@@ -120,6 +120,14 @@ function describeSummary(recording: Recording): string[] {
       `inclinación máx ${s.max_tilt_deg.toFixed(1)}°, final ${s.final_tilt_deg.toFixed(1)}°, ` +
       `altura CM ${s.final_com_height_m.toFixed(3)} m, deslizamiento ${s.slide_m.toFixed(3)} m, expect ${s.expect}`,
   ];
+  const u = s.uke;
+  if (u?.unbalance) {
+    lines.push(`  desequilibrio: ${u.unbalance.direction} a los ${u.unbalance.t_s.toFixed(3)} s (margen mín ${u.unbalance.min_margin_m.toFixed(3)} m, ${u.unbalance.recovered ? "recuperado" : "no recuperado"})`);
+  }
+  if (u?.fall) {
+    const f = u.fall;
+    lines.push(`  caída: ${f.t_s.toFixed(3)} s (${f.trigger}), dirección ${f.direction_name ?? "-"}, primera parte ${f.first_part ?? "-"}`);
+  }
   for (const diff of s.expect_diffs) lines.push(`  diferencia: ${diff}`);
   return lines;
 }

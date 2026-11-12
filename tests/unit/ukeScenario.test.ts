@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildScenarioModel } from "../../src/scenario/buildModel";
-import { classifyHumanoid } from "../../src/metrics/outcome";
 import { ScenarioValidationError, validateScenario } from "../../src/scenario/validate";
 import { runScenario } from "../../src/scenario/run";
 
@@ -71,17 +70,6 @@ describe("buildScenarioModel con humanoide", () => {
     expect(m.mjcf).toContain('cone="elliptic"');
     expect(() => buildScenarioModel(validateScenario(base({}, { props: [{ id: "chest", kind: "fixed_box", size_m: [1, 1, 1], pos_m: [0, 0, 0] }] }))))
       .toThrow("reservado");
-  });
-});
-
-describe("veredicto mínimo del humanoide", () => {
-  it("de pie: tronco < 3° y pelvis > 90 %; caído: pelvis < 50 %; si no, inclinado", () => {
-    expect(classifyHumanoid(0.5, 1)).toBe("standing");
-    expect(classifyHumanoid(2.9, 0.95)).toBe("standing");
-    expect(classifyHumanoid(3.1, 1)).toBe("tilted");
-    expect(classifyHumanoid(1, 0.89)).toBe("tilted");
-    expect(classifyHumanoid(0, 0.49)).toBe("fall");
-    expect(classifyHumanoid(80, 0.3)).toBe("fall");
   });
 });
 

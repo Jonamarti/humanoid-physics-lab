@@ -87,6 +87,9 @@ describe("describeVerdict y formatBytes", () => {
     expect(describeVerdict({ outcome: "fall", direction_deg: -5e-7, expect: "pass" })).toBe("cae hacia 0° · cumple lo esperado");
     expect(describeVerdict({ outcome: "standing", direction_deg: null, expect: "none" })).toBe("se mantiene en pie");
     expect(describeVerdict({ outcome: "tilted", direction_deg: 90, expect: "fail" })).toBe("queda inclinado hacia 90° · NO cumple lo esperado");
+    // Veredictos del humanoide (#75 PR 4): sin dirección, que en ellos es la de la máxima inclinación del tronco.
+    expect(describeVerdict({ outcome: "stepped", direction_deg: 180, expect: "pass" })).toBe("da un paso y se mantiene estable · cumple lo esperado");
+    expect(describeVerdict({ outcome: "unresolved", direction_deg: null, expect: "none" })).toBe("queda sin resolver");
   });
   it("da el tamaño en kB o MB", () => {
     expect(formatBytes(33853)).toBe("34 kB");

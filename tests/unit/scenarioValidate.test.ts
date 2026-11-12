@@ -103,7 +103,7 @@ describe("validateScenario", () => {
       s.effectors.push(second);
     }), "effectors[1].start_s: no puede ser negativo"],
     ["outcome desconocido", mutated((s) => { s.expect.outcome = "roll"; }),
-      "expect.outcome: debe ser uno de standing, tilted, fall"],
+      "expect.outcome: debe ser uno de standing, tilted, fall, stepped, unresolved"],
     ["tolerancia mayor de 180 grados", mutated((s) => { s.expect.tolerance_deg = 200; }),
       "expect.tolerance_deg: no puede superar 180 grados"],
     ["direction_deg con outcome distinto de fall", mutated((s) => { s.expect.outcome = "standing"; }),

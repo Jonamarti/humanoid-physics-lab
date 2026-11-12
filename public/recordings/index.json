@@ -13,7 +13,7 @@
       "direction_deg": -5.0827e-7,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 33853
+      "bytes": 34425
     },
     {
       "id": "cylinder_obstacle_above_com",
@@ -27,7 +27,7 @@
       "direction_deg": null,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 33306
+      "bytes": 33746
     },
     {
       "id": "uke_stand_75_175_neutral",
@@ -41,7 +41,7 @@
       "direction_deg": null,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 195030
+      "bytes": 195274
     },
     {
       "id": "uke_relaxed_75_175_collapse",
@@ -55,7 +55,7 @@
       "direction_deg": -4.92998e-14,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 174883
+      "bytes": 175250
     },
     {
       "id": "uke_tense_75_175_push_sternum",
@@ -69,7 +69,7 @@
       "direction_deg": -3.78845e-14,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 140754
+      "bytes": 141214
     }
   ]
 }

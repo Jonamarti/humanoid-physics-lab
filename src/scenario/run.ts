@@ -9,6 +9,7 @@
  */
 import { createHash } from "node:crypto";
 import type { StandingModel, StandingState } from "../control/standingBaseline";
+import { detectArtifacts } from "../metrics/artifacts";
 import { capturePoint, signedMargin, supportPolygon } from "../metrics/balance";
 import {
   FALL_MIN_TILT_DEG, FOOT_BODIES, classifyHumanoidTrajectory, classifyTilt, fallDirectionDeg, tiltDeg,
@@ -19,6 +20,7 @@ import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke
 import { applyStance } from "../uke/stances";
 import { RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type Recording, type RecordingSample, type RecordingSummary } from "../recording/schema";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
+import { ArtifactProbe } from "./artifactProbe";
 import { buildScenarioModel } from "./buildModel";
 import { readEngineVersion } from "./engineVersion";
 import { compareExpect } from "./expect";
@@ -130,7 +132,12 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       return { spec, bodyId: built.bodies.indexOf(spec.body), local };
     });
     const peaks: Record<string, EffectorPeaks> = {};
-    for (const e of effectors) peaks[e.spec.id] = { max_force_n: 0, impulse_ns: [0, 0, 0], work_j: 0 };
+    for (const e of effectors) {
+      peaks[e.spec.id] = { max_force_n: 0, impulse_ns: [0, 0, 0], work_j: 0 };
+      // Tope declarado (si el efector lo trae): lo comprueba el detector de artefactos.
+      const cap = (e.spec as { max_force_n?: number }).max_force_n;
+      if (cap !== undefined) peaks[e.spec.id]!.limit_n = cap;
+    }
     const pending: Array<PendingWork | null> = effectors.map(() => null);
 
     const xfrc = data.xfrc_applied as Float64Array;
@@ -302,6 +309,10 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       }
     };
 
+    // Detector de artefactos (#75 PR 5): medidas por paso físico a partir de t = 0 (no del asentamiento).
+    const probe = new ArtifactProbe(mj, model, data, {
+      bodies: built.bodies, joints: built.joints, actorBodies: ACTOR_BODIES[scenario.actors[0]!.kind], humanoid: Boolean(humanoid), dt,
+    });
     const samples: RecordingSample[] = [];
     let maxTilt = 0;
     let currentClass: Outcome | undefined;
@@ -318,6 +329,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     for (let i = 0; i <= totalSteps; i++) {
       const t = i * dt;
       if (i > 0) updateKinematics();
+      probe.state(t);
 
       // Veredicto a 500 Hz sobre el estado actual.
       const xmat = data.xmat as Float64Array;
@@ -388,6 +400,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
       if (i % stepsPerSample === 0) {
         mj.mj_forward(model, data); // contactos y fuerzas coherentes con el wrench ya aplicado
+        probe.sample(t, Object.values(peaks).reduce((sum, p) => sum + p.work_j, 0));
         const sample: RecordingSample = {
           t,
           qpos: Array.from(data.qpos as Float64Array),
@@ -430,7 +443,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         break;
       }
       if (uke) runUke(t);
+      probe.beforeStep();
       mj.mj_step(model, data);
+      probe.afterStep(t);
       if (humanoid) scanTouches(t);
     }
 
@@ -472,7 +487,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       summary.expect_diffs = result === "pass" ? [] : result;
     }
 
-    return {
+    const recording: Recording = {
       schema: RECORDING_SCHEMA_ID,
       meta: {
         scenario_id: scenario.id,
@@ -488,7 +503,12 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       samples,
       peaks: { effectors: peaks },
       summary,
+      diagnostics: probe.diagnostics(),
     };
+    const report = detectArtifacts(recording);
+    summary.artifacts = report.artifacts;
+    summary.artifacts_not_evaluated = report.not_evaluated;
+    return recording;
   } finally {
     data.delete();
     model.delete();

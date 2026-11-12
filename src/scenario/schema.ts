@@ -244,6 +244,40 @@ export interface ToriSpec {
   total_pull_max_n?: number;
   /** Tope de la potencia total de las manos, en W (por defecto 1500). */
   total_power_max_w?: number;
+  /** Opcional: cuerpo de Tori que ejecuta una secuencia de posturas y hace de obstáculo (`docs/TORI_BODY.md`). */
+  body?: ToriBodySpec;
+}
+
+/** Postura de Tori en un instante (`src/effectors/toriBody.ts`). Coordenadas en el MUNDO; ángulos en grados. */
+export interface ToriPoseKeySpec {
+  t_s: number;
+  /** Punto medio entre las caderas. */
+  pelvis_m: Vec3;
+  /** Hacia dónde mira la pelvis (0 = +X, 90 = +Y); no se reduce a ±180. */
+  yaw_deg: number;
+  /** Inclinación del tronco hacia delante. */
+  lean_deg?: number;
+  side_lean_deg?: number;
+  /** Giro de los hombros respecto a la pelvis. */
+  twist_deg?: number;
+  /** Apoyo de cada pie; z = altura de la planta. */
+  left_foot_m: Vec3;
+  right_foot_m: Vec3;
+}
+
+/**
+ * Cuerpo de Tori: segmentos sueltos con fuerza limitada que siguen `keys` y chocan con Uke. Su masa es `tori.mass_kg`.
+ * Con `enabled: false` el escenario se simula sin él (sirve para comparar con y sin cuerpo sin borrar las posturas).
+ */
+export interface ToriBodySpec {
+  height_m: number;
+  /** Por defecto `true`. */
+  enabled?: boolean;
+  /** Rozamiento de su tela contra Uke (por defecto 0,8). */
+  friction?: number;
+  /** Efectores (por `id`) cuyo punto de agarre siguen las muñecas. */
+  hands?: { left?: string; right?: string };
+  keys: ToriPoseKeySpec[];
 }
 
 /** Formas y superficies del obstáculo (`src/effectors/obstacle.ts`). */

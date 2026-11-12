@@ -136,3 +136,6 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 .scenario-json { width: 100%; background: #0b192b; border: 1px solid #41607c; color: white; border-radius: 9px; padding: 8px; font-family: ui-monospace, monospace; font-size: 0.8rem; }
 .scenario-report { margin: 8px 0; padding-left: 18px; line-height: 1.4; }
 .scenario-message.is-error { color: #ff9c9c; }
+.scenario-editor fieldset > label.scenario-check { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.scenario-editor fieldset > label.scenario-check input { width: auto; margin: 0; }
+.scenario-editor fieldset > button { margin-top: 8px; }

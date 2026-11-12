@@ -1,0 +1,326 @@
+{
+ "schema": "hpl.scenario.v1",
+ "id": "uke_tense_75_175_tori_body",
+ "duration_s": 3,
+ "record_hz": 100,
+ "ground": {
+  "friction": 1
+ },
+ "actors": [
+  {
+   "id": "uke",
+   "kind": "humanoid",
+   "mass_kg": 75,
+   "height_m": 1.75,
+   "strength": 1,
+   "attitude": "tense",
+   "stance": "neutral"
+  }
+ ],
+ "props": [],
+ "effectors": [
+  {
+   "id": "hand_sleeve",
+   "kind": "pull",
+   "actor": "uke",
+   "site": "right_sleeve_elbow",
+   "frame": "actor_initial",
+   "keys": [
+    {
+     "t_s": 0.2,
+     "force_n": [
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "t_s": 0.35,
+     "force_n": [
+      106,
+      0,
+      106
+     ]
+    },
+    {
+     "t_s": 0.65,
+     "force_n": [
+      106,
+      0,
+      106
+     ]
+    },
+    {
+     "t_s": 0.85,
+     "force_n": [
+      250,
+      0,
+      0
+     ]
+    },
+    {
+     "t_s": 1,
+     "force_n": [
+      212,
+      0,
+      -212
+     ]
+    },
+    {
+     "t_s": 1.12,
+     "force_n": [
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "t_s": 1.22,
+     "force_n": [
+      -100,
+      0,
+      250
+     ]
+    },
+    {
+     "t_s": 1.5,
+     "force_n": [
+      0,
+      0,
+      300
+     ]
+    },
+    {
+     "t_s": 1.7,
+     "force_n": [
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hand_lapel",
+   "kind": "pull",
+   "actor": "uke",
+   "site": "sternum",
+   "frame": "actor_initial",
+   "keys": [
+    {
+     "t_s": 0.2,
+     "force_n": [
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "t_s": 0.35,
+     "force_n": [
+      106,
+      0,
+      106
+     ]
+    },
+    {
+     "t_s": 0.65,
+     "force_n": [
+      106,
+      0,
+      106
+     ]
+    },
+    {
+     "t_s": 0.85,
+     "force_n": [
+      250,
+      0,
+      0
+     ]
+    },
+    {
+     "t_s": 1,
+     "force_n": [
+      212,
+      0,
+      -212
+     ]
+    },
+    {
+     "t_s": 1.12,
+     "force_n": [
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "t_s": 1.22,
+     "force_n": [
+      -100,
+      0,
+      250
+     ]
+    },
+    {
+     "t_s": 1.5,
+     "force_n": [
+      0,
+      0,
+      300
+     ]
+    },
+    {
+     "t_s": 1.7,
+     "force_n": [
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ ],
+ "tori": {
+  "mass_kg": 75,
+  "body": {
+   "height_m": 1.75,
+   "hands": {
+    "left": "hand_sleeve",
+    "right": "hand_lapel"
+   },
+   "keys": [
+    {
+     "t_s": 0.2,
+     "pelvis_m": [
+      0.62,
+      0,
+      0.887
+     ],
+     "yaw_deg": 180,
+     "lean_deg": 5,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.64,
+      -0.13,
+      0
+     ],
+     "right_foot_m": [
+      0.64,
+      0.13,
+      0
+     ]
+    },
+    {
+     "t_s": 0.45,
+     "pelvis_m": [
+      0.56,
+      0,
+      0.841
+     ],
+     "yaw_deg": 200,
+     "lean_deg": 8,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.64,
+      -0.13,
+      0
+     ],
+     "right_foot_m": [
+      0.5,
+      0.08,
+      0
+     ]
+    },
+    {
+     "t_s": 0.65,
+     "pelvis_m": [
+      0.5,
+      0,
+      0.706
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 20,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.5,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.5,
+      -0.14,
+      0
+     ]
+    },
+    {
+     "t_s": 0.85,
+     "pelvis_m": [
+      0.4,
+      0,
+      0.597
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 40,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.42,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.42,
+      -0.14,
+      0
+     ]
+    },
+    {
+     "t_s": 1.2,
+     "pelvis_m": [
+      0.32,
+      0,
+      0.86
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 95,
+     "twist_deg": 15,
+     "left_foot_m": [
+      0.42,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.42,
+      -0.14,
+      0
+     ]
+    },
+    {
+     "t_s": 1.8,
+     "pelvis_m": [
+      0.36,
+      0,
+      0.86
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 60,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.42,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.42,
+      -0.14,
+      0
+     ]
+    }
+   ]
+  }
+ },
+ "expect": {
+  "outcome": "fall"
+ }
+}

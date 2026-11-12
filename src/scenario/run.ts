@@ -19,6 +19,7 @@ import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke
 import { applyStance } from "../uke/stances";
 import { limitPullPower, pullDemand, resolvePullParams, type PullParams } from "../effectors/pull";
 import { ToriBudget } from "../effectors/toriBudget";
+import { toriSegmentCommand, toriSkeleton, type ToriHandTargets } from "../effectors/toriBody";
 import { createHandState, resolveHandParams, stepHand, type HandParams, type HandState } from "../effectors/hand";
 import {
   applyObstacleCommand, createObstacleState, readObstacleContactForce, readObstacleKinematics, resolveObstacleHandles,
@@ -26,7 +27,7 @@ import {
 } from "../effectors/obstacle";
 import {
   RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type HandPeaks, type ObstaclePeaks,
-  type Recording, type RecordingSample, type RecordingSummary,
+  type Recording, type RecordingSample, type RecordingSummary, type ToriBodyPeaks,
 } from "../recording/schema";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
 import { ArtifactProbe } from "./artifactProbe";
@@ -183,6 +184,107 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       mj.mj_comVel(model, data);
     };
 
+    // Cuerpo de Tori: segmentos libres al final del modelo. Cada paso se les escribe en `xfrc_applied` la orden de
+    // `toriSegmentCommand` (también durante el asentamiento, con la postura de t = 0).
+    const toriBody = built.toriBody;
+    const toriSegments = (toriBody?.segments ?? []).map((params) => {
+      const bodyId = built.bodies.indexOf(params.name);
+      const inertia = model.body_inertia as Float64Array;
+      return {
+        params, bodyId, contact: [0, 0, 0] as Vec3,
+        last: undefined as { force: Vec3; torque: Vec3; velocity: Vec3; omega: Vec3 } | undefined,
+        inertia_transverse: Math.max(inertia[3 * bodyId]!, inertia[3 * bodyId + 1]!), inertia_axial: inertia[3 * bodyId + 2]!,
+        peaks: { max_contact_force_on_actor_n: 0, contact_time_s: 0, max_deviation_m: 0, time_saturated_s: 0 },
+      };
+    });
+    const toriSegmentOfBody = new Map(toriSegments.map((s) => [s.bodyId, s]));
+    const toriHandEffectors = (["left", "right"] as const).flatMap((side) => {
+      const id = scenario.tori?.body?.hands?.[side];
+      const e = id === undefined ? undefined : effectors.find((x) => x.spec.id === id);
+      return e ? [{ side, e }] : [];
+    });
+    // Trabajo de las órdenes de los segmentos (trapecio, como los efectores): cuenta en el balance de energía del detector.
+    let toriWorkJ = 0;
+    const toriPeaks: ToriBodyPeaks = { max_contact_force_on_actor_n: 0, contact_impulse_on_actor_ns: [0, 0, 0], segments: {} };
+    /** Orden de los segmentos de Tori para el paso `[t, t + dt]`; `count` indica si el paso se ejecuta de verdad. */
+    const applyToriBody = (t: number, count: boolean): void => {
+      if (!toriBody) return;
+      const xpos = data.xpos as Float64Array;
+      const xmat = data.xmat as Float64Array;
+      const cvel = data.cvel as Float64Array;
+      const hands: ToriHandTargets = {};
+      for (const { side, e } of toriHandEffectors) {
+        hands[side] = add(triple(xpos, 3 * e.bodyId), rotate(xmat, 9 * e.bodyId, e.local));
+      }
+      const now = toriSkeleton(toriBody, t, hands);
+      const next = toriSkeleton(toriBody, t + dt, hands);
+      for (const s of toriSegments) {
+        const b = s.bodyId;
+        const velocity = triple(cvel, 6 * b + 3);
+        const omega = triple(cvel, 6 * b);
+        if (s.last) {
+          toriWorkJ += (dot(s.last.force, add(s.last.velocity, velocity)) + dot(s.last.torque, add(s.last.omega, omega))) * dt / 2;
+        }
+        const command = toriSegmentCommand(s.params, {
+          position_m: triple(data.xipos as Float64Array, 3 * b),
+          velocity_mps: velocity,
+          axis: [xmat[9 * b + 2]!, xmat[9 * b + 5]!, xmat[9 * b + 8]!],
+          angular_velocity_rps: omega,
+          inertia_transverse: s.inertia_transverse, inertia_axial: s.inertia_axial,
+        }, now[s.params.segment], next[s.params.segment], dt);
+        xfrc.set([...command.force_n, ...command.torque_nm], 6 * b);
+        s.last = count ? { force: command.force_n, torque: command.torque_nm, velocity, omega } : undefined;
+        if (count) {
+          s.peaks.max_deviation_m = Math.max(s.peaks.max_deviation_m, command.deviation_m);
+          if (command.saturated) s.peaks.time_saturated_s += dt;
+        }
+      }
+    };
+    /** Fuerza de contacto de cada segmento de Tori sobre el actor en el paso que acaba de ejecutarse. */
+    const readToriContacts = (): Vec3 => {
+      let total: Vec3 = [0, 0, 0];
+      for (const s of toriSegments) s.contact = [0, 0, 0];
+      const efcForce = data.efc_force as Float64Array;
+      const contacts = data.contact;
+      try {
+        for (let c = 0; c < contacts.size(); c++) {
+          const contact = contacts.get(c);
+          if (!contact) throw new Error("Contacto MuJoCo inaccesible");
+          try {
+            const b1 = bodyOfGeom[contact.geom1]!;
+            const b2 = bodyOfGeom[contact.geom2]!;
+            const s1 = toriSegmentOfBody.get(b1);
+            const s2 = toriSegmentOfBody.get(b2);
+            const segment = s1 ?? s2;
+            if (!segment || (s1 && s2) || !actorBodyIds.has(s1 ? b2 : b1)) continue;
+            if (!hasCompleteSolvedContactRows(contact.efc_address, contact.dim, pyramidal, data.nefc, efcForce.length)) continue;
+            const solved = decodeSolvedContactForce({
+              solverRows: efcForce, efcAddress: contact.efc_address, dim: contact.dim, pyramidal,
+              friction: contact.friction as Float64Array, adhesionN: contact.adhesion,
+            });
+            if (!(solved.normalN > 0)) continue;
+            const frame = contact.frame as Float64Array;
+            const [t1, t2] = solved.tangentN;
+            // Fuerza sobre geom2; el actor es geom2 si el segmento de Tori es geom1.
+            const sign = s1 ? 1 : -1;
+            const onActor: Vec3 = [
+              sign * (solved.normalN * frame[0]! + t1 * frame[3]! + t2 * frame[6]!),
+              sign * (solved.normalN * frame[1]! + t1 * frame[4]! + t2 * frame[7]!),
+              sign * (solved.normalN * frame[2]! + t1 * frame[5]! + t2 * frame[8]!),
+            ];
+            segment.contact = add(segment.contact, onActor);
+            total = add(total, onActor);
+          } finally {
+            contact.delete();
+          }
+        }
+      } finally {
+        contacts.delete();
+      }
+      return total;
+    };
+    let toriContact: Vec3 = [0, 0, 0];
+
     // Humanoide: postura inicial cinemática y controlador (se llama antes de cada `mj_step`, también al asentar).
     let uke: UkeController | undefined;
     let ukeParams: UkeControllerParams | undefined;
@@ -207,10 +309,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     // 1. Asentamiento sin efectores.
     for (let i = 0; i < settleSteps; i++) {
       xfrc.fill(0);
-      if (uke) {
-        updateKinematics();
-        runUke(-SETTLE_S + i * dt);
-      }
+      if (uke || toriBody) updateKinematics();
+      if (uke) runUke(-SETTLE_S + i * dt);
+      applyToriBody(0, false);
       for (const o of obstacles) {
         // Sin estado: solo sostiene el obstáculo en su posición inicial (objetivo de t = 0).
         o.command = stepObstacle(o.params, createObstacleState(), {
@@ -507,6 +608,8 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         sampleEffectors.push(effectorSample);
       });
 
+      applyToriBody(t, i < totalSteps);
+
       // Obstáculos: orden del actuador para el paso [t, t + dt]. Se escribe ya (para el `mj_forward` de la muestra) y otra
       // vez tras el controlador de Uke, que pone `qfrc_applied` a cero.
       for (const o of obstacles) {
@@ -520,14 +623,14 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       applyObstacleCommands();
       if (toriBudget && i < totalSteps) {
         // El contacto de los obstáculos es el del paso anterior (un paso de retraso).
-        let onUke: Vec3 = [0, 0, 0];
+        let onUke: Vec3 = toriContact;
         for (const o of obstacles) onUke = add(onUke, o.contact);
         toriBudget.step({ t, dt, hands_force_n: handsForce, hands_power_w: handsPower, obstacle_force_on_uke_n: onUke });
       }
 
       if (i % stepsPerSample === 0) {
         mj.mj_forward(model, data); // contactos y fuerzas coherentes con el wrench ya aplicado
-        probe.sample(t, Object.values(peaks).reduce((sum, p) => sum + p.work_j, 0));
+        probe.sample(t, Object.values(peaks).reduce((sum, p) => sum + p.work_j, 0) + toriWorkJ);
         const sample: RecordingSample = {
           t,
           qpos: Array.from(data.qpos as Float64Array),
@@ -581,8 +684,19 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           { pyramidal, isOtherBody: (b) => actorBodyIds.has(b) },
         ).force_on_other_n;
       }
+      if (toriBody) {
+        toriContact = readToriContacts();
+        toriPeaks.max_contact_force_on_actor_n = Math.max(toriPeaks.max_contact_force_on_actor_n, Math.hypot(...toriContact));
+        toriPeaks.contact_impulse_on_actor_ns = add(toriPeaks.contact_impulse_on_actor_ns, [toriContact[0] * dt, toriContact[1] * dt, toriContact[2] * dt]);
+        for (const s of toriSegments) {
+          const n = Math.hypot(...s.contact);
+          if (n > 0) s.peaks.contact_time_s += dt;
+          s.peaks.max_contact_force_on_actor_n = Math.max(s.peaks.max_contact_force_on_actor_n, n);
+        }
+      }
       if (humanoid) scanTouches(t);
     }
+    for (const s of toriSegments) toriPeaks.segments[s.params.segment] = s.peaks;
 
     const verdict = humanoid
       ? classifyHumanoidTrajectory({ frames, touches, initial_pelvis_z: initialPelvisZ, heading_rad: heading })
@@ -656,7 +770,11 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       },
       model: { mjcf: built.mjcf, bodies: built.bodies, joints: built.joints },
       samples,
-      peaks: obstacles.length > 0 ? { obstacles: obstaclePeaks, effectors: peaks } : { effectors: peaks },
+      peaks: {
+        ...(obstacles.length > 0 ? { obstacles: obstaclePeaks } : {}),
+        ...(toriBody ? { tori_body: toriPeaks } : {}),
+        effectors: peaks,
+      },
       summary,
       diagnostics: probe.diagnostics(),
     };

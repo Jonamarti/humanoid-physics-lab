@@ -3,11 +3,13 @@
  * obstáculos y la curva de fuerzas de cada mano punto a punto, lo simula en el navegador con el mismo `runScenario` que
  * `npm run sim` y reproduce el resultado. El escenario editado viaja en el enlace (`#scn=...`). Ver `docs/SCENARIO_EDITOR.md`.
  */
+import { defaultToriKeys } from "../effectors/toriBody";
 import { loadPhysicsModule } from "../physics/mujoco";
 import type { Recording } from "../recording/schema";
 import { decodeScenarioHash, describeTrial, encodeScenarioHash, forceToPolar, polarToForce } from "../scenario/editing";
 import type { MujocoModule } from "../scenario/mujocoModule";
 import { runScenario } from "../scenario/run";
+import { ACTOR_BODIES, HUMANOID_SITE_BODY } from "../scenario/schema";
 import { ScenarioValidationError, validateScenario } from "../scenario/validate";
 
 export interface ScenarioEditorOptions {
@@ -18,6 +20,11 @@ export interface ScenarioEditorOptions {
   /** Base de Vite, para descargar `scenarios/<id>.json`. */
   baseUrl: string;
   engineVersion?: string;
+  /**
+   * Pide un clic en el visor 3D sobre un cuerpo de la grabación abierta; llama a `onPicked` con el nombre del cuerpo y el
+   * punto en sus ejes locales. Devuelve `false` si ahora no se puede (no hay grabación en pantalla).
+   */
+  pick?: (onPicked: (body: string, local: [number, number, number]) => void) => boolean;
 }
 
 type Json = Record<string, unknown>;
@@ -31,6 +38,24 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLEl
 
 /** Valores por defecto que se enseñan cuando el escenario no declara el campo (los de los módulos de efectores). */
 const DEFAULT_OBSTACLE_FRICTION = { cloth: 0.8, skin: 0.5 } as const;
+
+/** Nombres en castellano de los puntos de Uke donde se puede aplicar una fuerza directa. */
+const POINT_LABELS: Readonly<Record<string, string>> = {
+  sternum: "esternón", belt_front: "cinturón, delante", belt_back: "cinturón, detrás", abdomen_front: "abdomen, delante",
+  pelvis_origin: "pelvis", nape: "nuca", head_front: "cabeza, delante", head_side_left: "cabeza, lado izquierdo",
+  head_side_right: "cabeza, lado derecho", left_shoulder_impact: "hombro izquierdo", right_shoulder_impact: "hombro derecho",
+  left_sleeve_elbow: "manga izquierda (codo)", right_sleeve_elbow: "manga derecha (codo)", left_wrist: "muñeca izquierda",
+  right_wrist: "muñeca derecha", left_knee_back: "corva izquierda", right_knee_back: "corva derecha",
+  left_ankle: "tobillo izquierdo", right_ankle: "tobillo derecho",
+};
+
+/** Un `id` libre con el prefijo dado (`fuerza_1`, `fuerza_2`, ...). */
+function freeId(taken: readonly unknown[], prefix: string): string {
+  for (let n = 1; ; n++) {
+    const id = `${prefix}_${n}`;
+    if (!taken.includes(id)) return id;
+  }
+}
 
 export class ScenarioEditor {
   private readonly root = el("details", { className: "scenario-editor", hidden: true });
@@ -238,6 +263,174 @@ export class ScenarioEditor {
     parent.append(table, add);
   }
 
+  /** Botón que quita `item` de `list` y vuelve a pintar el formulario. */
+  private removeButton(list: unknown[], item: unknown, text: string): HTMLButtonElement {
+    const button = el("button", { type: "button" }, text);
+    button.addEventListener("click", () => {
+      const at = list.indexOf(item);
+      if (at >= 0) list.splice(at, 1);
+      this.render();
+      this.sync();
+    });
+    return button;
+  }
+
+  private select(label: string, options: ReadonlyArray<readonly [string, string]>, value: string, set: (v: string) => void): HTMLLabelElement {
+    const select = el("select");
+    for (const [v, text] of options) select.append(el("option", { value: v, selected: v === value }, text));
+    select.addEventListener("change", () => { set(select.value); this.sync(); });
+    const wrap = el("label", {}, label);
+    wrap.append(select);
+    return wrap;
+  }
+
+  /** Uke del borrador (el primer humanoide), para dar tamaño por defecto a Tori. */
+  private ukeHeight(): number {
+    const uke = ((this.draft?.actors ?? []) as Json[]).find((a) => a.kind === "humanoid");
+    return typeof uke?.height_m === "number" ? uke.height_m : 1.75;
+  }
+
+  /** Cuerpo de Tori de partida: la secuencia de `defaultToriKeys` y las manos en los dos primeros tirones o manos. */
+  private defaultToriBody(): Json {
+    const grips = ((this.draft?.effectors ?? []) as Json[]).filter((e) => e.kind === "pull" || e.kind === "hand").map((e) => String(e.id));
+    const hands: Json = {};
+    if (grips[0]) hands.left = grips[0];
+    if (grips[1]) hands.right = grips[1];
+    return { height_m: this.ukeHeight(), hands, keys: defaultToriKeys(this.ukeHeight()) };
+  }
+
+  private renderTori(d: Json, ground: Json): void {
+    if (!d.tori) {
+      const g = this.group("Tori", "Sin Tori: sobre Uke solo actúan las fuerzas directas y los obstáculos de abajo.");
+      const enable = el("button", { type: "button" }, "Activar a Tori");
+      enable.addEventListener("click", () => { d.tori = { mass_kg: 75, body: this.defaultToriBody() }; this.render(); this.sync(); });
+      g.append(enable);
+      return;
+    }
+    const tori = d.tori as Json;
+    const g = this.group("Tori", "Con cuerpo, Tori ejecuta la secuencia de posturas y sus segmentos chocan con Uke con fuerza limitada. El presupuesto juzga si podría sostener esas fuerzas con sus pies.");
+    g.append(
+      this.number("Masa (kg)", tori.mass_kg as number, (v) => { tori.mass_kg = v; }),
+      this.number("Rozamiento de sus pies", tori.friction as number | undefined, (v) => { tori.friction = v; }, "0.05", `${String(ground.friction)} (el del suelo)`),
+    );
+    const body = tori.body as Json | undefined;
+    const check = el("input", { type: "checkbox", checked: Boolean(body) && body?.enabled !== false });
+    check.addEventListener("change", () => {
+      if (!tori.body) tori.body = this.defaultToriBody();
+      const b = tori.body as Json;
+      if (check.checked) delete b.enabled; else b.enabled = false;
+      this.render();
+      this.sync();
+    });
+    const checkLabel = el("label", { className: "scenario-check" });
+    checkLabel.append(check, " Cuerpo de Tori (se ve y hace de obstáculo)");
+    g.append(checkLabel);
+    const remove = el("button", { type: "button" }, "Quitar a Tori");
+    remove.addEventListener("click", () => { delete d.tori; this.render(); this.sync(); });
+    if (!body || body.enabled === false) { g.append(remove); return; }
+
+    g.append(
+      this.number("Altura (m)", body.height_m as number, (v) => { body.height_m = v; }, "0.01"),
+      this.number("Rozamiento de su cuerpo con Uke", body.friction as number | undefined, (v) => { body.friction = v; }, "0.05", "0.8"),
+    );
+    const hands = (body.hands ?? (body.hands = {})) as Json;
+    const grips: Array<readonly [string, string]> = [["", "suelta (no agarra)"],
+      ...((d.effectors ?? []) as Json[]).map((e) => [String(e.id), `${String(e.id)} (${String(e.site ?? e.body ?? "")})`] as const)];
+    // Una mano que seguía a un efector ya quitado queda suelta (el validador no admite ids inexistentes).
+    for (const side of ["left", "right"]) if (!grips.some(([id]) => id === hands[side])) delete hands[side];
+    for (const [side, text] of [["left", "Mano izquierda sigue a"], ["right", "Mano derecha sigue a"]] as const) {
+      g.append(this.select(text, grips, String(hands[side] ?? ""), (v) => { if (v === "") delete hands[side]; else hands[side] = v; }));
+    }
+    type Key = { t_s: number; pelvis_m: Vec; yaw_deg: number; lean_deg?: number; twist_deg?: number; left_foot_m: Vec; right_foot_m: Vec };
+    const keys = body.keys as Key[];
+    const make = (last: Key | undefined): Key => last
+      ? { ...last, t_s: Number((last.t_s + 0.2).toFixed(3)), pelvis_m: [...last.pelvis_m] as Vec, left_foot_m: [...last.left_foot_m] as Vec, right_foot_m: [...last.right_foot_m] as Vec }
+      : (defaultToriKeys(this.ukeHeight())[0] as unknown as Key);
+    g.append(el("p", { className: "muted" }, "Posturas (mundo: Uke empieza en X = 0 mirando a +X; Y es su izquierda). Entre filas se interpola. Giro: 180° = de frente a Uke, 360° = de espaldas tras girar a su izquierda."));
+    this.table(g, ["Instante (s)", "Pelvis X (m)", "Pelvis Z (m)", "Giro (°)", "Tronco adelante (°)", "Hombros (°)"], keys,
+      (k) => [k.t_s, k.pelvis_m[0], k.pelvis_m[2], k.yaw_deg, k.lean_deg ?? 0, k.twist_deg ?? 0],
+      (k, v) => { k.t_s = v[0]!; k.pelvis_m = [v[1]!, k.pelvis_m[1], v[2]!]; k.yaw_deg = v[3]!; k.lean_deg = v[4]!; k.twist_deg = v[5]!; },
+      make);
+    g.append(el("p", { className: "muted" }, "Pies de cada postura (mismo orden de filas): dónde apoya cada uno."));
+    this.table(g, ["Instante (s)", "Izq. X (m)", "Izq. Y (m)", "Der. X (m)", "Der. Y (m)"], keys,
+      (k) => [k.t_s, k.left_foot_m[0], k.left_foot_m[1], k.right_foot_m[0], k.right_foot_m[1]],
+      (k, v) => { k.t_s = v[0]!; k.left_foot_m = [v[1]!, v[2]!, k.left_foot_m[2]]; k.right_foot_m = [v[3]!, v[4]!, k.right_foot_m[2]]; },
+      make);
+    g.append(remove);
+  }
+
+  /** Fuerzas directas sobre Uke: lista de `prescribed_force` y botones para añadir un impacto o una fuerza constante. */
+  private renderDirectForces(d: Json): void {
+    const effectors = (d.effectors ?? (d.effectors = [])) as Json[];
+    const uke = ((d.actors ?? []) as Json[]).find((a) => a.kind === "humanoid");
+    const g = this.group("Fuerzas directas sobre Uke", "Impactos, choques o empujes aplicados en un punto de Uke, sin Tori. Ejes: X delante de Uke, Y su izquierda, Z arriba.");
+    if (!uke) { g.append(el("p", { className: "muted" }, "Este escenario no tiene un Uke humanoide.")); return; }
+    const add = (waveform: string, duration: number, force: Vec): void => {
+      effectors.push({
+        id: freeId(effectors.map((e) => e.id), "fuerza"), kind: "prescribed_force", actor: uke.id, site: "sternum",
+        frame: "actor_initial", force_n: force, start_s: 0.3, duration_s: duration, waveform,
+      });
+      this.render();
+      this.sync();
+    };
+    const impact = el("button", { type: "button" }, "+ Impacto (0,1 s)");
+    impact.addEventListener("click", () => add("half_sine", 0.1, [-900, 0, 0]));
+    const constant = el("button", { type: "button" }, "+ Fuerza constante");
+    constant.addEventListener("click", () => add("constant", 1, [-200, 0, 0]));
+    const row = el("div", { className: "button-row" });
+    row.append(impact, constant);
+    g.append(row);
+  }
+
+  private renderForce(e: Json, effectors: Json[]): void {
+    const where = String(e.site ?? e.body ?? "");
+    const g = this.group(`Fuerza «${String(e.id)}» en ${POINT_LABELS[where] ?? where}`);
+    const force = e.force_n as Vec;
+    const points: Array<readonly [string, string]> = [
+      ...Object.keys(HUMANOID_SITE_BODY).filter((site) => POINT_LABELS[site]).map((site) => [`site:${site}`, POINT_LABELS[site]!] as const),
+      ...ACTOR_BODIES.humanoid.map((b) => [`body:${b}`, `centro de ${b}`] as const),
+    ];
+    const local = e.local_point_m as Vec | undefined;
+    const custom = e.site === undefined && local !== undefined && local.some((x) => x !== 0);
+    if (custom) points.unshift([`body:${String(e.body)}`, `punto elegido en ${String(e.body)}`]);
+    g.append(this.select("Punto de aplicación", points, e.site !== undefined ? `site:${String(e.site)}` : `body:${String(e.body)}`, (v) => {
+      const [kind, name] = v.split(":") as [string, string];
+      delete e.site; delete e.body; delete e.local_point_m;
+      if (kind === "site") e.site = name; else { e.body = name; e.local_point_m = [0, 0, 0]; }
+      this.render();
+    }));
+    if (this.options.pick) {
+      const pick = el("button", { type: "button" }, "Elegir el punto en el visor 3D");
+      pick.addEventListener("click", () => {
+        const armed = this.options.pick!((body, point) => {
+          if (!(ACTOR_BODIES.humanoid as readonly string[]).includes(body)) {
+            this.say("Ese cuerpo no es de Uke: pulsa otra vez el botón y toca a Uke.", true);
+            return;
+          }
+          delete e.site;
+          e.body = body;
+          e.local_point_m = point.map((x) => Number(x.toFixed(3)));
+          this.render();
+          this.sync();
+          this.say(`Punto fijado en ${body}. Pulsa «Simular con estos valores».`);
+        });
+        this.say(armed ? "Toca a Uke en el visor 3D, en el punto donde quieres aplicar la fuerza." : "Abre antes una grabación para ver a Uke en el visor.", !armed);
+      });
+      g.append(pick);
+    }
+    g.append(
+      this.select("Tipo", [["half_sine", "impacto (sube y baja)"], ["constant", "constante"]], String(e.waveform), (v) => { e.waveform = v; }),
+      this.select("Ejes de la fuerza", [["actor_initial", "los de Uke al empezar"], ["world", "los del mundo"], ["actor_current", "los del cuerpo en cada instante"]],
+        String(e.frame), (v) => { e.frame = v; }),
+      this.number("Delante X (N)", force[0], (v) => { force[0] = v; }, "10"),
+      this.number("Izquierda Y (N)", force[1], (v) => { force[1] = v; }, "10"),
+      this.number("Arriba Z (N)", force[2], (v) => { force[2] = v; }, "10"),
+      this.number("Empieza a (s)", e.start_s as number, (v) => { e.start_s = v; }, "0.05"),
+      this.number("Duración (s)", e.duration_s as number, (v) => { e.duration_s = v; }, "0.05"),
+      this.removeButton(effectors, e, "Quitar esta fuerza"),
+    );
+  }
+
   private phases(parent: HTMLElement, owner: Json, frameText: string): void {
     if (!Array.isArray(owner.phases)) owner.phases = [];
     const rows = owner.phases as Array<{ start_s: number; duration_s: number; offset_m: Vec }>;
@@ -276,14 +469,10 @@ export class ScenarioEditor {
       g.append(wrap);
     }
 
-    if (d.tori) {
-      const tori = d.tori as Json;
-      const g = this.group("Tori (presupuesto)", "Tori no tiene cuerpo: es una masa con dos pies que sirve para juzgar si podría hacer estas fuerzas.");
-      g.append(
-        this.number("Masa (kg)", tori.mass_kg as number, (v) => { tori.mass_kg = v; }),
-        this.number("Rozamiento de sus pies", tori.friction as number | undefined, (v) => { tori.friction = v; }, "0.05", `${String(ground.friction)} (el del suelo)`),
-      );
-    }
+    this.renderTori(d, ground);
+    this.renderDirectForces(d);
+    const effectors = (d.effectors ?? []) as Json[];
+    for (const e of effectors) if (e.kind === "prescribed_force") this.renderForce(e, effectors);
 
     for (const o of (d.obstacles ?? []) as Json[]) {
       const g = this.group(`Obstáculo «${String(o.id)}» (${String(o.shape)})`, "La cadera, la pierna o el pie de Tori. Coordenadas en el mundo: Uke empieza en X = 0 mirando hacia +X.");
@@ -293,15 +482,33 @@ export class ScenarioEditor {
       g.append(
         this.number("Rozamiento con Uke", o.friction as number | undefined, (v) => { o.friction = v; }, "0.05", String(DEFAULT_OBSTACLE_FRICTION[surface])),
         this.number("Distancia delante de Uke, X (m)", start[0], (v) => { start[0] = v; }, "0.01"),
+        this.number("A su izquierda, Y (m)", start[1], (v) => { start[1] = v; }, "0.01"),
         this.number("Altura del centro, Z (m)", start[2], (v) => { start[2] = v; }, "0.01"),
         this.number("Radio (m)", o.radius_m as number | undefined, (v) => { o.radius_m = v; }, "0.01", "0.11 (barra)"),
         this.number("Tope de fuerza horizontal (N)", o.max_force_n as number | undefined, (v) => { o.max_force_n = v; }, "10", (0.8 * tori * 9.81).toFixed(0)),
         this.number("Tope de fuerza vertical (N)", o.max_vertical_force_n as number | undefined, (v) => { o.max_vertical_force_n = v; }, "10", (2 * tori * 9.81).toFixed(0)),
       );
       this.phases(g, o, "en el mundo, respecto a la posición inicial");
+      g.append(this.removeButton(d.obstacles as unknown[], o, "Quitar este obstáculo"));
+    }
+    {
+      const g = this.group("Añadir obstáculo", "Un cuerpo con fuerza limitada contra el que Uke choca: barra a lo ancho, poste vertical o almohadilla.");
+      const row = el("div", { className: "button-row" });
+      for (const [shape, text] of [["bar", "+ Barra"], ["post", "+ Poste"], ["pad", "+ Almohadilla"]] as const) {
+        const button = el("button", { type: "button" }, text);
+        button.addEventListener("click", () => {
+          const list = (d.obstacles ?? (d.obstacles = [])) as Json[];
+          const toriMass = typeof (d.tori as Json | undefined)?.mass_kg === "number" ? (d.tori as Json).mass_kg : 75;
+          list.push({ id: freeId(list.map((o) => o.id), "obstaculo"), shape, tori_mass_kg: toriMass, start_m: [0.3, 0, 0.9], phases: [] });
+          this.render();
+          this.sync();
+        });
+        row.append(button);
+      }
+      g.append(row);
     }
 
-    for (const e of (d.effectors ?? []) as Json[]) {
+    for (const e of effectors) {
       const where = String(e.site ?? e.body ?? "");
       if (e.kind === "pull") {
         const g = this.group(`Tirón «${String(e.id)}» en ${where}`,
@@ -313,6 +520,7 @@ export class ScenarioEditor {
           (k) => { const p = forceToPolar(k.force_n); return [k.t_s, p.magnitude_n, p.elevation_deg, p.lateral_n]; },
           (k, v) => { k.t_s = v[0]!; k.force_n = [...polarToForce({ magnitude_n: v[1]!, elevation_deg: v[2]!, lateral_n: v[3]! })] as Vec; },
           (last) => last ? { t_s: Number((last.t_s + 0.1).toFixed(3)), force_n: [...last.force_n] as Vec } : { t_s: 0.2, force_n: [0, 0, 0] as Vec });
+        g.append(this.removeButton(effectors, e, "Quitar este tirón"));
       } else if (e.kind === "hand") {
         const g = this.group(`Mano «${String(e.id)}» en ${where} (${String(e.link)})`, "Mano con muelle: se guía la posición del objetivo; la fuerza sale de la distancia al agarre.");
         g.append(
@@ -321,16 +529,7 @@ export class ScenarioEditor {
           this.number("Suelta a (s)", e.release_s as number | undefined, (v) => { e.release_s = v; }, "0.05", "no suelta"),
         );
         this.phases(g, e, "en el marco inicial de Uke, respecto al agarre al cerrarse");
-      } else if (e.kind === "prescribed_force") {
-        const g = this.group(`Fuerza «${String(e.id)}» en ${where}`, `Fuerza fija en el marco ${String(e.frame)}, con forma ${String(e.waveform)}.`);
-        const force = e.force_n as Vec;
-        g.append(
-          this.number("Delante X (N)", force[0], (v) => { force[0] = v; }, "10"),
-          this.number("Izquierda Y (N)", force[1], (v) => { force[1] = v; }, "10"),
-          this.number("Arriba Z (N)", force[2], (v) => { force[2] = v; }, "10"),
-          this.number("Empieza a (s)", e.start_s as number, (v) => { e.start_s = v; }, "0.05"),
-          this.number("Duración (s)", e.duration_s as number, (v) => { e.duration_s = v; }, "0.05"),
-        );
+        g.append(this.removeButton(effectors, e, "Quitar esta mano"));
       }
     }
   }

@@ -76,6 +76,24 @@ export class ReplayKinematics {
     return poses;
   }
 
+  /** Cuerpo (índice) de una geometría y el punto del mundo `p` en los ejes locales de ese cuerpo, con la pose actual. */
+  locatePoint(geomId: number, p: readonly [number, number, number]): { bodyId: number; local: [number, number, number] } {
+    const bodyId = (this.model.geom_bodyid as Int32Array)[geomId]!;
+    const x = this.data.xpos as Float64Array;
+    const m = this.data.xmat as Float64Array;
+    const d = [p[0] - x[3 * bodyId]!, p[1] - x[3 * bodyId + 1]!, p[2] - x[3 * bodyId + 2]!];
+    const r = 9 * bodyId;
+    // `xmat` va por filas: la traspuesta lleva del mundo al cuerpo.
+    return {
+      bodyId,
+      local: [
+        m[r]! * d[0]! + m[r + 3]! * d[1]! + m[r + 6]! * d[2]!,
+        m[r + 1]! * d[0]! + m[r + 4]! * d[1]! + m[r + 7]! * d[2]!,
+        m[r + 2]! * d[0]! + m[r + 5]! * d[1]! + m[r + 8]! * d[2]!,
+      ],
+    };
+  }
+
   dispose(): void {
     if (this.deleted) return;
     this.deleted = true;

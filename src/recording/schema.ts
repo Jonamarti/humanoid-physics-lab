@@ -139,9 +139,31 @@ export interface ObstaclePeaks {
   work_j: number;
 }
 
+/** Resumen de un segmento del cuerpo de Tori (`src/effectors/toriBody.ts`). */
+export interface ToriSegmentPeaks {
+  /** Máximo del módulo de su fuerza de contacto sobre el actor, en N. */
+  max_contact_force_on_actor_n: number;
+  /** Tiempo en contacto con el actor, en s. */
+  contact_time_s: number;
+  /** Máxima separación de su objetivo (cuánto cede), en m. */
+  max_deviation_m: number;
+  /** Tiempo con algún tope recortando la orden, en s. */
+  time_saturated_s: number;
+}
+
+export interface ToriBodyPeaks {
+  /** Máximo del módulo de la fuerza de contacto total del cuerpo de Tori sobre el actor, en N. */
+  max_contact_force_on_actor_n: number;
+  contact_impulse_on_actor_ns: Vec3;
+  /** Por segmento (`pelvis`, `trunk`, ...). */
+  segments: Record<string, ToriSegmentPeaks>;
+}
+
 export interface RecordingPeaks {
   /** Solo si el escenario tiene obstáculos. */
   obstacles?: Record<string, ObstaclePeaks>;
+  /** Solo si el escenario tiene cuerpo de Tori activo. */
+  tori_body?: ToriBodyPeaks;
   effectors: Record<string, EffectorPeaks>;
 }
 

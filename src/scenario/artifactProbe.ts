@@ -32,6 +32,12 @@ export interface ProbeContext {
   dt: number;
   /** Amplitud mínima del temblor; por defecto la del detector (parámetro solo para medir sensibilidad). */
   tremorAmplitudeRad?: number;
+  /**
+   * Cuerpos que no forman parte del sistema del balance de energía (los arietes de `src/effectors/ram.ts`): su energía
+   * (cinética + potencial) se resta de la de MuJoCo y lo que hacen sobre el actor entra como trabajo de efector
+   * (`peaks.effectors.<id>.work_j`). Han de ser cuerpos libres de una sola esfera (inercia isótropa).
+   */
+  excludedBodies?: readonly string[];
 }
 
 interface JointTrack {
@@ -79,6 +85,7 @@ export class ArtifactProbe {
   private readonly pyramidal: boolean;
   private readonly amplitude: number;
   private readonly massKg: number;
+  private readonly excludedIds: number[];
   private readonly joints: JointTrack[] = [];
   private readonly feet: FootTrack[] = [];
   private readonly groundPen = peak();
@@ -125,6 +132,11 @@ export class ArtifactProbe {
         });
       }
     }
+    this.excludedIds = (ctx.excludedBodies ?? []).map((name) => {
+      const id = ctx.bodies.indexOf(name);
+      if (id < 0) throw new Error(`excludedBodies: no existe el cuerpo "${name}"`);
+      return id;
+    });
     this.qvelBefore = new Float64Array(model.nv);
     this.qfrcBefore = new Float64Array(model.nv);
   }
@@ -276,7 +288,7 @@ export class ArtifactProbe {
     this.mj.mj_energyPos(this.model, this.data);
     this.mj.mj_energyVel(this.model, this.data);
     const e = this.data.energy as Float64Array;
-    const total = e[0]! + e[1]!;
+    const total = e[0]! + e[1]! - this.excludedEnergy();
     if (this.energy0 === undefined) {
       this.energy0 = total;
       const xipos = this.data.xipos as Float64Array;
@@ -288,6 +300,22 @@ export class ArtifactProbe {
     const excess = (total - this.energy0) - (this.torqueWorkJ + effectorWorkJ);
     this.energySamples++;
     if (this.energySamples === 1 || excess > this.energyExcess.max_excess_j) this.energyExcess = { max_excess_j: excess, t_s: t };
+  }
+
+  /** Energía cinética (traslación y rotación de esfera) más potencial (`m g z`, como `mj_energyPos`) de los cuerpos excluidos. */
+  private excludedEnergy(): number {
+    if (this.excludedIds.length === 0) return 0;
+    const cvel = this.data.cvel as Float64Array;
+    const mass = this.model.body_mass as Float64Array;
+    const inertia = this.model.body_inertia as Float64Array;
+    const xipos = this.data.xipos as Float64Array;
+    let total = 0;
+    for (const b of this.excludedIds) {
+      const w2 = cvel[6 * b]! ** 2 + cvel[6 * b + 1]! ** 2 + cvel[6 * b + 2]! ** 2;
+      const v2 = cvel[6 * b + 3]! ** 2 + cvel[6 * b + 4]! ** 2 + cvel[6 * b + 5]! ** 2;
+      total += 0.5 * mass[b]! * v2 + 0.5 * inertia[3 * b]! * w2 + mass[b]! * GRAVITY * xipos[3 * b + 2]!;
+    }
+    return total;
   }
 
   diagnostics(): RecordingDiagnostics {

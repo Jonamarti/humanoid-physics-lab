@@ -141,6 +141,32 @@ export interface RecordingDiagnostics {
   root_generalized_force?: number;
 }
 
+/** Medidas de un ariete (`summary.rams.<id>`, solo con efectores `ram`; ver `docs/GOLPES.md`). */
+export interface RamSummary {
+  /** Masa efectiva declarada, en kg. */
+  mass_kg: number;
+  /** Velocidad inicial declarada, en m/s. */
+  speed_mps: number;
+  /** Inicio del primer paso físico con contacto con otro cuerpo (Uke), en s; `null` si nunca lo tocó. */
+  t_first_contact_s: number | null;
+  /** Del primer contacto al final del último paso con contacto, en s (incluye separaciones intermedias); `null` sin contacto. */
+  contact_duration_s: number | null;
+  /** Pasos físicos (500 Hz) con contacto. */
+  contact_steps: number;
+  /** Mayor módulo de la fuerza neta del ariete sobre Uke en un paso, en N. */
+  peak_force_n: number;
+  /** Impulso `∫ F dt` del ariete sobre Uke, en N·s (el de `peaks.effectors.<id>.impulse_ns`). */
+  transmitted_impulse_ns: Vec3;
+  /** Velocidad del ariete al inicio del primer paso con contacto (la de llegada), en m/s. */
+  v_before_mps: Vec3 | null;
+  /** Velocidad del ariete al final del último paso con contacto, en m/s. */
+  v_after_mps: Vec3 | null;
+  /** Mayor penetración del contacto del ariete (`-dist`), en m. */
+  max_penetration_m: number;
+  /** Instante en que se retiró (se desactivó su colisión), en s; `null` si no llegó a retirarse. */
+  retired_t_s: number | null;
+}
+
 export type ExpectResult = "pass" | "fail" | "none";
 
 /** Medidas del humanoide (solo con actor `humanoid`). */
@@ -191,6 +217,8 @@ export interface RecordingSummary {
   expect_diffs: string[];
   /** Solo con actor humanoide. */
   uke?: UkeSummary;
+  /** Medidas de cada efector `ram` por `id`; ausente sin arietes. */
+  rams?: Record<string, RamSummary>;
   /** Artefactos detectados (`detectArtifacts`); lista vacía = limpio. Ausente en grabaciones anteriores a la PR 5 de #75. */
   artifacts?: ArtifactFinding[];
   /** Detectores que no pudieron evaluarse y por qué. Ausente en grabaciones anteriores. */

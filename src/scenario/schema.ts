@@ -21,7 +21,7 @@ export type Vec3 = readonly [number, number, number];
 
 export type ActorKind = "rigid_cylinder" | "humanoid";
 export type PropKind = "fixed_box";
-export type EffectorKind = "prescribed_force";
+export type EffectorKind = "prescribed_force" | "impulse" | "ram";
 
 /**
  * Cuerpos referenciables de cada tipo de actor. El resto de fases ampliarán la tabla
@@ -158,7 +158,83 @@ export interface PrescribedForceEffector {
   waveform: EffectorWaveform;
 }
 
-export type EffectorSpec = PrescribedForceEffector;
+/** Duración mínima de un impulso, en s: 5 pasos físicos. Con menos, la suma por pasos de la forma de onda se aleja de `impulse_ns` (1 paso: +57 %). */
+export const IMPULSE_MIN_DURATION_S = 0.01;
+
+/** Marcos admitidos para la dirección del ariete (el instante de lanzamiento es anterior a `actor_current`). */
+export const RAM_FRAMES = ["world", "actor_initial"] as const;
+export type RamFrame = (typeof RAM_FRAMES)[number];
+
+/**
+ * Límites de cordura del ariete (el validador los aplica): a 20 m/s avanza 4 cm por paso físico de 2 ms, menos que su radio, así que no atraviesa
+ * la superficie de Uke entre dos pasos; la masa efectiva de un golpe humano está muy por debajo de 100 kg.
+ */
+export const RAM_MAX_SPEED_MPS = 20;
+export const RAM_MAX_MASS_KG = 100;
+
+/** Radio del ariete (esfera), en m. */
+export const RAM_RADIUS_M = 0.05;
+/** El ariete se retira (se desactiva su colisión) este tiempo después del primer contacto, en s. */
+export const RAM_RETIRE_AFTER_CONTACT_S = 0.3;
+
+/**
+ * Impulso: fuerza de medio seno en un sitio con nombre, dada por su impulso y su duración en lugar de por su fuerza pico.
+ * No es una segunda implementación: el ejecutor lo convierte en un `prescribed_force` `half_sine` con
+ * `|F| = pi * impulse_ns / (2 * duration_s)` (`src/effectors/impulse.ts`).
+ */
+export interface ImpulseEffector {
+  id: string;
+  kind: "impulse";
+  /** `id` de un actor humanoide existente. */
+  actor: string;
+  /** Cuerpo que contiene `site` (lo rellena el validador). */
+  body: string;
+  /** Sitio con nombre del humanoide (ver `HUMANOID_SITE_BODY`). */
+  site: string;
+  /** Desplazamiento opcional respecto al sitio, en los ejes del cuerpo (por defecto `[0, 0, 0]`). */
+  local_point_m: Vec3;
+  frame: EffectorFrame;
+  /** Dirección de la fuerza (no nula; se normaliza al aplicarla), expresada en `frame`. */
+  direction: Vec3;
+  /** Impulso total `∫ F dt` en N·s (> 0). */
+  impulse_ns: number;
+  /** Instante de inicio en s (>= 0). */
+  start_s: number;
+  /** Duración en s (de `IMPULSE_MIN_DURATION_S` a 30). */
+  duration_s: number;
+  /** Tope de fuerza declarado, en N (opcional): el pico `pi·J/(2T)` no puede superarlo. */
+  max_force_n?: number;
+}
+
+/**
+ * Ariete: cuerpo libre (esfera de `RAM_RADIUS_M`, masa efectiva `mass_kg`, sin gravedad ni colisión con el suelo ni con otros
+ * arietes) lanzado con velocidad `speed_mps` hacia un sitio de Uke de modo que su superficie alcanza el sitio en `start_s`.
+ * Solo actúa por contacto; la duración del contacto sale de la simulación. Se retira `RAM_RETIRE_AFTER_CONTACT_S` después del
+ * primer contacto. Diseño completo: `docs/GOLPES.md`.
+ */
+export interface RamEffector {
+  id: string;
+  kind: "ram";
+  /** `id` de un actor humanoide existente. */
+  actor: string;
+  /** Cuerpo que contiene `site` (lo rellena el validador). */
+  body: string;
+  /** Sitio con nombre al que se dirige. */
+  site: string;
+  /** Dirección del movimiento del ariete (no nula; se normaliza), expresada en `frame`. */
+  direction: Vec3;
+  frame: RamFrame;
+  /** Masa efectiva en kg (> 0). */
+  mass_kg: number;
+  /** Velocidad inicial (y de llegada: no hay fuerzas sobre el ariete antes del contacto) en m/s (> 0). */
+  speed_mps: number;
+  /** Instante en que la superficie del ariete alcanza el sitio, en s (>= 0, tras el asentamiento). */
+  start_s: number;
+  /** Tope de fuerza declarado, en N (opcional): lo comprueba el detector de artefactos con la fuerza de contacto máxima. */
+  max_force_n?: number;
+}
+
+export type EffectorSpec = PrescribedForceEffector | ImpulseEffector | RamEffector;
 
 export interface ExpectSpec {
   outcome: Outcome;

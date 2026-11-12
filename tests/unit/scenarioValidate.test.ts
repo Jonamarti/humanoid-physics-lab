@@ -162,7 +162,7 @@ describe("validateScenario: actitud relaxed y efectores por sitio (#75 PR 3)", (
     const s = validateScenario(humanoid());
     expect(s.effectors[0]).toMatchObject({ site: "sternum", body: "chest", local_point_m: [0, 0, 0] });
     const off = validateScenario(humanoid((c) => { c.effectors[0].local_point_m = [0, 0.01, 0]; }));
-    expect(off.effectors[0]!.local_point_m).toEqual([0, 0.01, 0]);
+    expect((off.effectors[0] as { local_point_m: unknown }).local_point_m).toEqual([0, 0.01, 0]);
   });
 
   it("rechaza site desconocido, site junto a body y site en un actor que no es humanoide", () => {

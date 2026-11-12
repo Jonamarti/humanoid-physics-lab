@@ -3,9 +3,10 @@
  * (cono elíptico, ver `docs/CONTACT_CALIBRATION.md`) y los parámetros de contacto de `humanoid_step_v2.xml`.
  * No depende de `src/physics/`.
  */
+import { injectRams, ramBodyName, ramGeomName, ramJointName } from "../effectors/ram";
 import { generateHumanoidMJCF } from "../uke/generate";
 import { attitudeJointDamping } from "../uke/damping";
-import { ACTOR_BODIES, type HumanoidActor, type Scenario } from "./schema";
+import { ACTOR_BODIES, type HumanoidActor, type RamEffector, type Scenario } from "./schema";
 import { worldOptionTag } from "./worldOptions";
 
 /** Contacto de las geometrías (los de `humanoid_step_v2.xml`). */
@@ -50,6 +51,7 @@ export function buildScenarioModel(scenario: Scenario): ScenarioModel {
   const actorBody = ACTOR_BODIES[actor.kind][0]!;
   const friction = `${num(scenario.ground.friction)} ${TORSIONAL} ${ROLLING}`;
   if (actor.kind === "humanoid") return buildHumanoidModel(scenario, actor, friction);
+  if (scenario.effectors.some((e) => e.kind === "ram")) throw new Error("El ariete solo se admite con un actor humanoide");
 
   const bodies = ["world"];
   const joints: string[] = [];
@@ -102,7 +104,11 @@ function namesInOrder(mjcf: string, tags: readonly string[]): string[] {
 
 /** Actor humanoide: el modelo lo genera `src/uke/generate.ts`; los props se insertan tras el suelo. */
 function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: string): ScenarioModel {
-  const reserved = new Set<string>(["world", "floor", ...ACTOR_BODIES.humanoid]);
+  const rams = scenario.effectors.filter((e): e is RamEffector => e.kind === "ram");
+  const reserved = new Set<string>([
+    "world", "floor", ...ACTOR_BODIES.humanoid,
+    ...rams.flatMap((r) => [ramBodyName(r.id), ramGeomName(r.id), ramJointName(r.id)]),
+  ]);
   const propBlocks = scenario.props.map((prop) => {
     if (reserved.has(prop.id) || reserved.has(`${prop.id}_geom`)) {
       throw new Error(`props[].id "${prop.id}" colisiona con un nombre reservado del modelo`);
@@ -115,7 +121,7 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
             rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
     </body>`;
   });
-  const mjcf = generateHumanoidMJCF({
+  const humanoidMjcf = generateHumanoidMJCF({
     mass_kg: actor.mass_kg,
     height_m: actor.height_m,
     ...(actor.build !== undefined ? { build: actor.build } : {}),
@@ -127,6 +133,8 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
     modelName: scenario.id,
     jointDampingByName: attitudeJointDamping(actor.attitude, actor.mass_kg, actor.height_m, actor.strength),
   });
+  // Arietes: cuerpos libres añadidos tras Uke, para que la raíz de Uke siga siendo la primera articulación (`src/effectors/ram.ts`).
+  const mjcf = injectRams(humanoidMjcf, rams);
   return {
     mjcf,
     bodies: ["world", ...namesInOrder(mjcf, ["body"])],

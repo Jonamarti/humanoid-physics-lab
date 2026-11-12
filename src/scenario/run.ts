@@ -9,6 +9,8 @@
  */
 import { createHash } from "node:crypto";
 import type { StandingModel, StandingState } from "../control/standingBaseline";
+import { impulseToPrescribedForce } from "../effectors/impulse";
+import { RamSet, ramBodyName } from "../effectors/ram";
 import { detectArtifacts } from "../metrics/artifacts";
 import { capturePoint, signedMargin, supportPolygon } from "../metrics/balance";
 import {
@@ -25,7 +27,7 @@ import { buildScenarioModel } from "./buildModel";
 import { readEngineVersion } from "./engineVersion";
 import { compareExpect } from "./expect";
 import { getMujoco } from "./mujocoModule";
-import { ACTOR_BODIES, type EffectorSpec, type Outcome, type Scenario, type Vec3 } from "./schema";
+import { ACTOR_BODIES, type EffectorSpec, type Outcome, type PrescribedForceEffector, type RamEffector, type Scenario, type Vec3 } from "./schema";
 import { PHYSICS_HZ, PHYSICS_TIMESTEP_S } from "./worldOptions";
 
 /** Asentamiento previo sin efectores, en s. El tiempo del escenario empieza después. */
@@ -45,7 +47,7 @@ export interface RunOptions {
 }
 
 /** Ganancia (0 a 1) de la forma de onda en el instante `t` (s del escenario) de un efector. */
-export function waveformGain(effector: Pick<EffectorSpec, "start_s" | "duration_s" | "waveform">, t: number): number {
+export function waveformGain(effector: Pick<PrescribedForceEffector, "start_s" | "duration_s" | "waveform">, t: number): number {
   const u = t - effector.start_s;
   if (u < 0 || u >= effector.duration_s) return 0;
   return effector.waveform === "half_sine" ? Math.sin((Math.PI * u) / effector.duration_s) : 1;
@@ -121,7 +123,12 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       ));
     }
 
-    const effectors = scenario.effectors.map((spec) => {
+    // `impulse` es un `prescribed_force` de medio seno con el impulso y la duración dados: se aplica por la misma ruta que
+    // cualquier fuerza prescrita (`src/effectors/impulse.ts`). El ariete no aplica fuerzas: es un cuerpo libre (`src/effectors/ram.ts`).
+    const forceSpecs: Array<PrescribedForceEffector & { max_force_n?: number }> = scenario.effectors.flatMap((spec: EffectorSpec) =>
+      spec.kind === "ram" ? [] : [spec.kind === "impulse" ? impulseToPrescribedForce(spec) : spec]);
+    const ramSpecs = scenario.effectors.filter((spec): spec is RamEffector => spec.kind === "ram");
+    const effectors = forceSpecs.map((spec) => {
       let local: Vec3 = spec.local_point_m;
       if (spec.site !== undefined) {
         // Punto de un sitio con nombre: su posición en el cuerpo más el desplazamiento opcional (ejes del cuerpo).
@@ -309,9 +316,19 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       }
     };
 
+    // Arietes (#75 PR 7): se colocan y lanzan ahora, al acabar el asentamiento (t = 0), y sus peaks entran en `peaks`.
+    const rams = new RamSet(mj, model, data, built.bodies, ramSpecs, pointVelocityAt);
+    if (rams.length > 0) {
+      rams.place(initialRotation);
+      updateKinematics();
+      Object.assign(peaks, rams.peaks());
+    }
+
     // Detector de artefactos (#75 PR 5): medidas por paso físico a partir de t = 0 (no del asentamiento).
     const probe = new ArtifactProbe(mj, model, data, {
       bodies: built.bodies, joints: built.joints, actorBodies: ACTOR_BODIES[scenario.actors[0]!.kind], humanoid: Boolean(humanoid), dt,
+      // La energía de los arietes no es del sistema: se descuenta del balance (su trabajo sobre Uke entra en `peaks`).
+      excludedBodies: ramSpecs.map((r) => ramBodyName(r.id)),
     });
     const samples: RecordingSample[] = [];
     let maxTilt = 0;
@@ -330,6 +347,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const t = i * dt;
       if (i > 0) updateKinematics();
       probe.state(t);
+      rams.beginStep(t);
 
       // Veredicto a 500 Hz sobre el estado actual.
       const xmat = data.xmat as Float64Array;
@@ -408,6 +426,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           effectors: sampleEffectors,
           contacts: readContacts(),
         };
+        if (rams.length > 0) sample.effectors.push(...rams.effectorSamples(sample.contacts));
         if (humanoid && soleIds) {
           // Equilibrio: centro de masas y su velocidad (`subtree_com` / `subtree_linvel` de la pelvis, raíz del actor).
           mj.mj_subtreeVel(model, data);
@@ -446,6 +465,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       probe.beforeStep();
       mj.mj_step(model, data);
       probe.afterStep(t);
+      rams.afterStep(t, dt);
       if (humanoid) scanTouches(t);
     }
 
@@ -481,6 +501,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         unbalance: verdict.unbalance,
       };
     }
+    if (rams.length > 0) summary.rams = rams.summary();
     if (scenario.expect) {
       const result = compareExpect(summary, scenario.expect);
       summary.expect = result === "pass" ? "pass" : "fail";

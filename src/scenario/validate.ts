@@ -13,10 +13,17 @@ import {
   SCENARIO_RECORD_HZ_MAX,
   SCENARIO_RECORD_HZ_MIN,
   SCENARIO_SCHEMA_ID,
+  IMPULSE_MIN_DURATION_S,
+  RAM_FRAMES,
+  RAM_MAX_MASS_KG,
+  RAM_MAX_SPEED_MPS,
+  type ImpulseEffector,
+  type RamEffector,
   type ActorSpec,
   type HumanoidActor,
   type SegmentLengthKey,
   type EffectorSpec,
+  type PrescribedForceEffector,
   type ExpectSpec,
   type PropSpec,
   type Scenario,
@@ -190,13 +197,103 @@ function validateProp(value: unknown, path: string): PropSpec {
   };
 }
 
+/** Actor humanoide referenciado por `actor` y cuerpo del sitio con nombre `site` (impulso y ariete exigen ambos). */
+function resolveHumanoidSite(obj: Obj, path: string, actors: readonly ActorSpec[]): { actor: string; site: string; body: string } {
+  const actorId = asString(obj.actor, join(path, "actor"));
+  const actor = actors.find((a) => a.id === actorId);
+  if (!actor) {
+    const known = actors.map((a) => a.id).join(", ") || "ninguno";
+    fail(join(path, "actor"), `referencia a un actor inexistente "${actorId}" (actores: ${known})`);
+  }
+  const site = asString(obj.site, join(path, "site"));
+  const body = actor.kind === "humanoid" ? HUMANOID_SITE_BODY[site] : undefined;
+  if (body === undefined) {
+    const known = actor.kind === "humanoid" ? Object.keys(HUMANOID_SITE_BODY).join(", ") : "ninguno (no es humanoide)";
+    fail(join(path, "site"), `el actor "${actor.id}" no tiene el sitio "${site}" (sitios: ${known})`);
+  }
+  return { actor: actor.id, site, body };
+}
+
+function asDirection(value: unknown, path: string): Vec3 {
+  const v = asVec3(value, path);
+  const norm = Math.hypot(v[0], v[1], v[2]);
+  if (!Number.isFinite(norm) || norm === 0) fail(path, "la dirección no puede ser el vector nulo");
+  return v;
+}
+
+function validateImpulse(obj: Obj, path: string, actors: readonly ActorSpec[]): ImpulseEffector {
+  checkKeys(obj, path, [
+    "id", "kind", "actor", "site", "frame", "direction", "impulse_ns", "start_s", "duration_s",
+  ], ["local_point_m", "max_force_n"]);
+  const id = asId(obj.id, join(path, "id"));
+  const { actor, site, body } = resolveHumanoidSite(obj, path, actors);
+  const durationPath = join(path, "duration_s");
+  const duration_s = asDuration(obj.duration_s, durationPath);
+  if (duration_s < IMPULSE_MIN_DURATION_S) {
+    fail(durationPath, `un impulso no puede durar menos de ${IMPULSE_MIN_DURATION_S} s (5 pasos físicos), no ${duration_s}`);
+  }
+  const effector: ImpulseEffector = {
+    id,
+    kind: "impulse",
+    actor,
+    body,
+    site,
+    local_point_m: "local_point_m" in obj ? asVec3(obj.local_point_m, join(path, "local_point_m")) : [0, 0, 0],
+    frame: asEnum(obj.frame, join(path, "frame"), EFFECTOR_FRAMES),
+    direction: asDirection(obj.direction, join(path, "direction")),
+    impulse_ns: asPositive(obj.impulse_ns, join(path, "impulse_ns")),
+    start_s: asNonNegative(obj.start_s, join(path, "start_s")),
+    duration_s,
+  };
+  if ("max_force_n" in obj) {
+    const p = join(path, "max_force_n");
+    const cap = asPositive(obj.max_force_n, p);
+    const peak = (Math.PI * effector.impulse_ns) / (2 * duration_s);
+    if (peak > cap) fail(p, `la fuerza pico del impulso (pi·J/(2T) = ${peak.toFixed(1)} N) supera el tope declarado ${cap} N`);
+    effector.max_force_n = cap;
+  }
+  return effector;
+}
+
+function validateRam(obj: Obj, path: string, actors: readonly ActorSpec[]): RamEffector {
+  checkKeys(obj, path, [
+    "id", "kind", "actor", "site", "frame", "direction", "mass_kg", "speed_mps", "start_s",
+  ], ["max_force_n"]);
+  const id = asId(obj.id, join(path, "id"));
+  const { actor, site, body } = resolveHumanoidSite(obj, path, actors);
+  const massPath = join(path, "mass_kg");
+  const mass_kg = asPositive(obj.mass_kg, massPath);
+  if (mass_kg > RAM_MAX_MASS_KG) fail(massPath, `no puede superar ${RAM_MAX_MASS_KG} kg, no ${mass_kg}`);
+  const speedPath = join(path, "speed_mps");
+  const speed_mps = asPositive(obj.speed_mps, speedPath);
+  if (speed_mps > RAM_MAX_SPEED_MPS) {
+    fail(speedPath, `no puede superar ${RAM_MAX_SPEED_MPS} m/s (a más, el ariete atravesaría a Uke entre dos pasos físicos), no ${speed_mps}`);
+  }
+  const effector: RamEffector = {
+    id,
+    kind: "ram",
+    actor,
+    body,
+    site,
+    direction: asDirection(obj.direction, join(path, "direction")),
+    frame: asEnum(obj.frame, join(path, "frame"), RAM_FRAMES),
+    mass_kg,
+    speed_mps,
+    start_s: asNonNegative(obj.start_s, join(path, "start_s")),
+  };
+  if ("max_force_n" in obj) effector.max_force_n = asPositive(obj.max_force_n, join(path, "max_force_n"));
+  return effector;
+}
+
 function validateEffector(value: unknown, path: string, actors: readonly ActorSpec[]): EffectorSpec {
   const obj = asObject(value, path);
+  if (obj.kind === "impulse") return validateImpulse(obj, path, actors);
+  if (obj.kind === "ram") return validateRam(obj, path, actors);
   checkKeys(obj, path, [
     "id", "kind", "actor", "frame", "force_n", "start_s", "duration_s", "waveform",
   ], ["body", "site", "local_point_m"]);
   const id = asId(obj.id, join(path, "id"));
-  asEnum(obj.kind, join(path, "kind"), ["prescribed_force"]);
+  asEnum(obj.kind, join(path, "kind"), ["prescribed_force", "impulse", "ram"]);
   const actorId = asString(obj.actor, join(path, "actor"));
   const actor = actors.find((a) => a.id === actorId);
   if (!actor) {
@@ -226,7 +323,7 @@ function validateEffector(value: unknown, path: string, actors: readonly ActorSp
     if (!("local_point_m" in obj)) fail(join(path, "local_point_m"), "campo obligatorio ausente");
     local = asVec3(obj.local_point_m, join(path, "local_point_m"));
   }
-  const effector: EffectorSpec = {
+  const effector: PrescribedForceEffector = {
     id,
     kind: "prescribed_force",
     actor: actor.id,

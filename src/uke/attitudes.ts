@@ -12,7 +12,8 @@ import {
   makeStandingController, type StandingController, type StandingModel,
   type StandingState,
 } from "../control/standingBaseline";
-import type { UkeAttitude, UkeStance } from "../scenario/schema";
+import type { UkeAttitude, UkeFallMode, UkeStance } from "../scenario/schema";
+import { createFallReflexController, type ReflexDriver } from "./fallReflex";
 import { IMPLICIT_DAMPING_FRACTION, jointGroupOf, scaledGains, type UkeGains } from "./gains";
 import { UKE_HINGE_JOINTS } from "./stances";
 
@@ -20,6 +21,11 @@ export interface UkeController {
   /** Escribe `qfrc_applied`. Requiere `mj_subtreeVel` ya llamado en este paso. */
   step(model: StandingModel, data: StandingState, t: number): void;
   status(): Record<string, unknown>;
+  /**
+   * Solo con reflejos de caída: estado compacto del reflejo para grabarlo por muestra (0 inactivo, 1 detectado,
+   * 2 reaccionando, 3 aterrizado). Ausente sin reflejos: la grabación no cambia.
+   */
+  reflexState?(): number;
 }
 
 export interface UkeControllerParams {
@@ -30,6 +36,15 @@ export interface UkeControllerParams {
   strength: number;
   /** Objetivo articular por nombre de bisagra (de `applyStance`). */
   targets: ReadonlyMap<string, number>;
+  /** Reflejos de caída (`fallReflex.ts`). Ausente o `none`: sin reflejos. */
+  fall?: UkeFallMode;
+  /** Latencia de reacción de los reflejos, en s (por defecto 0,15). */
+  fall_latency_s?: number;
+}
+
+/** `tense` con el mando que usan los reflejos de caída para cambiar objetivos y ganancias (`fallReflex.ts`). */
+export interface TenseController extends UkeController {
+  readonly reflex: ReflexDriver;
 }
 
 export function createTenseController(
@@ -37,7 +52,7 @@ export function createTenseController(
   model: StandingModel,
   data: StandingState,
   gains: UkeGains = scaledGains(params.mass_kg, params.height_m, params.strength),
-): UkeController {
+): TenseController {
   const base = makeStandingController(model, data);
   const settings = new Map<number, JointPDSettings>();
   const limitOf = new Map<number, number>();
@@ -77,13 +92,18 @@ export function createTenseController(
   // PD de postura (la misma ley que `limitedJointTorque` del baseline, sin sus comprobaciones por paso ni asignaciones:
   // con 28 articulaciones x 5000 pasos eran la mayor parte del coste fuera de `mj_step`). Las articulaciones se
   // comprobaron como bisagras al construir los ajustes (`makeStandingController`).
+  // `target` y `kpScale` son los mandos de los reflejos de caída (valen el objetivo de la postura y 1 mientras nadie los toque:
+  // multiplicar por 1 es exacto, así que sin reflejos el par es bit a bit el de siempre).
   const pdList = Array.from(settings, ([id, g]) => ({
-    dof: model.jnt_dofadr[id]!, qadr: model.jnt_qposadr[id]!, g,
+    dof: model.jnt_dofadr[id]!, qadr: model.jnt_qposadr[id]!, g, target: g.targetRad, kpScale: 1,
   }));
+  const pdByName = new Map(UKE_HINGE_JOINTS.map((name) => [name, pdList.find((e) => e.dof === model.jnt_dofadr[model.jnt(name).id])!]));
+  let balanceScale = 1;
+  let feedforwardScale = 1;
   const applyPostureTorques = (d: StandingState): void => {
     d.qfrc_applied.fill(0);
-    for (const { dof, qadr, g } of pdList) {
-      const tau = g.stiffnessNmPerRad * (g.targetRad - d.qpos[qadr]!) - g.dampingNmsPerRad * d.qvel[dof]!;
+    for (const { dof, qadr, g, target, kpScale } of pdList) {
+      const tau = g.stiffnessNmPerRad * kpScale * (target - d.qpos[qadr]!) - g.dampingNmsPerRad * d.qvel[dof]!;
       d.qfrc_applied[dof] = Math.max(-g.maxTorqueNm, Math.min(g.maxTorqueNm, tau));
     }
   };
@@ -106,8 +126,8 @@ export function createTenseController(
     for (let i = 0; i < 2; i++) {
       const ankleX = d.xpos[3 * controller.footBodyIds[i]!]!;
       const ankleY = d.xpos[3 * controller.footBodyIds[i]! + 1]!;
-      const pitch = share[i]! * (controller.totalMassKg * 9.81 * (p[i]![0] + dX - ankleX) + fx);
-      const roll = -share[i]! * (controller.totalMassKg * 9.81 * (p[i]![1] + dY - ankleY) + fy);
+      const pitch = balanceScale * (share[i]! * (controller.totalMassKg * 9.81 * (p[i]![0] + dX - ankleX) + fx));
+      const roll = balanceScale * (-share[i]! * (controller.totalMassKg * 9.81 * (p[i]![1] + dY - ankleY) + fy));
       const pd = controller.anklePitchDofs[i]!, rd = controller.ankleRollDofs[i]!;
       d.qfrc_applied[pd] = clipAnkle(d.qfrc_applied[pd]! + pitch);
       d.qfrc_applied[rd] = clipAnkle(d.qfrc_applied[rd]! + roll);
@@ -125,7 +145,17 @@ export function createTenseController(
   let maxJoint = "";
   let saturated = 0;
   let steps = 0;
+  const reflex: ReflexDriver = {
+    tonic: true,
+    target: (name) => pdByName.get(name)!.target,
+    setTarget: (name, rad) => { pdByName.get(name)!.target = rad; },
+    setStiffnessScale: (name, scale) => { pdByName.get(name)!.kpScale = scale; },
+    setBalanceScale: (scale) => { balanceScale = scale; },
+    setFeedforwardScale: (scale) => { feedforwardScale = scale; },
+    maxTorqueNm: (name) => pdByName.get(name)!.g.maxTorqueNm,
+  };
   return {
+    reflex,
     step(_m, d): void {
       stepBalance(d);
       // Compensación estática de la gravedad de lo que cuelga de cada articulación (tono postural): sin ella el PD
@@ -136,7 +166,7 @@ export function createTenseController(
       if (bias) {
         for (let i = 0; i < ffDofs.length; i++) {
           const dof = ffDofs[i]!, limit = ffLimits[i]!;
-          d.qfrc_applied[dof] = Math.max(-limit, Math.min(limit, d.qfrc_applied[dof]! + bias[dof]!));
+          d.qfrc_applied[dof] = Math.max(-limit, Math.min(limit, d.qfrc_applied[dof]! + feedforwardScale * bias[dof]!));
         }
       }
       steps++;
@@ -182,11 +212,60 @@ export function createRelaxedController(params: UkeControllerParams): UkeControl
   };
 }
 
+/**
+ * `relaxed` con mando para los reflejos de caída: igual que `relaxed` (sin par alguno) mientras ninguna rigidez sea mayor que 0.
+ * Los reflejos dan tono solo a las articulaciones de sus reglas (PD con las rigideces y los pares máximos de `gains.ts`).
+ */
+export function createRelaxedReflexController(
+  params: UkeControllerParams, model: StandingModel,
+  gains: UkeGains = scaledGains(params.mass_kg, params.height_m, params.strength),
+): UkeController & { readonly reflex: ReflexDriver } {
+  const entries = new Map(UKE_HINGE_JOINTS.map((name) => {
+    const g = gains.groups[jointGroupOf(name)];
+    const id = model.jnt(name).id;
+    return [name, { dof: model.jnt_dofadr[id]!, qadr: model.jnt_qposadr[id]!, kp: g.kp, maxNm: g.maxNm, target: 0, kpScale: 0 }];
+  }));
+  const list = Array.from(entries.values());
+  let steps = 0;
+  const reflex: ReflexDriver = {
+    tonic: false,
+    target: (name) => entries.get(name)!.target,
+    setTarget: (name, rad) => { entries.get(name)!.target = rad; },
+    setStiffnessScale: (name, scale) => { entries.get(name)!.kpScale = scale; },
+    setBalanceScale: () => { /* relaxed no tiene equilibrio activo */ },
+    setFeedforwardScale: () => { /* ni compensación de la gravedad */ },
+    maxTorqueNm: (name) => entries.get(name)!.maxNm,
+  };
+  return {
+    reflex,
+    step(_m, d): void {
+      d.qfrc_applied.fill(0);
+      for (const e of list) {
+        if (e.kpScale <= 0) continue;
+        const tau = e.kp * e.kpScale * (e.target - d.qpos[e.qadr]!);
+        d.qfrc_applied[e.dof] = Math.max(-e.maxNm, Math.min(e.maxNm, tau));
+      }
+      steps++;
+    },
+    status(): Record<string, unknown> {
+      return { attitude: "relaxed", stance: params.stance, steps };
+    },
+  };
+}
+
 export function createUkeController(
   params: UkeControllerParams, model: StandingModel, data: StandingState,
 ): UkeController {
+  const reflexes = params.fall !== undefined && params.fall !== "none";
   switch (params.attitude) {
-    case "tense": return createTenseController(params, model, data);
-    case "relaxed": return createRelaxedController(params);
+    case "tense": {
+      const base = createTenseController(params, model, data);
+      return reflexes ? createFallReflexController(base, base.reflex, params) : base;
+    }
+    case "relaxed": {
+      if (!reflexes) return createRelaxedController(params);
+      const base = createRelaxedReflexController(params, model);
+      return createFallReflexController(base, base.reflex, params);
+    }
   }
 }

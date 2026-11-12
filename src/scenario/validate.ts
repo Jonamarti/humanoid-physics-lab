@@ -7,6 +7,7 @@ import {
   OUTCOMES,
   SEGMENT_LENGTH_KEYS,
   UKE_ATTITUDES,
+  UKE_FALL_MODES,
   UKE_STANCES,
   SCENARIO_MAX_DURATION_S,
   SCENARIO_PHYSICS_HZ,
@@ -135,7 +136,7 @@ function asRange(value: unknown, path: string, [lo, hi]: readonly [number, numbe
 
 function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
   checkKeys(obj, path, ["id", "kind", "mass_kg", "height_m"], [
-    "strength", "build", "segment_lengths_m", "attitude", "stance",
+    "strength", "build", "segment_lengths_m", "attitude", "stance", "fall", "fall_latency_s",
   ]);
   const actor: HumanoidActor = {
     id,
@@ -158,6 +159,13 @@ function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
       result[key] = asRange(lengths[key], join(p, key), [0.5 * base, 2 * base], "m");
     }
     actor.segment_lengths_m = result;
+  }
+  // Reflejos de caída: solo se rellenan si el escenario los declara (el hash de los escenarios anteriores no cambia).
+  if ("fall" in obj) actor.fall = asEnum(obj.fall, join(path, "fall"), UKE_FALL_MODES);
+  if ("fall_latency_s" in obj) {
+    const p = join(path, "fall_latency_s");
+    if (actor.fall === undefined || actor.fall === "none") fail(p, "solo se admite con fall distinto de none");
+    actor.fall_latency_s = asRange(obj.fall_latency_s, p, [0.05, 0.5], "s");
   }
   return actor;
 }

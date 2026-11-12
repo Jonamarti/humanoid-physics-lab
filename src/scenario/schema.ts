@@ -44,6 +44,13 @@ export const UKE_ATTITUDES = ["tense", "relaxed"] as const;
 export type UkeAttitude = (typeof UKE_ATTITUDES)[number];
 
 /**
+ * Reflejos de caída de Uke (`src/uke/fallReflex.ts`): `none` (sin reflejos), `instinctive` (persona sin entrenar) y `ukemi`
+ * (entrenada). Cambian objetivos y ganancias articulares, nunca fuerzas externas.
+ */
+export const UKE_FALL_MODES = ["none", "instinctive", "ukemi"] as const;
+export type UkeFallMode = (typeof UKE_FALL_MODES)[number];
+
+/**
  * Sitios con nombre del humanoide y el cuerpo al que pertenecen (`src/uke/generate.ts`). Un efector puede apuntar a uno
  * con `site` en lugar de `body` + `local_point_m`.
  */
@@ -116,6 +123,13 @@ export interface HumanoidActor {
   attitude: UkeAttitude;
   /** Por defecto `neutral`. */
   stance: UkeStance;
+  /**
+   * Reflejos de caída. Ausente equivale a `none` (comportamiento anterior, mismo hash de escenario: el validador no
+   * rellena este campo).
+   */
+  fall?: UkeFallMode;
+  /** Latencia de reacción de los reflejos, en s (0,05 a 0,5). Por defecto 0,15. Solo con `fall` distinto de `none`. */
+  fall_latency_s?: number;
 }
 
 export type ActorSpec = RigidCylinderActor | HumanoidActor;

@@ -31,6 +31,8 @@ El vídeo es H.264 `yuv420p` con `faststart`, reproducible en el móvil. Los fot
 - La hoja incluye al menos un fotograma en el pico de cada efector; el resto se reparten.
 - Flechas por efector (rojo; el color es fijo por `kind` si la muestra lo trae) con su valor en newtons, y flechas de contacto en amarillo. Escala: 1 m = 1000 N, con longitud mínima de 8 cm y radio de 1,8 cm para que una fuerza pequeña siga siendo visible. Las etiquetas llevan recuadro semitransparente y su tamaño depende de la resolución. La flecha nace en el punto de aplicación y apunta en la dirección de la fuerza. Se omiten las menores de 2 N.
 - Tiempo de la grabación y velocidad (×1 o ×0,25) en la esquina superior izquierda.
+- Equilibrio (si las muestras traen `com`, `xcom` y `support_polygon`, ver [RECORDING_V1.md](RECORDING_V1.md)): capa 2D proyectada desde la cámara, siempre visible aunque el cuerpo tape el punto. Centro de masas: círculo azul con una plomada y un anillo en su proyección sobre el suelo. Punto de captura: círculo magenta sobre el suelo, unido a la proyección del centro de masas por una línea. Polígono de apoyo sobre el suelo: relleno translúcido y contorno, verde con el punto de captura dentro y naranja fuera. Leyenda abajo a la derecha con el margen con signo (`sin apoyo` si ningún pie está cargado). Sin esos campos (cilindro, grabaciones antiguas) no se dibuja nada.
+- El encuadre de un actor de varios cuerpos usa la altura de todo el árbol de cuerpos y no solo la de su raíz (antes un humanoide salía con la cabeza cortada).
 - Tolerante: sin `effectors`, `contacts`, `qvel`, `peaks` ni `summary` funciona igual. Un `schema` distinto de `hpl.recording.v1` termina con código 2 y un mensaje claro.
 
 ## Datos de prueba y pruebas

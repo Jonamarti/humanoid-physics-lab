@@ -86,8 +86,8 @@ Cuerpos referenciables por los efectores: `pelvis`, `abdomen`, `chest`, `head`, 
 | `attitude` | | Opcional (por defecto `tense`): `tense` o `relaxed` (sin objetivos, solo amortiguación pasiva; ver [UKE_CONTROL.md](UKE_CONTROL.md)). |
 | `stance` | | Opcional (por defecto `neutral`): `neutral`, `natural_grip`, `defensive`, `staggered_left`, `staggered_right`. |
 
-Con un humanoide, el asentamiento de 0,5 s ya lleva el controlador activo y el veredicto es el mínimo del humanoide (tronco < 3° y pelvis > 90 %
-de su altura: `standing`; pelvis < 50 %: `fall`; otro caso: `tilted`). `summary.uke` lleva medidas adicionales ([RECORDING_V1.md](RECORDING_V1.md)).
+Con un humanoide, el asentamiento de 0,5 s ya lleva el controlador activo y el veredicto es el del humanoide: `fall`, `stepped`, `standing` o `unresolved`
+(definiciones en [RECORDING_V1.md](RECORDING_V1.md#veredicto-y-métricas-de-equilibrio-del-humanoide)). `summary.uke` lleva medidas adicionales.
 El campo `fall` del ejemplo de la issue #75 todavía no existe (es de otra PR) y se rechaza como campo desconocido.
 
 ### `props[]` (`kind: "fixed_box"`)
@@ -119,7 +119,7 @@ El campo `fall` del ejemplo de la issue #75 todavía no existe (es de otra PR) y
 
 | Campo | Unidad | Regla |
 |---|---|---|
-| `outcome` | | `standing`, `tilted` o `fall`. |
+| `outcome` | | `standing`, `tilted`, `fall`, `stepped` o `unresolved` (el cilindro solo da `standing`, `tilted` o `fall`; el humanoide, `standing`, `stepped`, `fall` o `unresolved`). |
 | `direction_deg` | grados | Opcional. Solo con `outcome: "fall"`. 0 = +X, 90 = +Y. Exige `tolerance_deg`. |
 | `tolerance_deg` | grados | Opcional, solo junto a `direction_deg`. > 0 y <= 180. |
 

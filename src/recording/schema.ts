@@ -2,6 +2,7 @@
  * Tipos de `hpl.recording.v1`: salida de `runScenario`. Nombres de campo en inglés y `snake_case`.
  * La reproducción de una grabación nunca recalcula física.
  */
+import type { BalanceSummary, FallInfo, StepInfo, UnbalanceInfo } from "../metrics/outcome";
 import type { Outcome, Vec3 } from "../scenario/schema";
 
 export const RECORDING_SCHEMA_ID = "hpl.recording.v1";
@@ -55,6 +56,14 @@ export interface RecordingSample {
   qvel: number[];
   effectors: EffectorSample[];
   contacts: ContactSample[];
+  /** Centro de masas del actor, en m. Solo con actor humanoide: las grabaciones anteriores no traen estos cuatro campos. */
+  com?: Vec3;
+  /** Punto de captura `c + v / w0` en el plano horizontal `[x, y]`, en m. */
+  xcom?: [number, number];
+  /** Polígono de apoyo: envolvente convexa antihoraria de los contactos de los pies con carga > 20 N, `[x, y]` en m; vacío sin apoyo. */
+  support_polygon?: Array<[number, number]>;
+  /** Margen con signo del punto de captura al polígono de apoyo (m, positivo dentro); `null` sin apoyo. */
+  capture_margin_m?: number | null;
 }
 
 export interface EffectorPeaks {
@@ -88,6 +97,14 @@ export interface UkeSummary {
   max_root_generalized_force: number;
   /** Estado del controlador (`UkeController.status()`). */
   controller: Record<string, unknown>;
+  /** Equilibrio: margen del punto de captura, desplazamiento de los pies y estabilidad final (ausente en grabaciones anteriores). */
+  balance?: BalanceSummary;
+  /** Datos de la caída; `null` si no hay caída. */
+  fall?: FallInfo | null;
+  /** Primer paso (pie e instante); `null` si ningún pie se movió más de 5 cm. */
+  step?: StepInfo | null;
+  /** Instante y dirección (una de 8) en que el punto de captura sale del apoyo; `null` si nunca sale. */
+  unbalance?: UnbalanceInfo | null;
 }
 
 export interface RecordingSummary {
@@ -95,6 +112,7 @@ export interface RecordingSummary {
   /**
    * Dirección de caída en grados (0 = +X, 90 = +Y): la del eje del actor cuando su inclinación supera 60 grados
    * por primera vez o, si nunca la supera, en su inclinación máxima; `null` si esa inclinación es < 5 grados.
+   * Humanoide: la del eje del tronco al caer (`uke.fall.direction_world_deg`) y, sin caída, la de su inclinación máxima.
    */
   direction_deg: number | null;
   /** Instante en que el veredicto adoptó su valor final y ya no cambió, en s. */

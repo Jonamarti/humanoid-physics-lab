@@ -9,7 +9,11 @@
  */
 import { createHash } from "node:crypto";
 import type { StandingModel, StandingState } from "../control/standingBaseline";
-import { FALL_MIN_TILT_DEG, classifyHumanoid, classifyTilt, fallDirectionDeg, tiltDeg } from "../metrics/outcome";
+import { capturePoint, signedMargin, supportPolygon } from "../metrics/balance";
+import {
+  FALL_MIN_TILT_DEG, FOOT_BODIES, classifyHumanoidTrajectory, classifyTilt, fallDirectionDeg, tiltDeg,
+  type BalanceFrame, type GroundTouch,
+} from "../metrics/outcome";
 import { createUkeController, type UkeController, type UkeControllerParams } from "../uke/attitudes";
 import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke/damping";
 import { applyStance } from "../uke/stances";
@@ -19,7 +23,7 @@ import { buildScenarioModel } from "./buildModel";
 import { readEngineVersion } from "./engineVersion";
 import { compareExpect } from "./expect";
 import { getMujoco } from "./mujocoModule";
-import type { EffectorSpec, Outcome, Scenario, Vec3 } from "./schema";
+import { ACTOR_BODIES, type EffectorSpec, type Outcome, type Scenario, type Vec3 } from "./schema";
 import { PHYSICS_HZ, PHYSICS_TIMESTEP_S } from "./worldOptions";
 
 /** Asentamiento previo sin efectores, en s. El tiempo del escenario empieza después. */
@@ -252,6 +256,52 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const initialRotation = Array.from((data.xmat as Float64Array).subarray(9 * actorBodyId, 9 * actorBodyId + 9));
     const startXY: [number, number] = [(data.xpos as Float64Array)[3 * actorBodyId]!, (data.xpos as Float64Array)[3 * actorBodyId + 1]!];
 
+    // Humanoide: sitios de las suelas, partes que cuentan como «toca el suelo» (todas menos los pies) y frente inicial (+X del
+    // cuerpo `pelvis`). El equilibrio se muestrea a `record_hz`; los primeros contactos con el suelo, a 500 Hz.
+    const soleIds = humanoid ? { left: model.site("left_sole").id, right: model.site("right_sole").id } : undefined;
+    const touchBodies = new Set<string>(humanoid ? ACTOR_BODIES.humanoid.filter((b) => !FOOT_BODIES.includes(b)) : []);
+    const heading = Math.atan2(initialRotation[3]!, initialRotation[0]!);
+    const frames: BalanceFrame[] = [];
+    const touches: GroundTouch[] = [];
+    const touched = new Set<string>();
+
+    /** Velocidad (mundo) del punto `p` del cuerpo `bodyId` con el `cvel` actual. */
+    const pointVelocityAt = (bodyId: number, p: Vec3): Vec3 => {
+      const cvel = data.cvel as Float64Array;
+      const ref = triple(data.subtree_com as Float64Array, 3 * rootOfBody[bodyId]!);
+      return add(triple(cvel, 6 * bodyId + 3), cross(triple(cvel, 6 * bodyId), sub(p, ref)));
+    };
+
+    /**
+     * Anota el primer contacto de cada parte del actor (no pies) con el suelo (`world`). Se llama justo después de `mj_step`: los
+     * contactos, `xpos` y `cvel` que quedan son los del inicio de ese paso (antes de que su fuerza actúe), de modo que la
+     * velocidad del punto de contacto es la de justo antes del impacto.
+     */
+    const scanTouches = (t: number): void => {
+      const contacts = data.contact;
+      try {
+        for (let c = 0; c < contacts.size(); c++) {
+          const contact = contacts.get(c);
+          if (!contact) throw new Error("Contacto MuJoCo inaccesible");
+          try {
+            const b1 = bodyOfGeom[contact.geom1]!;
+            const b2 = bodyOfGeom[contact.geom2]!;
+            const other = b1 === 0 ? b2 : b2 === 0 ? b1 : -1;
+            if (other <= 0) continue;
+            const name = built.bodies[other]!;
+            if (!touchBodies.has(name) || touched.has(name)) continue;
+            touched.add(name);
+            const pos = contact.pos as Float64Array;
+            touches.push({ body: name, t_s: t, velocity_mps: pointVelocityAt(other, [pos[0]!, pos[1]!, pos[2]!]) });
+          } finally {
+            contact.delete();
+          }
+        }
+      } finally {
+        contacts.delete();
+      }
+    };
+
     const samples: RecordingSample[] = [];
     let maxTilt = 0;
     let currentClass: Outcome | undefined;
@@ -274,17 +324,18 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const tilt = tiltDeg(xmat, 9 * tiltBodyId);
       const pelvisZ = (data.xpos as Float64Array)[3 * actorBodyId + 2]!;
       if (humanoid) minPelvisZ = Math.min(minPelvisZ, pelvisZ);
-      const cls = humanoid ? classifyHumanoid(tilt, pelvisZ / initialPelvisZ) : classifyTilt(tilt);
       if (tilt > maxTilt) {
         maxTilt = tilt;
         directionAtMax = fallDirectionDeg(xmat, 9 * tiltBodyId);
       }
-      if (directionAtFall === undefined && (humanoid ? cls === "fall" : tilt > FALL_MIN_TILT_DEG)) {
-        directionAtFall = fallDirectionDeg(xmat, 9 * tiltBodyId);
-      }
-      if (cls !== currentClass) {
-        currentClass = cls;
-        classSinceS = t;
+      // El veredicto del humanoide sale de su trayectoria completa al final (`classifyHumanoidTrajectory`).
+      if (!humanoid) {
+        const cls = classifyTilt(tilt);
+        if (directionAtFall === undefined && tilt > FALL_MIN_TILT_DEG) directionAtFall = fallDirectionDeg(xmat, 9 * tiltBodyId);
+        if (cls !== currentClass) {
+          currentClass = cls;
+          classSinceS = t;
+        }
       }
 
       // Efectores: fuerza durante el paso [t, t + dt], evaluada en el punto medio.
@@ -337,13 +388,36 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
       if (i % stepsPerSample === 0) {
         mj.mj_forward(model, data); // contactos y fuerzas coherentes con el wrench ya aplicado
-        samples.push({
+        const sample: RecordingSample = {
           t,
           qpos: Array.from(data.qpos as Float64Array),
           qvel: Array.from(data.qvel as Float64Array),
           effectors: sampleEffectors,
           contacts: readContacts(),
-        });
+        };
+        if (humanoid && soleIds) {
+          // Equilibrio: centro de masas y su velocidad (`subtree_com` / `subtree_linvel` de la pelvis, raíz del actor).
+          mj.mj_subtreeVel(model, data);
+          const com = triple(data.subtree_com as Float64Array, 3 * actorBodyId);
+          const velocity = triple(data.subtree_linvel as Float64Array, 3 * actorBodyId);
+          const xcom = capturePoint(com, velocity);
+          const polygon = supportPolygon(sample.contacts, (b) => FOOT_BODIES.includes(b));
+          const sites = data.site_xpos as Float64Array;
+          sample.com = com;
+          sample.xcom = [xcom[0], xcom[1]];
+          sample.support_polygon = polygon.map((p): [number, number] => [p[0], p[1]]);
+          sample.capture_margin_m = signedMargin(xcom, polygon);
+          frames.push({
+            t, com, com_velocity: velocity, xcom, support_polygon: polygon,
+            pelvis_z: (data.xpos as Float64Array)[3 * actorBodyId + 2]!,
+            feet: {
+              left: [sites[3 * soleIds.left]!, sites[3 * soleIds.left + 1]!],
+              right: [sites[3 * soleIds.right]!, sites[3 * soleIds.right + 1]!],
+            },
+            trunk_dir_deg: fallDirectionDeg(data.xmat as Float64Array, 9 * tiltBodyId),
+          });
+        }
+        samples.push(sample);
         options.onSample?.(model, data, samples.length - 1);
       }
 
@@ -357,13 +431,19 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       }
       if (uke) runUke(t);
       mj.mj_step(model, data);
+      if (humanoid) scanTouches(t);
     }
 
-    const outcome = currentClass!;
+    const verdict = humanoid
+      ? classifyHumanoidTrajectory({ frames, touches, initial_pelvis_z: initialPelvisZ, heading_rad: heading })
+      : undefined;
+    const outcome: Outcome = verdict ? verdict.outcome : currentClass!;
     const summary: RecordingSummary = {
       outcome,
-      direction_deg: directionAtFall !== undefined ? directionAtFall : directionAtMax,
-      t_outcome_s: classSinceS,
+      direction_deg: verdict
+        ? (verdict.fall ? verdict.fall.direction_world_deg : directionAtMax)
+        : directionAtFall !== undefined ? directionAtFall : directionAtMax,
+      t_outcome_s: verdict ? verdict.t_outcome_s : classSinceS,
       final_tilt_deg: finalTilt,
       max_tilt_deg: maxTilt,
       final_com_height_m: finalComHeight,
@@ -371,7 +451,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       expect: "none",
       expect_diffs: [],
     };
-    if (humanoid && uke) {
+    if (humanoid && uke && verdict) {
       summary.uke = {
         max_trunk_tilt_deg: maxTilt,
         initial_pelvis_height_m: initialPelvisZ,
@@ -380,6 +460,10 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         initial_com_height_m: initialComZ,
         max_root_generalized_force: rootForceMax,
         controller: uke.status(),
+        balance: verdict.balance,
+        fall: verdict.fall,
+        step: verdict.step,
+        unbalance: verdict.unbalance,
       };
     }
     if (scenario.expect) {

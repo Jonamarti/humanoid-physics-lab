@@ -18,14 +18,22 @@ import {
 import { createUkeController, type UkeController, type UkeControllerParams } from "../uke/attitudes";
 import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke/damping";
 import { applyStance } from "../uke/stances";
-import { RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type Recording, type RecordingSample, type RecordingSummary } from "../recording/schema";
+import { createHandState, resolveHandParams, stepHand, type HandParams, type HandState } from "../effectors/hand";
+import {
+  applyObstacleCommand, createObstacleState, readObstacleContactForce, readObstacleKinematics, resolveObstacleHandles,
+  settleObstacleWork, stepObstacle, type ObstacleContactData, type ObstacleModelLike, type ObstacleState,
+} from "../effectors/obstacle";
+import {
+  RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type HandPeaks, type ObstaclePeaks,
+  type Recording, type RecordingSample, type RecordingSummary,
+} from "../recording/schema";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
 import { ArtifactProbe } from "./artifactProbe";
 import { buildScenarioModel } from "./buildModel";
 import { readEngineVersion } from "./engineVersion";
 import { compareExpect } from "./expect";
 import { getMujoco } from "./mujocoModule";
-import { ACTOR_BODIES, type EffectorSpec, type Outcome, type Scenario, type Vec3 } from "./schema";
+import { ACTOR_BODIES, type EffectorSpec, type PrescribedForceEffector, type Outcome, type Scenario, type Vec3 } from "./schema";
 import { PHYSICS_HZ, PHYSICS_TIMESTEP_S } from "./worldOptions";
 
 /** Asentamiento previo sin efectores, en s. El tiempo del escenario empieza después. */
@@ -45,7 +53,7 @@ export interface RunOptions {
 }
 
 /** Ganancia (0 a 1) de la forma de onda en el instante `t` (s del escenario) de un efector. */
-export function waveformGain(effector: Pick<EffectorSpec, "start_s" | "duration_s" | "waveform">, t: number): number {
+export function waveformGain(effector: Pick<PrescribedForceEffector, "start_s" | "duration_s" | "waveform">, t: number): number {
   const u = t - effector.start_s;
   if (u < 0 || u >= effector.duration_s) return 0;
   return effector.waveform === "half_sine" ? Math.sin((Math.PI * u) / effector.duration_s) : 1;
@@ -129,13 +137,31 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         const sp = model.site_pos as Float64Array;
         local = [sp[3 * siteId]! + local[0], sp[3 * siteId + 1]! + local[1], sp[3 * siteId + 2]! + local[2]];
       }
-      return { spec, bodyId: built.bodies.indexOf(spec.body), local };
+      const entry: {
+        spec: EffectorSpec; bodyId: number; local: Vec3;
+        hand?: { params: HandParams; state: HandState; peaks: HandPeaks };
+      } = { spec, bodyId: built.bodies.indexOf(spec.body), local };
+      return entry;
     });
+    // Obstáculos: cuerpos al final del modelo, con su orden en `qfrc_applied`. Durante el asentamiento se sostienen en `start_m`.
+    const obstacles = built.obstacles.map((params) => ({
+      params,
+      handles: resolveObstacleHandles(model as unknown as ObstacleModelLike, params),
+      state: createObstacleState() as ObstacleState,
+      contact: [0, 0, 0] as Vec3,
+      command: { force_n: [0, 0, 0] as Vec3, torque_nm: 0 },
+    }));
+    const actorBodyIds = new Set(ACTOR_BODIES[scenario.actors[0]!.kind].map((b) => built.bodies.indexOf(b)));
+    const applyObstacleCommands = (): void => {
+      for (const o of obstacles) applyObstacleCommand(o.handles, data as unknown as { qfrc_applied: Float64Array }, o.command);
+    };
     const peaks: Record<string, EffectorPeaks> = {};
     for (const e of effectors) {
       peaks[e.spec.id] = { max_force_n: 0, impulse_ns: [0, 0, 0], work_j: 0 };
       // Tope declarado (si el efector lo trae): lo comprueba el detector de artefactos.
-      const cap = (e.spec as { max_force_n?: number }).max_force_n;
+      const cap = e.spec.kind === "hand"
+        ? resolveHandParams(e.spec).max_force_n
+        : (e.spec as { max_force_n?: number }).max_force_n;
       if (cap !== undefined) peaks[e.spec.id]!.limit_n = cap;
     }
     const pending: Array<PendingWork | null> = effectors.map(() => null);
@@ -179,6 +205,13 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         updateKinematics();
         runUke(-SETTLE_S + i * dt);
       }
+      for (const o of obstacles) {
+        // Sin estado: solo sostiene el obstáculo en su posición inicial (objetivo de t = 0).
+        o.command = stepObstacle(o.params, createObstacleState(), {
+          t: 0, dt, ...readObstacleKinematics(o.params, o.handles, data as unknown as { qpos: Float64Array; qvel: Float64Array }),
+        });
+      }
+      applyObstacleCommands();
       mj.mj_step(model, data);
     }
     if (humanoid && ukeParams && humanoid.attitude !== settleAttitude) {
@@ -262,6 +295,25 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     }
     const initialRotation = Array.from((data.xmat as Float64Array).subarray(9 * actorBodyId, 9 * actorBodyId + 9));
     const startXY: [number, number] = [(data.xpos as Float64Array)[3 * actorBodyId]!, (data.xpos as Float64Array)[3 * actorBodyId + 1]!];
+
+    // Manos: el hombro, los desplazamientos y el eje vienen en `actor_initial` (origen y ejes del cuerpo principal en t = 0)
+    // y se pasan al mundo aquí; `stepHand` trabaja todo en el mundo.
+    const initialOrigin = triple(data.xpos as Float64Array, 3 * actorBodyId);
+    for (const e of effectors) {
+      if (e.spec.kind !== "hand") continue;
+      const spec = e.spec;
+      const params = resolveHandParams({
+        ...spec,
+        shoulder_m: add(initialOrigin, rotate(initialRotation, 0, spec.shoulder_m)),
+        phases: spec.phases.map((p) => ({ ...p, offset_m: rotate(initialRotation, 0, p.offset_m) })),
+        ...(spec.axis !== undefined ? { axis: rotate(initialRotation, 0, spec.axis) } : {}),
+      });
+      const handPeaks: HandPeaks = {
+        max_power_w: 0, time_at_cap_s: 0, time_power_limited_s: 0, time_reach_limited_s: 0, events: [],
+      };
+      e.hand = { params, state: createHandState(), peaks: handPeaks };
+      peaks[spec.id]!.hand = handPeaks;
+    }
 
     // Humanoide: sitios de las suelas, partes que cuentan como «toca el suelo» (todas menos los pies) y frente inicial (+X del
     // cuerpo `pelvis`). El equilibrio se muestrea a `record_hz`; los primeros contactos con el suelo, a 500 Hz.
@@ -365,14 +417,37 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           ];
           peaks[e.spec.id]!.work_j += dot(previous.force, vMean) * dt;
         }
-        const gain = waveformGain(e.spec, t + dt / 2);
         let force: Vec3 = [0, 0, 0];
-        if (gain !== 0) {
-          const f = e.spec.force_n;
-          const scaled: Vec3 = [f[0] * gain, f[1] * gain, f[2] * gain];
-          if (e.spec.frame === "world") force = scaled;
-          else if (e.spec.frame === "actor_initial") force = rotate(initialRotation, 0, scaled);
-          else force = rotate(xmat, 9 * e.bodyId, scaled);
+        let handSample: EffectorSample["hand"];
+        if (e.spec.kind === "hand") {
+          // Mano virtual: fuerza del muelle con sus topes, evaluada con el estado al comienzo del paso.
+          const hand = e.hand!;
+          const r = stepHand(hand.params, hand.state, { t, dt, grip_m: point, grip_velocity_mps: velocity });
+          handSample = {
+            held: r.sample.held, target_m: r.sample.target_m, force_limited: r.sample.force_limited,
+            power_limited: r.sample.power_limited, reach_limited: r.sample.reach_limited,
+          };
+          if (i < totalSteps) {
+            hand.state = r.state;
+            force = r.force_n;
+            const hp = hand.peaks;
+            hp.max_power_w = Math.max(hp.max_power_w, r.sample.power_w);
+            if (r.sample.force_limited) hp.time_at_cap_s += dt;
+            if (r.sample.power_limited) hp.time_power_limited_s += dt;
+            if (r.sample.reach_limited) hp.time_reach_limited_s += dt;
+            for (const ev of r.events) hp.events.push({ t_s: ev.t, kind: ev.kind });
+          }
+        } else {
+          const gain = waveformGain(e.spec, t + dt / 2);
+          if (gain !== 0) {
+            const f = e.spec.force_n;
+            const scaled: Vec3 = [f[0] * gain, f[1] * gain, f[2] * gain];
+            if (e.spec.frame === "world") force = scaled;
+            else if (e.spec.frame === "actor_initial") force = rotate(initialRotation, 0, scaled);
+            else force = rotate(xmat, 9 * e.bodyId, scaled);
+          }
+        }
+        if (force[0] !== 0 || force[1] !== 0 || force[2] !== 0) {
           const com = triple(data.xipos as Float64Array, 3 * e.bodyId);
           const torque = cross(sub(point, com), force);
           const o = 6 * e.bodyId;
@@ -386,7 +461,11 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         if (i < totalSteps) {
           // Solo los pasos que se ejecutan de verdad (el muestreo final no da ningún paso).
           const peak = peaks[e.spec.id]!;
-          const magnitude = Math.hypot(force[0], force[1], force[2]);
+          let magnitude = Math.hypot(force[0], force[1], force[2]);
+          // El recorte de la mano a su tope puede dejar el módulo un ulp por encima: eso no es superar el tope.
+          if (e.hand && magnitude > e.hand.params.max_force_n && magnitude <= e.hand.params.max_force_n * (1 + 1e-9)) {
+            magnitude = e.hand.params.max_force_n;
+          }
           if (magnitude > peak.max_force_n) peak.max_force_n = magnitude;
           peak.impulse_ns = [
             peak.impulse_ns[0] + force[0] * dt,
@@ -395,8 +474,25 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           ];
         }
         pending[k] = i < totalSteps ? { force, velocity } : null;
-        sampleEffectors.push({ id: e.spec.id, point_m: point, force_n: force });
+        const effectorSample: EffectorSample = { id: e.spec.id, point_m: point, force_n: force };
+        if (handSample) {
+          effectorSample.kind = "hand";
+          effectorSample.hand = handSample;
+        }
+        sampleEffectors.push(effectorSample);
       });
+
+      // Obstáculos: orden del actuador para el paso [t, t + dt]. Se escribe ya (para el `mj_forward` de la muestra) y otra
+      // vez tras el controlador de Uke, que pone `qfrc_applied` a cero.
+      for (const o of obstacles) {
+        const r = stepObstacle(o.params, o.state, {
+          t, dt, ...readObstacleKinematics(o.params, o.handles, data as unknown as { qpos: Float64Array; qvel: Float64Array }),
+          contact_force_on_uke_n: o.contact,
+        });
+        o.command = r;
+        if (i < totalSteps) o.state = r.state;
+      }
+      applyObstacleCommands();
 
       if (i % stepsPerSample === 0) {
         mj.mj_forward(model, data); // contactos y fuerzas coherentes con el wrench ya aplicado
@@ -443,9 +539,17 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         break;
       }
       if (uke) runUke(t);
+      applyObstacleCommands();
       probe.beforeStep();
       mj.mj_step(model, data);
       probe.afterStep(t);
+      for (const o of obstacles) {
+        // Contacto resuelto del paso que acaba de ejecutarse, solo contra el actor (no contra props ni otros obstáculos).
+        o.contact = readObstacleContactForce(
+          model as unknown as ObstacleModelLike, o.handles, data as unknown as ObstacleContactData,
+          { pyramidal, isOtherBody: (b) => actorBodyIds.has(b) },
+        ).force_on_other_n;
+      }
       if (humanoid) scanTouches(t);
     }
 
@@ -487,6 +591,25 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       summary.expect_diffs = result === "pass" ? [] : result;
     }
 
+    const obstaclePeaks: Record<string, ObstaclePeaks> = {};
+    for (const o of obstacles) {
+      const k = readObstacleKinematics(o.params, o.handles, data as unknown as { qpos: Float64Array; qvel: Float64Array });
+      const totals = settleObstacleWork(o.state, k.velocity_mps).totals;
+      obstaclePeaks[o.params.name] = {
+        max_force_n: totals.max_force_n,
+        max_horizontal_force_n: totals.max_horizontal_force_n,
+        max_vertical_force_n: totals.max_vertical_force_n,
+        limit_horizontal_n: o.params.max_horizontal_force_n,
+        limit_vertical_n: o.params.max_vertical_force_n,
+        max_contact_force_on_actor_n: totals.max_contact_force_on_uke_n,
+        contact_impulse_on_actor_ns: totals.contact_impulse_on_uke_ns,
+        max_deviation_m: totals.max_deviation_m,
+        max_speed_mps: totals.max_speed_mps,
+        time_saturated_s: totals.time_saturated_s,
+        work_j: totals.work_j,
+      };
+    }
+
     const recording: Recording = {
       schema: RECORDING_SCHEMA_ID,
       meta: {
@@ -501,7 +624,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       },
       model: { mjcf: built.mjcf, bodies: built.bodies, joints: built.joints },
       samples,
-      peaks: { effectors: peaks },
+      peaks: obstacles.length > 0 ? { obstacles: obstaclePeaks, effectors: peaks } : { effectors: peaks },
       summary,
       diagnostics: probe.diagnostics(),
     };

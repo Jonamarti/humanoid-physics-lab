@@ -47,6 +47,7 @@ por ejemplo `effectors[1].force_n[0]: debe ser un número finito, no NaN`.
 | `actors` | lista | | Al menos un actor. |
 | `props` | lista | | Puede estar vacía. |
 | `effectors` | lista | | Puede estar vacía. |
+| `obstacles` | lista | | Opcional. Obstáculos con fuerza limitada (ver abajo). Si falta, el escenario validado no lleva la clave y su hash no cambia. |
 | `expect` | objeto | | Opcional. |
 
 Los `id` de actores, props y efectores siguen la misma regla `[a-z0-9_]` y no pueden repetirse dentro de su lista.
@@ -115,6 +116,45 @@ El campo `fall` del ejemplo de la issue #75 todavía no existe (es de otra PR) y
 | `duration_s` | s | > 0 y <= 30. |
 | `waveform` | | `half_sine` o `constant`. |
 
+### `effectors[]` (`kind: "hand"`)
+
+Mano virtual de Tori ([VIRTUAL_HAND.md](VIRTUAL_HAND.md)): un punto objetivo unido al agarre por muelle y amortiguador, con
+tope de fuerza, de potencia y de alcance. Tori no tiene cuerpo: `shoulder_m`, los `offset_m` y `axis` se dan en el marco
+`actor_initial` (origen y ejes del cuerpo principal del actor en t = 0, tras el asentamiento; +X delante de Uke, +Z arriba).
+
+| Campo | Unidad | Regla |
+|---|---|---|
+| `id`, `actor`, `body`, `site`, `local_point_m` | | Como en `prescribed_force`: punto del actor que se agarra. |
+| `link` | | `rope` (solo tracción), `clamp` (tracción y empuje) o `push` (solo empuje). |
+| `shoulder_m` | m | Hombro de Tori: centro de la esfera de alcance. |
+| `close_s` | s | >= 0. Instante en que la mano se cierra; el agarre en ese instante es el origen de los desplazamientos. |
+| `release_s` | s | Opcional, >= `close_s`. Suelta programada. |
+| `phases[]` | | `start_s`, `duration_s` (> 0) y `offset_m`: desplazamiento ACUMULADO del objetivo respecto al origen, alcanzado con mínimo tirón al final del tramo. Sin solapes y no antes de `close_s`. Puede estar vacía. |
+| `axis` | | Opcional, solo `push`: dirección del empuje. |
+| `k_n_per_m`, `c_ns_per_m`, `slack_m`, `max_force_n`, `max_power_w`, `reach_m`, `slip_after_s` | | Opcionales; por defecto 3000 N/m, 200 N·s/m, 0,03 m (`rope`), 500 N, 600 W, 0,75 m y 0,4 s. Reglas de `resolveHandParams`. |
+
+La mano resbala (suceso `slip`) si su demanda pasa `slip_after_s` seguidos en el tope de fuerza. El validador no rellena
+los valores por defecto: el hash del escenario solo cambia con lo que el autor escribe.
+
+### `obstacles[]`
+
+Obstáculo con masa y fuerza limitada ([LIMITED_OBSTACLE.md](LIMITED_OBSTACLE.md)): la cadera, la pierna o el pie de Tori en
+abstracto. Es un cuerpo del modelo, llamado como su `id`, montado sobre tres deslizaderas y gobernado por un seguimiento con
+topes: si Uke carga más que el tope, cede. **Sus coordenadas están en el mundo**, no en `actor_initial`: el cuerpo se crea
+antes del asentamiento. El actor nace en el origen mirando a +X, así que para un actor sin girar ambos marcos solo difieren
+en la altura de la pelvis. Durante el asentamiento el obstáculo se sostiene en `start_m`.
+
+| Campo | Unidad | Regla |
+|---|---|---|
+| `id` | | `[a-z][a-z0-9_]*`, único entre obstáculos y distinto de los `id` de `props` y de los cuerpos del actor. |
+| `shape` | | `bar` (cápsula transversal, eje Y), `post` (cápsula vertical), `pad` o `foot` (cajas). |
+| `tori_mass_kg` | kg | > 0. Fija los valores por defecto: masa del obstáculo (la mitad), tope horizontal (0,8 pesos) y vertical (2,0 pesos). |
+| `start_m` | m | Centro de la geometría en el mundo. |
+| `phases[]` | | Como en la mano, con `offset_m` en el mundo y respecto a `start_m`. Puede estar vacía (obstáculo quieto). |
+| `mass_kg`, `length_m`, `radius_m`, `size_m`, `surface` (`cloth` o `skin`), `friction`, `kp_n_per_m`, `damping_ratio`, `max_force_n`, `max_vertical_force_n`, `max_speed_mps` | | Opcionales; reglas de `resolveObstacleParams`. Se rechaza una combinación de `kp_n_per_m` y masa inestable a 500 Hz. |
+
+No se admite todavía la bisagra (`rotation`) del módulo del obstáculo.
+
 ### `expect`
 
 | Campo | Unidad | Regla |
@@ -129,6 +169,25 @@ El campo `fall` del ejemplo de la issue #75 todavía no existe (es de otra PR) y
 que cumpla su `expect`. Todo escenario de esa carpeta debe declarar `expect`. Resultados y umbrales medidos:
 [CYLINDER_BENCHMARK.md](CYLINDER_BENCHMARK.md). Salida de la ejecución: [RECORDING_V1.md](RECORDING_V1.md).
 Las tres fases de un derribo se escriben como tres efectores `prescribed_force` consecutivos (`phase_a`, `phase_b`, `phase_c`).
+
+`uke_tense_75_175_hip_tip.json` es el primer escenario con manos y obstáculo: dos manos `rope` (manga derecha y esternón)
+tiran delante y arriba 0,4 s y después delante y abajo, con una barra a la altura de la cadera delante de Uke (centro a
+0,90 m; la pelvis está a 0,98 m). Medido con Uke `tense` de 75 kg y 1,75 m:
+
+| Tope por mano | Resultado | Inclinación máxima del tronco | Carga máxima sobre la barra | La barra cede |
+|---|---|---|---|---|
+| 100 N | sigue de pie, sin resolver (las manos resbalan) | 16° | 546 N | 0,7 cm |
+| 200 N | sigue de pie, sin resolver (las manos resbalan) | 31° | 1013 N | 2,0 cm |
+| 250 N | cae, sin pasar por encima de la barra | 84° | 1200 N | 3,6 cm |
+| 385 N (500/1,3, margen de la prueba) | cae | | | |
+| 500 N (escenario) | gira por encima de la barra y cae de espaldas | 162° | 2192 N | 7,6 cm |
+| 500 N, sin barra | cae de frente, arrastrado | 87° | | |
+
+Con 500 N la mano de la manga llega a 398 N y la del esternón está 0,14 s en el tope; ninguna resbala. La barra pasa
+0,56 s saturada. Al aterrizar el detector marca 11,1 kN en la pelvis y 4,4 cm de penetración de un pie: es el impacto
+sin reflejos de caída descrito en [ESTADO_DERRIBOS_20261112.md](ESTADO_DERRIBOS_20261112.md). Uke gira rígido como una
+tabla porque `tense` no cede en la cintura. Barrido hecho a mano con `npm run sim`; solo las filas de 385 N y 500 N con
+barra están cubiertas por pruebas.
 
 ## Notas y límites
 

@@ -70,6 +70,20 @@
       "expect": "pass",
       "engine_version": "0.1.0",
       "bytes": 141214
+    },
+    {
+      "id": "uke_tense_75_175_hip_tip",
+      "title": "Vuelco sobre la cadera: dos manos y una barra",
+      "description": "Dos manos de 500 N tiran delante y arriba de la manga y el pecho, con una barra a la altura de la cadera: el humanoide gira por encima de ella y cae de espaldas.",
+      "file": "uke_tense_75_175_hip_tip.json.gz",
+      "duration_s": 3,
+      "record_hz": 125,
+      "samples": 376,
+      "outcome": "fall",
+      "direction_deg": 146.37,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 172615
     }
   ]
 }

@@ -25,6 +25,11 @@
       "id": "uke_tense_75_175_push_sternum",
       "title": "Humanoide en tensión, empujón en el esternón",
       "description": "Empujón hacia delante de 2356 N de pico (0,1 s) en el esternón con el humanoide en tensión: acaba cayendo hacia delante."
+    },
+    {
+      "id": "uke_tense_75_175_hip_tip",
+      "title": "Vuelco sobre la cadera: dos manos y una barra",
+      "description": "Dos manos de 500 N tiran delante y arriba de la manga y el pecho, con una barra a la altura de la cadera: el humanoide gira por encima de ella y cae de espaldas."
     }
   ]
 }

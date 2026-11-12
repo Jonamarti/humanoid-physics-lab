@@ -101,6 +101,17 @@ los escenarios actuales: [ARTIFACTS.md](ARTIFACTS.md). `npm run sim -- ... --str
   (convención de MuJoCo: fuerza de `body_a` sobre `body_b`; comprobado: la suma sobre el cilindro en reposo es su peso). Solo
   contactos con fuerza normal > 1e-6 N. El suelo es el cuerpo `world`.
 - `peaks.effectors.<id>`: `max_force_n`, `impulse_ns`, `work_j`.
+- Manos (`kind: "hand"` del escenario): cada `samples[].effectors[]` lleva además `kind: "hand"` y
+  `hand {held, target_m, force_limited, power_limited, reach_limited}` (`point_m` es el agarre), y `peaks.effectors.<id>` lleva
+  `limit_n` (el tope de fuerza resuelto) y `hand {max_power_w, time_at_cap_s, time_power_limited_s, time_reach_limited_s,
+  events[] {t_s, kind}}` con `close`, `release` y `slip`. La fuerza de la mano se calcula con el estado al comienzo del paso.
+- Obstáculos (`obstacles` del escenario): su cuerpo va al final de `model.bodies` y sus tres deslizaderas al final de
+  `model.joints` y de `qpos`/`qvel`, así que la reproducción los mueve sin más. `peaks.obstacles.<id>`: máximos de la orden
+  (`max_force_n`, `max_horizontal_force_n`, `max_vertical_force_n`) y sus topes (`limit_horizontal_n`, `limit_vertical_n`),
+  `max_contact_force_on_actor_n`, `contact_impulse_on_actor_ns`, `max_deviation_m` (cuánto cede), `max_speed_mps`,
+  `time_saturated_s` y `work_j`. `peaks.obstacles` solo existe si el escenario tiene obstáculos. La orden del obstáculo es
+  fuerza generalizada en sus deslizaderas: el balance de energía del detector la cuenta con los pares internos, no con
+  los efectores.
 - `summary`: `outcome`, `direction_deg` (o `null` con inclinación final < 5°), `t_outcome_s` (cuándo adoptó su valor final y
   ya no cambió, a 500 Hz), `final_tilt_deg`, `max_tilt_deg` (a 500 Hz), `final_com_height_m`, `slide_m`,
   `expect` (`pass`, `fail` o `none`) y `expect_diffs`.

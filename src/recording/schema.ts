@@ -31,12 +31,33 @@ export interface RecordingModel {
   joints: string[];
 }
 
+/**
+ * Estado de una mano virtual en una muestra (`src/effectors/hand.ts`, `docs/VIRTUAL_HAND.md`). El punto de agarre y la fuerza
+ * van en `point_m` y `force_n` del `EffectorSample` que lo contiene; aquí, lo propio de la mano.
+ */
+export interface HandSampleData {
+  /** `true` si la mano está cerrada y no soltada (`false` antes de `close_s` y tras una suelta o un resbalón). */
+  held: boolean;
+  /** Objetivo de la mano tras recortarlo al alcance, en el mundo, en m; `null` si no sujeta. */
+  target_m: Vec3 | null;
+  /** La demanda del muelle llegó al tope de fuerza (la fuerza se recortó a `max_force_n`). */
+  force_limited: boolean;
+  /** El tope de potencia redujo la fuerza. */
+  power_limited: boolean;
+  /** El objetivo se recortó a la esfera de alcance desde el hombro. */
+  reach_limited: boolean;
+}
+
 export interface EffectorSample {
   id: string;
-  /** Punto de aplicación en el mundo, en m. */
+  /** Punto de aplicación en el mundo, en m (en una mano, el punto de agarre). */
   point_m: Vec3;
   /** Fuerza aplicada (en el mundo) durante el paso físico que empieza en este instante, en N. */
   force_n: Vec3;
+  /** Solo en manos (`kind: "hand"` del escenario); ausente en la fuerza prescrita y en grabaciones anteriores. */
+  kind?: "hand";
+  /** Solo con `kind: "hand"`. */
+  hand?: HandSampleData;
 }
 
 export interface ContactSample {
@@ -66,6 +87,20 @@ export interface RecordingSample {
   capture_margin_m?: number | null;
 }
 
+/** Resumen de una mano virtual (a 500 Hz); ver `docs/VIRTUAL_HAND.md`. */
+export interface HandPeaks {
+  /** Máximo de `F · v_punto` (W), con la velocidad al comienzo del paso; 0 si nunca fue positivo. */
+  max_power_w: number;
+  /** Tiempo total con la demanda del muelle en el tope de fuerza, en s. */
+  time_at_cap_s: number;
+  /** Tiempo total en que el tope de potencia redujo la fuerza, en s. */
+  time_power_limited_s: number;
+  /** Tiempo total con el objetivo recortado a la esfera de alcance, en s. */
+  time_reach_limited_s: number;
+  /** Cierre, suelta programada y resbalón, con el instante del paso en que ocurren. */
+  events: Array<{ t_s: number; kind: "close" | "release" | "slip" }>;
+}
+
 export interface EffectorPeaks {
   /** Máximo del módulo de la fuerza, muestreado a 500 Hz, en N. */
   max_force_n: number;
@@ -75,9 +110,35 @@ export interface EffectorPeaks {
   work_j: number;
   /** Tope de fuerza declarado por el escenario (`max_force_n`), en N; ausente si el efector no declara ninguno. */
   limit_n?: number;
+  /** Solo en manos virtuales. */
+  hand?: HandPeaks;
+}
+
+/** Resumen de un obstáculo con fuerza limitada (a 500 Hz, desde t = 0); ver `docs/LIMITED_OBSTACLE.md`. */
+export interface ObstaclePeaks {
+  /** Máximos de la orden del actuador (incluye la compensación del peso propio), en N. */
+  max_force_n: number;
+  max_horizontal_force_n: number;
+  max_vertical_force_n: number;
+  /** Topes declarados (horizontal y vertical), en N. */
+  limit_horizontal_n: number;
+  limit_vertical_n: number;
+  /** Máximo del módulo de la fuerza de contacto del obstáculo sobre el actor, en N. */
+  max_contact_force_on_actor_n: number;
+  /** Impulso de la fuerza de contacto sobre el actor, en N·s. */
+  contact_impulse_on_actor_ns: Vec3;
+  /** Máxima separación entre el obstáculo y su objetivo (cuánto cede), en m. */
+  max_deviation_m: number;
+  max_speed_mps: number;
+  /** Tiempo con algún tope recortando la orden, en s. */
+  time_saturated_s: number;
+  /** Trabajo de la orden del actuador, en J. */
+  work_j: number;
 }
 
 export interface RecordingPeaks {
+  /** Solo si el escenario tiene obstáculos. */
+  obstacles?: Record<string, ObstaclePeaks>;
   effectors: Record<string, EffectorPeaks>;
 }
 

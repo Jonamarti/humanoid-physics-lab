@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { HAND_DEFAULTS } from "../../src/effectors/hand";
 import { idealPivotPrediction } from "../../src/physics/cylinderBenchmark";
 import { runScenario } from "../../src/scenario/run";
 import type { Scenario } from "../../src/scenario/schema";
@@ -27,7 +28,11 @@ function load(file: string): Scenario {
 /** Copia con todas las fuerzas de los efectores multiplicadas por `factor`. */
 function scaled(scenario: Scenario, factor: number): Scenario {
   const copy = structuredClone(scenario);
-  for (const e of copy.effectors) e.force_n = [e.force_n[0] * factor, e.force_n[1] * factor, e.force_n[2] * factor];
+  for (const e of copy.effectors) {
+    // Mano virtual: lo que se escala es su tope de fuerza.
+    if (e.kind === "hand") e.max_force_n = (e.max_force_n ?? HAND_DEFAULTS.max_force_n) * factor;
+    else e.force_n = [e.force_n[0] * factor, e.force_n[1] * factor, e.force_n[2] * factor];
+  }
   return copy;
 }
 
@@ -56,7 +61,7 @@ describe("escenarios de scenarios/*.json (MuJoCo WASM real)", () => {
       });
 
       const pull = scenario.effectors.length === 1 ? scenario.effectors[0] : undefined;
-      if (pull && pull.waveform === "constant" && pull.force_n[0] > 0) {
+      if (pull && pull.kind === "prescribed_force" && pull.waveform === "constant" && pull.force_n[0] > 0) {
         it("informa (sin afirmar) la predicción de pivote ideal frente a la simulación", async () => {
           const obstacle = scenario.props[0];
           const trial = {

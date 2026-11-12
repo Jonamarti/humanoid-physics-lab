@@ -1,6 +1,7 @@
 import { HEIGHT_RANGE_M, MASS_RANGE_KG, V2_SEGMENT_LENGTHS_M } from "../uke/generate";
 import {
   ACTOR_BODIES,
+  HUMANOID_SITE_BODY,
   EFFECTOR_FRAMES,
   EFFECTOR_WAVEFORMS,
   OUTCOMES,
@@ -192,8 +193,8 @@ function validateProp(value: unknown, path: string): PropSpec {
 function validateEffector(value: unknown, path: string, actors: readonly ActorSpec[]): EffectorSpec {
   const obj = asObject(value, path);
   checkKeys(obj, path, [
-    "id", "kind", "actor", "body", "local_point_m", "frame", "force_n", "start_s", "duration_s", "waveform",
-  ]);
+    "id", "kind", "actor", "frame", "force_n", "start_s", "duration_s", "waveform",
+  ], ["body", "site", "local_point_m"]);
   const id = asId(obj.id, join(path, "id"));
   asEnum(obj.kind, join(path, "kind"), ["prescribed_force"]);
   const actorId = asString(obj.actor, join(path, "actor"));
@@ -202,23 +203,43 @@ function validateEffector(value: unknown, path: string, actors: readonly ActorSp
     const known = actors.map((a) => a.id).join(", ") || "ninguno";
     fail(join(path, "actor"), `referencia a un actor inexistente "${actorId}" (actores: ${known})`);
   }
-  const body = asString(obj.body, join(path, "body"));
   const bodies = ACTOR_BODIES[actor.kind];
-  if (!bodies.includes(body)) {
-    fail(join(path, "body"), `el actor "${actor.id}" no tiene el cuerpo "${body}" (cuerpos: ${bodies.join(", ")})`);
+  let body: string;
+  let site: string | undefined;
+  let local: Vec3 = [0, 0, 0];
+  if ("site" in obj) {
+    if ("body" in obj) fail(join(path, "body"), "no puede combinarse con site: usa body + local_point_m o solo site");
+    site = asString(obj.site, join(path, "site"));
+    const siteBody = actor.kind === "humanoid" ? HUMANOID_SITE_BODY[site] : undefined;
+    if (siteBody === undefined) {
+      const known = actor.kind === "humanoid" ? Object.keys(HUMANOID_SITE_BODY).join(", ") : "ninguno";
+      fail(join(path, "site"), `el actor "${actor.id}" no tiene el sitio "${site}" (sitios: ${known})`);
+    }
+    body = siteBody;
+    if ("local_point_m" in obj) local = asVec3(obj.local_point_m, join(path, "local_point_m"));
+  } else {
+    if (!("body" in obj)) fail(join(path, "body"), "campo obligatorio ausente (o indica site)");
+    body = asString(obj.body, join(path, "body"));
+    if (!bodies.includes(body)) {
+      fail(join(path, "body"), `el actor "${actor.id}" no tiene el cuerpo "${body}" (cuerpos: ${bodies.join(", ")})`);
+    }
+    if (!("local_point_m" in obj)) fail(join(path, "local_point_m"), "campo obligatorio ausente");
+    local = asVec3(obj.local_point_m, join(path, "local_point_m"));
   }
-  return {
+  const effector: EffectorSpec = {
     id,
     kind: "prescribed_force",
     actor: actor.id,
     body,
-    local_point_m: asVec3(obj.local_point_m, join(path, "local_point_m")),
+    local_point_m: local,
     frame: asEnum(obj.frame, join(path, "frame"), EFFECTOR_FRAMES),
     force_n: asVec3(obj.force_n, join(path, "force_n")),
     start_s: asNonNegative(obj.start_s, join(path, "start_s")),
     duration_s: asDuration(obj.duration_s, join(path, "duration_s")),
     waveform: asEnum(obj.waveform, join(path, "waveform"), EFFECTOR_WAVEFORMS),
   };
+  if (site !== undefined) effector.site = site;
+  return effector;
 }
 
 function validateExpect(value: unknown, path: string): ExpectSpec {

@@ -1,0 +1,25 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "uke_relaxed_75_175_collapse",
+  "duration_s": 3,
+  "record_hz": 125,
+  "ground": {
+    "friction": 1.0
+  },
+  "actors": [
+    {
+      "id": "uke",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "relaxed",
+      "stance": "neutral"
+    }
+  ],
+  "props": [],
+  "effectors": [],
+  "expect": {
+    "outcome": "fall"
+  }
+}

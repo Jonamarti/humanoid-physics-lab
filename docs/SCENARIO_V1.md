@@ -83,7 +83,7 @@ Cuerpos referenciables por los efectores: `pelvis`, `abdomen`, `chest`, `head`, 
 | `strength` | | Opcional, de 0,5 a 1,5 (por defecto 1). Escala el par máximo. |
 | `build` | | Opcional, de 0 a 1: fracción del exceso de masa (IMC > 27) que va al tronco (por defecto 0,6). |
 | `segment_lengths_m` | m | Opcional. Claves `thigh`, `shin`, `foot`, `upper_arm`, `forearm`, `trunk`, `neck`; cada una entre 0,5 y 2 veces el valor de v2. |
-| `attitude` | | Opcional (por defecto `tense`). De momento solo `tense`. |
+| `attitude` | | Opcional (por defecto `tense`): `tense` o `relaxed` (sin objetivos, solo amortiguación pasiva; ver [UKE_CONTROL.md](UKE_CONTROL.md)). |
 | `stance` | | Opcional (por defecto `neutral`): `neutral`, `natural_grip`, `defensive`, `staggered_left`, `staggered_right`. |
 
 Con un humanoide, el asentamiento de 0,5 s ya lleva el controlador activo y el veredicto es el mínimo del humanoide (tronco < 3° y pelvis > 90 %
@@ -106,8 +106,9 @@ El campo `fall` del ejemplo de la issue #75 todavía no existe (es de otra PR) y
 | `id` | | Ver arriba. |
 | `kind` | | `prescribed_force` (único tipo en esta fase). |
 | `actor` | | `id` de un actor existente. |
-| `body` | | Cuerpo existente de ese actor. |
-| `local_point_m` | m | Punto de aplicación `[x, y, z]` en el sistema local del cuerpo. |
+| `body` | | Cuerpo existente de ese actor. Obligatorio salvo que se indique `site`. |
+| `site` | | Alternativa a `body` (solo humanoide): sitio con nombre (`sternum`, `nape`, `belt_front`, `head_front`, etc.; lista en `HUMANOID_SITE_BODY`, `src/scenario/schema.ts`). Excluye `body`; el validador rellena `body` con el cuerpo del sitio. |
+| `local_point_m` | m | Con `body`: punto de aplicación `[x, y, z]` en el sistema local del cuerpo (obligatorio). Con `site`: desplazamiento opcional (por defecto 0) respecto al sitio, en los ejes del cuerpo. |
 | `frame` | | `world`, `actor_initial` (ejes del actor en t=0) o `actor_current`. |
 | `force_n` | N | Fuerza `[x, y, z]` expresada en `frame`. Valor máximo de la forma de onda. |
 | `start_s` | s | >= 0, desde el comienzo del escenario (tras el asentamiento). |

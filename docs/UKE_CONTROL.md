@@ -92,6 +92,35 @@ están como `it.fails` en `ukeStances.test.ts`.
 - Dos `contact exclude` en el generador (abdomen-muslos, pelvis-piernas): con 150 kg y las rodillas flexionadas la cápsula del abdomen
   chocaba con los muslos (10 kN).
 
+## Actitud `relaxed` y amortiguación en tiempo de ejecución (issue #75, PR 3)
+
+Código: `src/uke/damping.ts`, `createRelaxedController` en `src/uke/attitudes.ts`. Pruebas: `tests/unit/ukeRelaxed.test.ts`.
+
+- `relaxed` no tiene objetivos ni equilibrio y no escribe ningún par: solo actúan la amortiguación articular pasiva y los topes de
+  rango del MJCF (`limited="true"`). Amortiguación de partida: la de v2, 1,6 N·m·s/rad, escalada con la ley de `gains.ts`
+  (`1,6 · m · h^1,5`, igual en todas las bisagras). Un cuerpo relajado no puede tener la amortiguación de uno tenso (`tense` a 75 kg y 1,76 m: de 6 N·m·s/rad en el
+  cuello a 32 en la cadera y el tobillo).
+- **La amortiguación se escribe en `model.dof_damping` en tiempo de ejecución** (`setJointDamping`), no solo en el MJCF. Comprobado
+  con MuJoCo WASM real: el binding permite escribir `model.dof_damping` (la lectura devuelve lo escrito) y el cambio tiene efecto en la
+  simulación (codo lanzado a 3 rad/s: tras 0,1 s queda a 0,171 rad/s con 1,6 y a 0,001 rad/s con 200). Los reflejos de caída podrán
+  cambiar la amortiguación en marcha. El MJCF generado lleva también la amortiguación de la actitud (para que la grabación sea
+  coherente) y el ejecutor la reescribe al empezar; con `tense` el valor es el mismo de siempre, así que los resultados no cambian
+  (las pruebas de las cuatro tallas no se tocaron).
+- Un Uke `relaxed` **asienta 0,5 s con la actitud `tense`** (si no, se desplomaría durante el asentamiento y el escenario empezaría ya cayendo)
+  y pasa a `relaxed` (controlador y `dof_damping`) en `t = 0`.
+
+### Pruebas de física pasiva (medidas)
+
+| Prueba | Resultado |
+|---|---|
+| Energía (`mj_energyPos` + `mj_energyVel`, llamadas directas tras el `mj_forward` de cada muestra a 125 Hz; el flag de energía no hace falta) | `relaxed` 75 kg cae desde de pie: 747,3 J al inicio, 116,8 J al final; mayor subida sobre el máximo anterior 0,0000 % (límite 1 %) |
+| Péndulo (cuerpo sin bisagras, colisiones desactivadas, ambos tobillos clavados al mundo con `connect`: un solo grado de libertad; sin amortiguación) | 5° a 45°: 0,9920 s simulado frente a 0,9924 s del péndulo físico (`I θ'' = m g d sin θ`, `I` = 81,94 kg·m² desde las inercias del modelo, `d` = 0,952 m, RK4): error 0,04 % (límite 10 %) |
+| Simetría (`tense` 75 kg, 150 N·s hacia delante, medio seno de 0,1 s, en `sternum`) | desvío lateral máximo del CM 0,000 cm y giro máximo de la pelvis (ángulo entre su eje Y y el inicial) 0,000° durante los 3 s (límites 2 cm y 3°): el resultado es exactamente simétrico en Y |
+| Robustez (mismo empujón con el punto desplazado ±1 cm en Y) | cae en los tres casos; dirección −0,0° centrado, 0,2° con +1 cm y −0,2° con −1 cm (límite ±15°); giro de pelvis 0,85° con +1 cm |
+
+Los efectores admiten `site` (sitio con nombre del humanoide, p. ej. `sternum`) como alternativa a `body` + `local_point_m`
+([SCENARIO_V1.md](SCENARIO_V1.md)). La prueba de simetría usa 75 kg / 1,75 m; no se ha probado en las otras tallas ni con posturas distintas de `neutral`.
+
 ## Qué no se ha comprobado
 
 - Que el controlador aguante empujones: solo se ha medido el equilibrio sin perturbación. No hay reflejos de caída, golpes, agarres ni paso de recuperación (otras PR).

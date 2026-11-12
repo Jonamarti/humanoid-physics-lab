@@ -1,9 +1,11 @@
+import { resolveHandParams } from "../effectors/hand";
 import { HEIGHT_RANGE_M, MASS_RANGE_KG, V2_SEGMENT_LENGTHS_M } from "../uke/generate";
 import {
   ACTOR_BODIES,
   HUMANOID_SITE_BODY,
   EFFECTOR_FRAMES,
   EFFECTOR_WAVEFORMS,
+  HAND_LINKS,
   OUTCOMES,
   SEGMENT_LENGTH_KEYS,
   UKE_ATTITUDES,
@@ -18,6 +20,8 @@ import {
   type SegmentLengthKey,
   type EffectorSpec,
   type ExpectSpec,
+  type HandEffector,
+  type HandPhaseSpec,
   type PropSpec,
   type Scenario,
   type Vec3,
@@ -190,13 +194,15 @@ function validateProp(value: unknown, path: string): PropSpec {
   };
 }
 
-function validateEffector(value: unknown, path: string, actors: readonly ActorSpec[]): EffectorSpec {
-  const obj = asObject(value, path);
-  checkKeys(obj, path, [
-    "id", "kind", "actor", "frame", "force_n", "start_s", "duration_s", "waveform",
-  ], ["body", "site", "local_point_m"]);
-  const id = asId(obj.id, join(path, "id"));
-  asEnum(obj.kind, join(path, "kind"), ["prescribed_force"]);
+interface Attachment {
+  actor: ActorSpec;
+  body: string;
+  site: string | undefined;
+  local: Vec3;
+}
+
+/** `actor` + (`body` + `local_point_m` | `site` [+ `local_point_m`]): punto de un actor al que se aplica un efector. */
+function validateAttachment(obj: Obj, path: string, actors: readonly ActorSpec[]): Attachment {
   const actorId = asString(obj.actor, join(path, "actor"));
   const actor = actors.find((a) => a.id === actorId);
   if (!actor) {
@@ -226,6 +232,70 @@ function validateEffector(value: unknown, path: string, actors: readonly ActorSp
     if (!("local_point_m" in obj)) fail(join(path, "local_point_m"), "campo obligatorio ausente");
     local = asVec3(obj.local_point_m, join(path, "local_point_m"));
   }
+  return { actor, body, site, local };
+}
+
+/** Parámetros opcionales numéricos de la mano y su regla (los nombres son los de `HAND_DEFAULTS`). */
+const HAND_NUMERIC_PARAMS = [
+  "k_n_per_m", "c_ns_per_m", "slack_m", "max_force_n", "max_power_w", "reach_m", "slip_after_s",
+] as const;
+
+function validateHand(obj: Obj, path: string, actors: readonly ActorSpec[]): HandEffector {
+  checkKeys(obj, path, ["id", "kind", "actor", "link", "shoulder_m", "close_s", "phases"], [
+    "body", "site", "local_point_m", "release_s", "axis", ...HAND_NUMERIC_PARAMS,
+  ]);
+  const id = asId(obj.id, join(path, "id"));
+  const { body, site, local } = validateAttachment(obj, path, actors);
+  const hand: HandEffector = {
+    id,
+    kind: "hand",
+    actor: asString(obj.actor, join(path, "actor")),
+    body,
+    local_point_m: local,
+    link: asEnum(obj.link, join(path, "link"), HAND_LINKS),
+    shoulder_m: asVec3(obj.shoulder_m, join(path, "shoulder_m")),
+    close_s: asNonNegative(obj.close_s, join(path, "close_s")),
+    phases: asArray(obj.phases, join(path, "phases")).map((raw, i): HandPhaseSpec => {
+      const p = `${join(path, "phases")}[${i}]`;
+      const phase = asObject(raw, p);
+      checkKeys(phase, p, ["start_s", "duration_s", "offset_m"]);
+      return {
+        start_s: asNonNegative(phase.start_s, join(p, "start_s")),
+        duration_s: asDuration(phase.duration_s, join(p, "duration_s")),
+        offset_m: asVec3(phase.offset_m, join(p, "offset_m")),
+      };
+    }),
+  };
+  if (site !== undefined) hand.site = site;
+  if ("release_s" in obj) hand.release_s = asNonNegative(obj.release_s, join(path, "release_s"));
+  if ("axis" in obj) hand.axis = asVec3(obj.axis, join(path, "axis"));
+  for (const key of HAND_NUMERIC_PARAMS) {
+    if (!(key in obj)) continue;
+    // Las reglas de rango son las de `resolveHandParams` (abajo); aquí solo se exige un número finito.
+    hand[key] = asFinite(obj[key], join(path, key));
+  }
+  // Reglas de la propia mano (> 0, holgura de `clamp`, `axis` solo en `push`, orden de las fases...): las de `resolveHandParams`.
+  try {
+    resolveHandParams(hand);
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
+    // Los mensajes de la mano empiezan por el campo (`phases[1].start_s: ...`).
+    const m = /^([A-Za-z_][\w.\[\]]*): (.*)$/s.exec(error.message);
+    if (m) fail(join(path, m[1]!), m[2]!);
+    fail(path, error.message);
+  }
+  return hand;
+}
+
+function validateEffector(value: unknown, path: string, actors: readonly ActorSpec[]): EffectorSpec {
+  const obj = asObject(value, path);
+  if (obj.kind === "hand") return validateHand(obj, path, actors);
+  checkKeys(obj, path, [
+    "id", "kind", "actor", "frame", "force_n", "start_s", "duration_s", "waveform",
+  ], ["body", "site", "local_point_m"]);
+  const id = asId(obj.id, join(path, "id"));
+  asEnum(obj.kind, join(path, "kind"), ["prescribed_force", "hand"]);
+  const { actor, body, site, local } = validateAttachment(obj, path, actors);
   const effector: EffectorSpec = {
     id,
     kind: "prescribed_force",

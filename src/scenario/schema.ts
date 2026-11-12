@@ -21,7 +21,7 @@ export type Vec3 = readonly [number, number, number];
 
 export type ActorKind = "rigid_cylinder" | "humanoid";
 export type PropKind = "fixed_box";
-export type EffectorKind = "prescribed_force";
+export type EffectorKind = "prescribed_force" | "hand";
 
 /**
  * Cuerpos referenciables de cada tipo de actor. El resto de fases ampliarán la tabla
@@ -71,6 +71,10 @@ export type SegmentLengthKey = (typeof SEGMENT_LENGTH_KEYS)[number];
 /** Marcos en los que se expresa `force_n`. */
 export const EFFECTOR_FRAMES = ["world", "actor_initial", "actor_current"] as const;
 export type EffectorFrame = (typeof EFFECTOR_FRAMES)[number];
+
+/** Tipos de unión de la mano virtual (`src/effectors/hand.ts`): solo tracción, tracción y empuje, o solo empuje. */
+export const HAND_LINKS = ["rope", "clamp", "push"] as const;
+export type HandLinkKind = (typeof HAND_LINKS)[number];
 
 /** Formas temporales de la fuerza prescrita. */
 export const EFFECTOR_WAVEFORMS = ["half_sine", "constant"] as const;
@@ -158,7 +162,52 @@ export interface PrescribedForceEffector {
   waveform: EffectorWaveform;
 }
 
-export type EffectorSpec = PrescribedForceEffector;
+/** Tramo del objetivo de una mano: desplazamiento acumulado respecto al agarre al cerrarse la mano (mínimo tirón). */
+export interface HandPhaseSpec {
+  /** Instante de inicio en s, desde el comienzo del escenario (no antes de `close_s`). */
+  start_s: number;
+  /** Duración en s (> 0). */
+  duration_s: number;
+  /** Desplazamiento acumulado en m, en el marco `actor_initial` de Uke, alcanzado al final del tramo. */
+  offset_m: Vec3;
+}
+
+/**
+ * Mano virtual de Tori (`src/effectors/hand.ts`, `docs/VIRTUAL_HAND.md`): un punto objetivo unido por muelle y amortiguador
+ * al agarre, con tope de fuerza, de potencia y de alcance desde un hombro. Tori no tiene cuerpo: el hombro, el objetivo y los
+ * ejes se dan en el marco `actor_initial` del actor (ejes y origen del cuerpo principal al terminar el asentamiento, t = 0).
+ * Los campos opcionales ausentes toman los valores por defecto de `HAND_DEFAULTS` (no se rellenan al validar).
+ */
+export interface HandEffector {
+  id: string;
+  kind: "hand";
+  actor: string;
+  /** Cuerpo del actor que se agarra; con `site`, el validador lo rellena con el cuerpo que contiene el sitio. */
+  body: string;
+  /** Alternativa a `body` + `local_point_m` (solo humanoide): sitio con nombre (ver `HUMANOID_SITE_BODY`). */
+  site?: string;
+  /** Punto de agarre en el sistema local del cuerpo (con `site`: desplazamiento opcional respecto al sitio). */
+  local_point_m: Vec3;
+  link: HandLinkKind;
+  /** Hombro de Tori (centro de la esfera de alcance), en m, en el marco `actor_initial`. */
+  shoulder_m: Vec3;
+  /** Instante en que la mano se cierra sobre el agarre y empieza a actuar, en s. */
+  close_s: number;
+  /** Instante de suelta programada, en s (>= `close_s`). */
+  release_s?: number;
+  phases: HandPhaseSpec[];
+  /** Solo `push`: dirección del empuje en `actor_initial` (se normaliza). */
+  axis?: Vec3;
+  k_n_per_m?: number;
+  c_ns_per_m?: number;
+  slack_m?: number;
+  max_force_n?: number;
+  max_power_w?: number;
+  reach_m?: number;
+  slip_after_s?: number;
+}
+
+export type EffectorSpec = PrescribedForceEffector | HandEffector;
 
 export interface ExpectSpec {
   outcome: Outcome;

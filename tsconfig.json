@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["src", "tests", "scripts/sim.ts", "vite.config.ts", "vitest.config.ts", "eslint.config.mjs"]
+  "include": ["src", "tests", "scripts/sim.ts", "scripts/build_gallery.ts", "vite.config.ts", "vitest.config.ts", "eslint.config.mjs"]
 }

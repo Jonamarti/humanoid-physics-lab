@@ -108,3 +108,14 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 .replay-panel input[type="range"] { width: 100%; }
 .replay-panel button[aria-pressed="true"] { outline: 2px solid #5df0b3; }
 .replay-forces { position: absolute; top: 10px; left: 12px; margin: 0; white-space: pre; font: 600 .85rem/1.35 ui-monospace, monospace; color: #ffbd59; text-shadow: 0 1px 3px #000; pointer-events: none; }
+
+/* Galería de grabaciones de ejemplo (src/renderer/galleryView.ts) */
+.gallery { margin-top: 12px; }
+.gallery label { margin-top: 12px; }
+.gallery select { min-height: 44px; font-size: 1rem; text-overflow: ellipsis; }
+.gallery-message { margin: 8px 0 0; line-height: 1.4; }
+.gallery-message.is-error { color: #ffbd59; }
+.gallery-detail { margin-top: 10px; padding: 10px 12px; border: 1px solid #29445b; border-radius: 9px; background: #0b192b; }
+.gallery-detail p { margin: 6px 0 0; line-height: 1.4; }
+.gallery-verdict { font-weight: 650; color: #7bdcc7; font-size: .9rem; }
+.gallery-link { display: inline-block; margin-top: 8px; padding: 8px 0; color: #83d6e8; font-size: .85rem; }

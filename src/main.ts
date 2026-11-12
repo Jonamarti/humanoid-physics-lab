@@ -4,6 +4,7 @@ import { GRAVITY_DEMO_MJCF } from "./physics/demoModel";
 import { FixedClock } from "./physics/fixedClock";
 import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 import { BallViewer } from "./renderer/ballViewer";
+import { GalleryView } from "./renderer/galleryView";
 import { ReplayView } from "./renderer/replayView";
 import { forceDisplayForFrame } from "./renderer/forceDisplay";
 import { installForceEditor } from "./editor/forceEditor";
@@ -692,12 +693,18 @@ function clearLoadedScenario(): void {
 // Modo reproducción de grabaciones (lógica en src/renderer/replayView.ts; la física no se ejecuta).
 const replayHost = loadButton.closest<HTMLElement>(".controls");
 if (replayHost && viewport) {
-  new ReplayView({
+  const replay = new ReplayView({
     viewer, host: replayHost, overlayHost: viewport, onStatus: (text) => { physicsStatus.textContent = text; },
     onModeChange: (active) => {
       clearLoadedScenario();
       for (const control of [loadButton, physicsModel]) control.disabled = active;
+      if (!active) gallery.reset(); // solo se llama tras construir la galería
     },
+  });
+  // Grabaciones de ejemplo (src/renderer/galleryView.ts): selector junto a «Cargar grabación» y enlace `?rec=<id>`.
+  const gallery = new GalleryView({
+    replay, mount: (node) => replay.insertBeforePanel(node),
+    baseUrl: import.meta.env.BASE_URL, search: window.location.search,
   });
 }
 

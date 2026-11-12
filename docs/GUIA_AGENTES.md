@@ -57,7 +57,7 @@ Prueba del script: `uv run --quiet --python 3.12 --with mujoco --with numpy --wi
 
 ## Reproducir una grabación en el visor web
 
-En la web, **Cargar grabación** abre un `recording.json(.gz)` y lo reproduce con controles de tiempo y velocidad, sin ejecutar `mj_step`. Detalles en [REPLAY.md](REPLAY.md); la lógica vive en `src/recording/player.ts`, `read.ts` y `src/renderer/replayView.ts` (no en `main.ts`).
+En la web, **Cargar grabación** abre un `recording.json(.gz)` y lo reproduce con controles de tiempo y velocidad, sin ejecutar `mj_step`. Detalles en [REPLAY.md](REPLAY.md); la lógica vive en `src/recording/player.ts`, `read.ts` y `src/renderer/replayView.ts` (no en `main.ts`). La web también ofrece una galería de grabaciones de ejemplo (selector y enlace `?rec=<id>`, para revisar desde el móvil): para añadir una, ver «Galería de grabaciones de ejemplo» en [REPLAY.md](REPLAY.md) (`npm run gallery`).
 
 ## Reglas (sección 9 del plan)
 

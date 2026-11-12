@@ -2,6 +2,7 @@
  * Tipos de `hpl.recording.v1`: salida de `runScenario`. Nombres de campo en inglés y `snake_case`.
  * La reproducción de una grabación nunca recalcula física.
  */
+import type { ToriBudgetSummary } from "../effectors/toriBudget";
 import type { BalanceSummary, FallInfo, StepInfo, UnbalanceInfo } from "../metrics/outcome";
 import type { Outcome, Vec3 } from "../scenario/schema";
 
@@ -102,6 +103,8 @@ export interface HandPeaks {
 }
 
 export interface EffectorPeaks {
+  /** Solo en tirones guiados (`kind: "pull"`): máximo de `F · v` (W) y tiempo con el tope de potencia actuando (s). */
+  pull?: { max_power_w: number; time_power_limited_s: number };
   /** Máximo del módulo de la fuerza, muestreado a 500 Hz, en N. */
   max_force_n: number;
   /** Impulso `∫ F dt` en el mundo, en N·s. */
@@ -254,6 +257,8 @@ export interface RecordingSummary {
   uke?: UkeSummary;
   /** Artefactos detectados (`detectArtifacts`); lista vacía = limpio. Ausente en grabaciones anteriores a la PR 5 de #75. */
   artifacts?: ArtifactFinding[];
+  /** Presupuesto de Tori (`src/effectors/toriBudget.ts`); solo si el escenario declara `tori`. */
+  tori_budget?: ToriBudgetSummary;
   /** Detectores que no pudieron evaluarse y por qué. Ausente en grabaciones anteriores. */
   artifacts_not_evaluated?: ArtifactNotEvaluated[];
 }

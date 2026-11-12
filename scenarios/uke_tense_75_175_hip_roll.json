@@ -1,0 +1,74 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "uke_tense_75_175_hip_roll",
+  "duration_s": 3,
+  "record_hz": 125,
+  "ground": {
+    "friction": 1
+  },
+  "actors": [
+    {
+      "id": "uke",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "tense",
+      "stance": "neutral"
+    }
+  ],
+  "props": [],
+  "effectors": [
+    {
+      "id": "hand_sleeve",
+      "kind": "pull",
+      "actor": "uke",
+      "site": "right_sleeve_elbow",
+      "frame": "actor_initial",
+      "keys": [
+        { "t_s": 0.2, "force_n": [0, 0, 0] },
+        { "t_s": 0.3, "force_n": [282.8, 0, 282.8] },
+        { "t_s": 0.6, "force_n": [282.8, 0, 282.8] },
+        { "t_s": 0.8, "force_n": [300, 0, 0] },
+        { "t_s": 1, "force_n": [212.1, 0, -212.1] },
+        { "t_s": 1.2, "force_n": [-68.4, 0, -187.9] },
+        { "t_s": 1.4, "force_n": [0, 0, 0] }
+      ]
+    },
+    {
+      "id": "hand_lapel",
+      "kind": "pull",
+      "actor": "uke",
+      "site": "sternum",
+      "frame": "actor_initial",
+      "keys": [
+        { "t_s": 0.2, "force_n": [0, 0, 0] },
+        { "t_s": 0.3, "force_n": [282.8, 0, 282.8] },
+        { "t_s": 0.6, "force_n": [282.8, 0, 282.8] },
+        { "t_s": 0.8, "force_n": [300, 0, 0] },
+        { "t_s": 1, "force_n": [212.1, 0, -212.1] },
+        { "t_s": 1.2, "force_n": [-68.4, 0, -187.9] },
+        { "t_s": 1.4, "force_n": [0, 0, 0] }
+      ]
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "hip_bar",
+      "shape": "bar",
+      "tori_mass_kg": 75,
+      "start_m": [0.27, 0, 0.9],
+      "phases": [
+        { "start_s": 0.6, "duration_s": 0.4, "offset_m": [-0.25, 0, 0.2] }
+      ],
+      "max_force_n": 1100,
+      "max_vertical_force_n": 1840
+    }
+  ],
+  "tori": {
+    "mass_kg": 75
+  },
+  "expect": {
+    "outcome": "fall"
+  }
+}

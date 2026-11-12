@@ -1,4 +1,5 @@
 import { resolveHandParams } from "../effectors/hand";
+import { resolvePullParams } from "../effectors/pull";
 import { obstacleStability, resolveObstacleParams, type ObstacleConfig } from "../effectors/obstacle";
 import { HEIGHT_RANGE_M, MASS_RANGE_KG, V2_SEGMENT_LENGTHS_M } from "../uke/generate";
 import {
@@ -28,6 +29,8 @@ import {
   type ObstaclePhaseSpec,
   type ObstacleSpec,
   type PropSpec,
+  type PullEffector,
+  type ToriSpec,
   type Scenario,
   type Vec3,
 } from "./schema";
@@ -343,14 +346,67 @@ function validateObstacle(value: unknown, path: string): ObstacleSpec {
   return obstacle;
 }
 
+/** Convierte un `RangeError` de un módulo de efectores (`campo: motivo`) en un error de validación con su ruta. */
+function failFromRange(path: string, error: unknown): never {
+  if (!(error instanceof RangeError)) throw error;
+  const m = /^([A-Za-z_][\w.[\]]*): (.*)$/s.exec(error.message);
+  if (m) fail(join(path, m[1]!), m[2]!);
+  fail(path, error.message);
+}
+
+function validatePull(obj: Obj, path: string, actors: readonly ActorSpec[]): PullEffector {
+  checkKeys(obj, path, ["id", "kind", "actor", "frame", "keys"], ["body", "site", "local_point_m", "max_force_n", "max_power_w"]);
+  const id = asId(obj.id, join(path, "id"));
+  const { actor, body, site, local } = validateAttachment(obj, path, actors);
+  const pull: PullEffector = {
+    id,
+    kind: "pull",
+    actor: actor.id,
+    body,
+    local_point_m: local,
+    frame: asEnum(obj.frame, join(path, "frame"), EFFECTOR_FRAMES),
+    keys: asArray(obj.keys, join(path, "keys")).map((raw, i) => {
+      const p = `${join(path, "keys")}[${i}]`;
+      const key = asObject(raw, p);
+      checkKeys(key, p, ["t_s", "force_n"]);
+      return { t_s: asNonNegative(key.t_s, join(p, "t_s")), force_n: asVec3(key.force_n, join(p, "force_n")) };
+    }),
+  };
+  if (site !== undefined) pull.site = site;
+  if ("max_force_n" in obj) pull.max_force_n = asFinite(obj.max_force_n, join(path, "max_force_n"));
+  if ("max_power_w" in obj) pull.max_power_w = asFinite(obj.max_power_w, join(path, "max_power_w"));
+  try {
+    resolvePullParams(pull);
+  } catch (error) {
+    failFromRange(path, error);
+  }
+  return pull;
+}
+
+function validateTori(value: unknown, path: string): ToriSpec {
+  const obj = asObject(value, path);
+  checkKeys(obj, path, ["mass_kg"], ["friction", "total_pull_max_n", "total_power_max_w"]);
+  const positive = (key: string): number => {
+    const v = asFinite(obj[key], join(path, key));
+    if (!(v > 0)) fail(join(path, key), `debe ser > 0, no ${v}`);
+    return v;
+  };
+  const tori: ToriSpec = { mass_kg: positive("mass_kg") };
+  if ("friction" in obj) tori.friction = positive("friction");
+  if ("total_pull_max_n" in obj) tori.total_pull_max_n = positive("total_pull_max_n");
+  if ("total_power_max_w" in obj) tori.total_power_max_w = positive("total_power_max_w");
+  return tori;
+}
+
 function validateEffector(value: unknown, path: string, actors: readonly ActorSpec[]): EffectorSpec {
   const obj = asObject(value, path);
   if (obj.kind === "hand") return validateHand(obj, path, actors);
+  if (obj.kind === "pull") return validatePull(obj, path, actors);
   checkKeys(obj, path, [
     "id", "kind", "actor", "frame", "force_n", "start_s", "duration_s", "waveform",
   ], ["body", "site", "local_point_m"]);
   const id = asId(obj.id, join(path, "id"));
-  asEnum(obj.kind, join(path, "kind"), ["prescribed_force", "hand"]);
+  asEnum(obj.kind, join(path, "kind"), ["prescribed_force", "hand", "pull"]);
   const { actor, body, site, local } = validateAttachment(obj, path, actors);
   const effector: EffectorSpec = {
     id,
@@ -423,7 +479,7 @@ export function validateScenario(json: unknown, options: ValidateOptions = {}): 
     const schema = asString(root.schema, "schema");
     if (schema !== SCENARIO_SCHEMA_ID) fail("schema", `debe ser "${SCENARIO_SCHEMA_ID}", no "${schema}"`);
   }
-  checkKeys(root, "", ["schema", "id", "duration_s", "record_hz", "ground", "actors", "props", "effectors"], ["expect", "obstacles"]);
+  checkKeys(root, "", ["schema", "id", "duration_s", "record_hz", "ground", "actors", "props", "effectors"], ["expect", "obstacles", "tori"]);
 
   const id = asId(root.id, "id");
   if (options.fileName !== undefined && fileStem(options.fileName) !== id) {
@@ -466,6 +522,7 @@ export function validateScenario(json: unknown, options: ValidateOptions = {}): 
       if (taken.has(o.id)) fail(`obstacles[${i}].id`, `id duplicado "${o.id}" (ya es un prop)`);
     });
   }
+  if ("tori" in root) scenario.tori = validateTori(root.tori, "tori");
   if ("expect" in root) scenario.expect = validateExpect(root.expect, "expect");
   return scenario;
 }

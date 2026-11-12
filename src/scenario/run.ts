@@ -18,6 +18,8 @@ import {
 import { createUkeController, type UkeController, type UkeControllerParams } from "../uke/attitudes";
 import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke/damping";
 import { applyStance } from "../uke/stances";
+import { limitPullPower, pullDemand, resolvePullParams, type PullParams } from "../effectors/pull";
+import { ToriBudget } from "../effectors/toriBudget";
 import { createHandState, resolveHandParams, stepHand, type HandParams, type HandState } from "../effectors/hand";
 import {
   applyObstacleCommand, createObstacleState, readObstacleContactForce, readObstacleKinematics, resolveObstacleHandles,
@@ -140,7 +142,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const entry: {
         spec: EffectorSpec; bodyId: number; local: Vec3;
         hand?: { params: HandParams; state: HandState; peaks: HandPeaks };
+        pull?: PullParams;
       } = { spec, bodyId: built.bodies.indexOf(spec.body), local };
+      if (spec.kind === "pull") entry.pull = resolvePullParams(spec);
       return entry;
     });
     // Obstáculos: cuerpos al final del modelo, con su orden en `qfrc_applied`. Durante el asentamiento se sostienen en `start_m`.
@@ -161,7 +165,8 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       // Tope declarado (si el efector lo trae): lo comprueba el detector de artefactos.
       const cap = e.spec.kind === "hand"
         ? resolveHandParams(e.spec).max_force_n
-        : (e.spec as { max_force_n?: number }).max_force_n;
+        : e.pull ? e.pull.max_force_n : (e.spec as { max_force_n?: number }).max_force_n;
+      if (e.pull) peaks[e.spec.id]!.pull = { max_power_w: 0, time_power_limited_s: 0 };
       if (cap !== undefined) peaks[e.spec.id]!.limit_n = cap;
     }
     const pending: Array<PendingWork | null> = effectors.map(() => null);
@@ -366,6 +371,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       bodies: built.bodies, joints: built.joints, actorBodies: ACTOR_BODIES[scenario.actors[0]!.kind], humanoid: Boolean(humanoid), dt,
     });
     const samples: RecordingSample[] = [];
+    const toriBudget = scenario.tori
+      ? new ToriBudget({ ...scenario.tori, friction: scenario.tori.friction ?? scenario.ground.friction })
+      : undefined;
     let maxTilt = 0;
     let currentClass: Outcome | undefined;
     let classSinceS = 0;
@@ -405,6 +413,8 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       // Efectores: fuerza durante el paso [t, t + dt], evaluada en el punto medio.
       xfrc.fill(0);
       const sampleEffectors: EffectorSample[] = [];
+      let handsForce: Vec3 = [0, 0, 0];
+      let handsPower = 0;
       effectors.forEach((e, k) => {
         const { point, velocity } = pointState(e.bodyId, e.local);
         const previous = pending[k];
@@ -436,6 +446,18 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
             if (r.sample.power_limited) hp.time_power_limited_s += dt;
             if (r.sample.reach_limited) hp.time_reach_limited_s += dt;
             for (const ev of r.events) hp.events.push({ t_s: ev.t, kind: ev.kind });
+          }
+        } else if (e.spec.kind === "pull") {
+          // Tirón guiado: fuerza de la curva en el punto medio del paso, llevada al mundo y recortada por potencia.
+          const demand = pullDemand(e.pull!.keys, t + dt / 2);
+          const world: Vec3 = e.spec.frame === "world" ? demand
+            : e.spec.frame === "actor_initial" ? rotate(initialRotation, 0, demand) : rotate(xmat, 9 * e.bodyId, demand);
+          const limited = limitPullPower(e.pull!, world, velocity);
+          force = limited.force_n;
+          if (i < totalSteps) {
+            const pp = peaks[e.spec.id]!.pull!;
+            pp.max_power_w = Math.max(pp.max_power_w, limited.power_w);
+            if (limited.power_limited) pp.time_power_limited_s += dt;
           }
         } else {
           const gain = waveformGain(e.spec, t + dt / 2);
@@ -474,6 +496,8 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           ];
         }
         pending[k] = i < totalSteps ? { force, velocity } : null;
+        handsForce = add(handsForce, force);
+        handsPower += dot(force, velocity);
         const effectorSample: EffectorSample = { id: e.spec.id, point_m: point, force_n: force };
         if (handSample) {
           effectorSample.kind = "hand";
@@ -493,6 +517,12 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         if (i < totalSteps) o.state = r.state;
       }
       applyObstacleCommands();
+      if (toriBudget && i < totalSteps) {
+        // El contacto de los obstáculos es el del paso anterior (un paso de retraso).
+        let onUke: Vec3 = [0, 0, 0];
+        for (const o of obstacles) onUke = add(onUke, o.contact);
+        toriBudget.step({ t, dt, hands_force_n: handsForce, hands_power_w: handsPower, obstacle_force_on_uke_n: onUke });
+      }
 
       if (i % stepsPerSample === 0) {
         mj.mj_forward(model, data); // contactos y fuerzas coherentes con el wrench ya aplicado
@@ -585,6 +615,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         unbalance: verdict.unbalance,
       };
     }
+    if (toriBudget) summary.tori_budget = toriBudget.summary();
     if (scenario.expect) {
       const result = compareExpect(summary, scenario.expect);
       summary.expect = result === "pass" ? "pass" : "fail";

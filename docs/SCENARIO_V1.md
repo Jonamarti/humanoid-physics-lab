@@ -136,6 +136,26 @@ tope de fuerza, de potencia y de alcance. Tori no tiene cuerpo: `shoulder_m`, lo
 La mano resbala (suceso `slip`) si su demanda pasa `slip_after_s` seguidos en el tope de fuerza. El validador no rellena
 los valores por defecto: el hash del escenario solo cambia con lo que el autor escribe.
 
+### `effectors[]` (`kind: "pull"`)
+
+Tirón guiado (`src/effectors/pull.ts`): una mano cuya **fuerza** sigue una curva en el tiempo. La mano `hand` guía la
+posición de un objetivo y la dirección de la fuerza depende de dónde esté el agarre (en `hip_drive` llega a cambiar de
+sentido); `pull` fija la dirección, que es lo que hace falta para un tirón en arco.
+
+| Campo | Unidad | Regla |
+|---|---|---|
+| `id`, `actor`, `body`, `site`, `local_point_m`, `frame` | | Como en `prescribed_force`. |
+| `keys[]` | | Al menos dos puntos `{t_s, force_n}` con `t_s` estrictamente creciente. Entre puntos se interpola linealmente el vector; antes del primero y desde el último la fuerza es nula. |
+| `max_force_n` | N | Opcional, por defecto 500. Ningún punto puede superarlo. |
+| `max_power_w` | W | Opcional, por defecto 600. Si `F · v` del agarre lo supera, la fuerza se reduce. |
+
+No tiene alcance ni resbalón: no hay hombro ni muelle. La viabilidad del conjunto la juzga `tori`.
+
+### `tori`
+
+Opcional. `{ "mass_kg": 75 }` más `friction` (por defecto `ground.friction`), `total_pull_max_n` (1100) y
+`total_power_max_w` (1500). Con él la grabación lleva `summary.tori_budget` (ver [RECORDING_V1.md](RECORDING_V1.md)).
+
 ### `obstacles[]`
 
 Obstáculo con masa y fuerza limitada ([LIMITED_OBSTACLE.md](LIMITED_OBSTACLE.md)): la cadera, la pierna o el pie de Tori en
@@ -208,6 +228,30 @@ tramo (1,1 a 1,5 s) que lleva el agarre abajo y hacia Tori, y sueltan a 1,6 s. M
 Sigue marcando penetración al aterrizar (5,4 cm de un pie, 2,9 cm entre antebrazo y muslo). Con el mismo empuje de la barra
 y las manos soltando a 1,3 s sin el tercer tramo, Uke no completa el giro y cae de cabeza (24 kN): el acompañamiento de las
 manos es lo que termina la rotación.
+
+`uke_tense_75_175_hip_roll.json` conserva la barra de `hip_drive` y sustituye las manos por dos tirones guiados iguales
+(manga derecha y esternón), en el marco `actor_initial`: 400 N a 45° sobre la horizontal (0,3 a 0,6 s), 300 N horizontales
+(0,8 s), 300 N a 45° bajo la horizontal (1,0 s) y 200 N a 110° bajo la horizontal, es decir, abajo y hacia Tori (1,2 s);
+cero a 1,4 s. Declara `tori` de 75 kg. Medido:
+
+- Uke gira 170°, cae a 1,42 s sobre el brazo y la parte alta de la espalda (7,8 kN) y la cabeza no golpea. Sin artefacto
+  de fuerza de contacto.
+- La barra toca la pelvis de 0,65 a 1,15 s (pico 1403 N); no toca los muslos.
+- Tori viable: usa el 85 % de su rozamiento (a 1,02 s), la carga de sus pies va de 373 a 1757 N, tiro total 800 N.
+- El tope de potencia (600 W) recorta la mano de la manga durante 0,27 s.
+
+Lo que rompe el volteo, medido con el mismo escenario:
+
+| Cambio | Resultado |
+|---|---|
+| Módulo constante de 400 N en todo el arco | Cae de cabeza (19 kN) y Tori inviable: al tirar hacia abajo pierde rozamiento |
+| Arco 0,15 s más lento | Cae de cabeza (21 kN): Uke ya ha pasado cuando llega el tirón hacia abajo |
+| Rozamiento de la barra 0,5 en vez de 0,8 | El contacto pasa de la pelvis al muslo y se pierde; cae de cabeza (21 kN) |
+| Rozamiento de la barra 0,2 | La barra solo toca el muslo 0,08 s; Uke se escurre y cae de cabeza (21 kN). Cubierto por una prueba |
+| Barra 18 cm más baja (a la altura del muslo), rozamiento 0,8 | Contactos de 0,03 s en los muslos; no llega a cargarlo y cae de cabeza (8 kN) |
+
+Es decir: el volteo depende de que la cadera agarre la pelvis de Uke. Sobre los muslos, o con poco rozamiento, la
+barra resbala al subir en vez de empujar. Salvo la fila indicada, el barrido está hecho a mano con `npm run sim`.
 
 ## Notas y límites
 

@@ -21,7 +21,7 @@ export type Vec3 = readonly [number, number, number];
 
 export type ActorKind = "rigid_cylinder" | "humanoid";
 export type PropKind = "fixed_box";
-export type EffectorKind = "prescribed_force" | "hand";
+export type EffectorKind = "prescribed_force" | "hand" | "pull";
 
 /**
  * Cuerpos referenciables de cada tipo de actor. El resto de fases ampliarán la tabla
@@ -207,7 +207,44 @@ export interface HandEffector {
   slip_after_s?: number;
 }
 
-export type EffectorSpec = PrescribedForceEffector | HandEffector;
+/** Punto de la curva de un tirón guiado: en `t_s` la fuerza pedida es `force_n` (en el `frame` del efector). */
+export interface PullKeySpec {
+  t_s: number;
+  force_n: Vec3;
+}
+
+/**
+ * Tirón guiado (`src/effectors/pull.ts`): mano de Tori cuya FUERZA sigue una curva en el tiempo (interpolación lineal entre
+ * puntos; nula antes del primero y desde el último), con tope de fuerza y de potencia. Sirve para tirones en arco, donde lo
+ * que se quiere fijar es la dirección de la fuerza y no la posición de la mano.
+ */
+export interface PullEffector {
+  id: string;
+  kind: "pull";
+  actor: string;
+  body: string;
+  site?: string;
+  local_point_m: Vec3;
+  frame: EffectorFrame;
+  keys: PullKeySpec[];
+  /** Tope de fuerza en N (por defecto 500): ningún punto puede superarlo. */
+  max_force_n?: number;
+  /** Tope de potencia en W (por defecto 600): si `F · v` lo supera, la fuerza se reduce. */
+  max_power_w?: number;
+}
+
+export type EffectorSpec = PrescribedForceEffector | HandEffector | PullEffector;
+
+/** Tori abstracto para el presupuesto (`src/effectors/toriBudget.ts`): una masa con dos pies, sin cuerpo. */
+export interface ToriSpec {
+  mass_kg: number;
+  /** Rozamiento de sus pies con el suelo. Por defecto, el de `ground.friction`. */
+  friction?: number;
+  /** Tope del tiro total de las manos, en N (por defecto 1100). */
+  total_pull_max_n?: number;
+  /** Tope de la potencia total de las manos, en W (por defecto 1500). */
+  total_power_max_w?: number;
+}
 
 /** Formas y superficies del obstáculo (`src/effectors/obstacle.ts`). */
 export const OBSTACLE_SHAPES = ["bar", "post", "pad", "foot"] as const;
@@ -278,5 +315,7 @@ export interface Scenario {
   effectors: EffectorSpec[];
   /** Obstáculos con fuerza limitada. Opcional: ausente equivale a ninguno (y no cambia el hash de los escenarios anteriores). */
   obstacles?: ObstacleSpec[];
+  /** Opcional: con él la grabación lleva `summary.tori_budget`. */
+  tori?: ToriSpec;
   expect?: ExpectSpec;
 }

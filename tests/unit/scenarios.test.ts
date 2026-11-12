@@ -31,7 +31,10 @@ function scaled(scenario: Scenario, factor: number): Scenario {
   for (const e of copy.effectors) {
     // Mano virtual: lo que se escala es su tope de fuerza.
     if (e.kind === "hand") e.max_force_n = (e.max_force_n ?? HAND_DEFAULTS.max_force_n) * factor;
-    else e.force_n = [e.force_n[0] * factor, e.force_n[1] * factor, e.force_n[2] * factor];
+    else if (e.kind === "pull") {
+      e.keys = e.keys.map((k) => ({ t_s: k.t_s, force_n: [k.force_n[0] * factor, k.force_n[1] * factor, k.force_n[2] * factor] }));
+      if (factor > 1) e.max_force_n = (e.max_force_n ?? 500) * factor;
+    } else e.force_n = [e.force_n[0] * factor, e.force_n[1] * factor, e.force_n[2] * factor];
   }
   return copy;
 }

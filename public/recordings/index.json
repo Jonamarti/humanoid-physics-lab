@@ -77,13 +77,13 @@
       "description": "Dos manos de 500 N tiran delante y arriba de la manga y el pecho, con una barra a la altura de la cadera: el humanoide gira por encima de ella y cae de espaldas.",
       "file": "uke_tense_75_175_hip_tip.json.gz",
       "duration_s": 3,
-      "record_hz": 125,
-      "samples": 376,
+      "record_hz": 50,
+      "samples": 151,
       "outcome": "fall",
-      "direction_deg": 146.37,
+      "direction_deg": 146.964,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 172615
+      "bytes": 73042
     },
     {
       "id": "uke_tense_75_175_hip_drive",
@@ -91,13 +91,27 @@
       "description": "Como el anterior, pero la barra no cede: empuja atrás y arriba cuando el humanoide ya está cargado sobre ella, y las manos lo acompañan hacia abajo. Da la vuelta completa y cae de espaldas.",
       "file": "uke_tense_75_175_hip_drive.json.gz",
       "duration_s": 3,
-      "record_hz": 125,
-      "samples": 376,
+      "record_hz": 100,
+      "samples": 301,
       "outcome": "fall",
-      "direction_deg": 148.977,
+      "direction_deg": 148.985,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 179699
+      "bytes": 143000
+    },
+    {
+      "id": "uke_tense_75_175_hip_roll",
+      "title": "Volteo con tirón en arco y topes de Tori",
+      "description": "La barra empuja atrás y arriba y las dos manos tiran en arco: 45° hacia arriba, horizontal, 45° hacia abajo y casi vertical hacia Tori (400, 300 y 200 N por mano). Cae sobre la parte alta de la espalda, sin tocar con la cabeza, y Tori queda dentro de su presupuesto.",
+      "file": "uke_tense_75_175_hip_roll.json.gz",
+      "duration_s": 3,
+      "record_hz": 100,
+      "samples": 301,
+      "outcome": "fall",
+      "direction_deg": 177.085,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 139479
     }
   ]
 }

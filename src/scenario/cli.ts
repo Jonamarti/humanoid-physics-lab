@@ -139,6 +139,17 @@ function describeSummary(recording: Recording): string[] {
     const f = u.fall;
     lines.push(`  caída: ${f.t_s.toFixed(3)} s (${f.trigger}), dirección ${f.direction_name ?? "-"}, primera parte ${f.first_part ?? "-"}`);
   }
+  const b = s.tori_budget;
+  if (b) {
+    lines.push(
+      `  Tori (${b.mass_kg} kg): ${b.feasible ? "viable" : "INVIABLE"}; rozamiento usado ${(100 * b.friction_use.value).toFixed(0)} % a los ${b.friction_use.t_s.toFixed(2)} s, ` +
+        `carga en los pies ${b.min_feet_load_n.value.toFixed(0)} a ${b.max_feet_load_n.value.toFixed(0)} N, tiro total máx ${b.max_total_pull_n.value.toFixed(0)} N, ` +
+        `potencia máx ${b.max_total_power_w.value.toFixed(0)} W`,
+    );
+    for (const v of b.violations) {
+      lines.push(`  Tori inviable: ${v.kind} desde ${v.t_s.toFixed(3)} s durante ${v.duration_s.toFixed(3)} s (medido ${v.value.toFixed(0)}, tope ${v.limit.toFixed(0)})`);
+    }
+  }
   for (const diff of s.expect_diffs) lines.push(`  diferencia: ${diff}`);
   if (s.artifacts !== undefined) {
     if (s.artifacts.length === 0) lines.push("  artefactos: ninguno");

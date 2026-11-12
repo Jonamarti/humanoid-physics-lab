@@ -105,6 +105,14 @@ los escenarios actuales: [ARTIFACTS.md](ARTIFACTS.md). `npm run sim -- ... --str
   `hand {held, target_m, force_limited, power_limited, reach_limited}` (`point_m` es el agarre), y `peaks.effectors.<id>` lleva
   `limit_n` (el tope de fuerza resuelto) y `hand {max_power_w, time_at_cap_s, time_power_limited_s, time_reach_limited_s,
   events[] {t_s, kind}}` con `close`, `release` y `slip`. La fuerza de la mano se calcula con el estado al comienzo del paso.
+- Tirones guiados (`kind: "pull"`): `peaks.effectors.<id>` lleva `limit_n` y `pull {max_power_w, time_power_limited_s}`.
+- `summary.tori_budget` (solo si el escenario declara `tori`; `src/effectors/toriBudget.ts`): `feasible`, `friction_use`
+  (máximo de `|R_h| / (µ·N)`), `max_horizontal_reaction_n`, `min_feet_load_n`, `max_feet_load_n`, `max_total_pull_n`,
+  `max_total_power_w`, `max_horizontal_impulse_ns` y `violations[] {kind, t_s, value, limit, duration_s}` con `friction`,
+  `feet_unloaded`, `total_pull`, `total_power` u `horizontal_impulse`. `R` es lo que Uke devuelve a Tori: menos la suma de
+  las fuerzas de todos los efectores y del contacto de los obstáculos sobre el actor. Es un indicador de plausibilidad, no
+  una simulación de Tori: no tiene cuerpo, ni pies con posición, ni equilibrio. Dos diferencias con la issue #76: `R` se
+  promedia 0,04 s antes de comprobar el rozamiento, y el tope de impulso solo mira la parte horizontal.
 - Obstáculos (`obstacles` del escenario): su cuerpo va al final de `model.bodies` y sus tres deslizaderas al final de
   `model.joints` y de `qpos`/`qvel`, así que la reproducción los mueve sin más. `peaks.obstacles.<id>`: máximos de la orden
   (`max_force_n`, `max_horizontal_force_n`, `max_vertical_force_n`) y sus topes (`limit_horizontal_n`, `limit_vertical_n`),

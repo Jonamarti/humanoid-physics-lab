@@ -86,9 +86,13 @@ export class ReplayView {
 
   get active(): boolean { return this.player !== undefined; }
 
-  async load(file: Blob): Promise<void> {
+  /** Inserta un bloque de interfaz entre «Cargar grabación» y los controles de reproducción (lo usa la galería). */
+  insertBeforePanel(node: HTMLElement): void { this.panel.before(node); }
+
+  /** Carga y reproduce una grabación. Devuelve `true` si se pudo cargar (el motivo del fallo va a `onStatus`). */
+  async load(file: Blob): Promise<boolean> {
     const { viewer, onStatus } = this.options;
-    if (!viewer) { onStatus("Se necesita WebGL para reproducir grabaciones."); return; }
+    if (!viewer) { onStatus("Se necesita WebGL para reproducir grabaciones."); return false; }
     onStatus("Leyendo grabación…");
     try {
       const recording = await parseRecording(await file.arrayBuffer());
@@ -109,10 +113,12 @@ export class ReplayView {
       this.lastMs = undefined;
       this.frameHandle = window.requestAnimationFrame(this.tick);
       onStatus("Modo reproducción: la física no se ejecuta, solo se muestran las muestras grabadas.");
+      return true;
     } catch (error) {
       this.release();
       this.options.onModeChange(false);
       onStatus("No se pudo cargar la grabación: " + (error instanceof Error ? error.message : String(error)));
+      return false;
     }
   }
 

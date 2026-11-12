@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "sim": "vite build --ssr scripts/sim.ts --outDir dist-cli --configLoader runner --logLevel warn && node dist-cli/sim.js",
+    "gallery": "vite build --ssr scripts/build_gallery.ts --outDir dist-cli --configLoader runner --logLevel warn && node dist-cli/build_gallery.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

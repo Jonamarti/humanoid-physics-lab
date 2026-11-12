@@ -28,3 +28,29 @@ Flujo por fotograma: `RecordingPlayer.current()` → `ReplayKinematics.setQpos()
 - El modelo de la grabación se vuelve a compilar en el navegador; si el MJCF usa mallas externas, no se verán (los escenarios actuales usan primitivas).
 - Pruebas: `tests/unit/recordingPlayer.test.ts`, `recordingRead.test.ts` y `recordingReplayMujoco.test.ts` (WASM real: `mj_forward` desde el `qpos` grabado da las mismas `xpos` que la simulación, error < 1e-6; con la grabación sin redondear, < 1e-9). Grabación de referencia: `tests/fixtures/cylinder_obstacle_low.recording.json.gz` (~34 kB).
 - La interfaz no tiene prueba automática de navegador; ver el estado de la verificación visual en la PR.
+
+## Galería de grabaciones de ejemplo
+
+Para revisar los resultados desde el móvil, sin tener la grabación en el dispositivo, la web incluye una galería: junto a **Cargar grabación** aparece el selector **Grabaciones de ejemplo**. Al elegir una se descarga (`.json.gz`, decenas de kB) y se reproduce con el mismo código que una grabación cargada a mano (`ReplayView.load`); se muestran su título, su descripción y su veredicto (resultado, dirección y si cumple `expect`). Si `recordings/index.json` no existe o falla la descarga, la web sigue funcionando y el selector lo dice («No disponible») con el motivo.
+
+**Enlace directo.** `?rec=<id>` abre esa grabación nada más cargar, por ejemplo `https://jonamarti.github.io/humanoid-physics-lab/?rec=uke_tense_75_175_push_sternum`. Al elegir una grabación, la barra de direcciones se actualiza con ese parámetro y el bloque de la galería muestra el «Enlace para compartir». Un id que no está en el índice se avisa y no se carga nada.
+
+**Dónde está cada cosa.** Las grabaciones de referencia se confirman en git en `public/recordings/` (`<id>.json.gz` más `index.json`) y Vite las copia a `dist/recordings/`; se piden con una ruta relativa a la base de Vite (`import.meta.env.BASE_URL`, `/humanoid-physics-lab/` en Pages). La lista de lo que se publica es `scenarios/gallery/gallery.json` (no está en `scenarios/` a propósito: `npm run sim -- --batch scenarios` y `tests/unit/scenarios.test.ts` leen todos los `.json` de esa carpeta como escenarios).
+
+| Módulo | Función |
+|---|---|
+| `src/recording/gallery.ts` | Sin DOM: validación del índice (`hpl.gallery.v1`), URL con base, `?rec=`, descarga con `fetch`, veredicto legible. |
+| `src/recording/galleryBuild.ts` | Solo Node: lee `gallery.json`, ejecuta cada escenario con `runScenario`, escribe las grabaciones y el índice. |
+| `scripts/build_gallery.ts` | Punto de entrada de `npm run gallery` (mismo mecanismo que `sim`: `vite build --ssr` y `--configLoader runner`). |
+| `src/renderer/galleryView.ts` | Interfaz (selector, descripción, veredicto, enlace, mensajes). `main.ts` solo la instancia. |
+
+### Añadir una grabación a la galería
+
+1. Elige un escenario de `scenarios/` (por ejemplo `scenarios/mi_escenario.json`, con su `expect`).
+2. Añade una entrada a `scenarios/gallery/gallery.json`: `{ "id": "mi_escenario", "title": "…", "description": "Una o dos frases en español." }`. El `id` es el del escenario y solo admite letras, cifras, «_» y «-». Opcional: `"record_hz": 50` abarata **solo la copia de la galería** (debe dividir 500; el escenario no se toca).
+3. Ejecuta `npm run gallery` desde la raíz (en esta máquina, `npm.cmd run gallery`). Reescribe `public/recordings/`: una `.json.gz` por entrada, `index.json` y borra las que ya no están en la lista.
+4. Confirma `scenarios/gallery/gallery.json` y todo `public/recordings/`. Sin marcas de tiempo ni rutas: mismo escenario y mismo motor dan los mismos bytes, así que un cambio en el diff es un cambio real.
+
+Hay que volver a ejecutar `npm run gallery` siempre que cambie la física, un escenario de la lista o la versión de `package.json` (queda en `meta.engine_version`). `tests/unit/galleryPublished.test.ts` lo detecta: lee cada grabación con `parseRecording`, la compara con su entrada del índice y con `gallery.json`, limita el conjunto a 1 MB y regenera dos grabaciones (un cilindro y un humanoide) para compararlas con las confirmadas. La comparación es primero byte a byte; si los bytes difieren (otra versión de Node/zlib u otra plataforma) se comparan los JSON descomprimidos con tolerancia numérica (1e-4 absoluta + 1e-3 relativa; `qvel` y la lista de contactos no se comparan elemento a elemento, porque un contacto puede cruzar el umbral de 1e-6 N en otro entorno).
+
+Tamaño actual (5 grabaciones, versión 0.1.0): 33,9 + 33,3 + 183,2 + 161,1 + 132,7 kB = 544 kB comprimidos (más el índice, ~2,6 kB). Dos de las cinco (`uke_stand_75_175_neutral`, 10 s a 50 Hz; y `uke_relaxed_75_175_collapse`) concentran el 63 %.

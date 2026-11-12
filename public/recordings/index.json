@@ -1,0 +1,75 @@
+{
+  "schema": "hpl.gallery.v1",
+  "recordings": [
+    {
+      "id": "cylinder_obstacle_low",
+      "title": "Cilindro con obstáculo bajo",
+      "description": "Un tirón horizontal contra un obstáculo bajo (10 cm): el cilindro pivota sobre él y cae hacia delante.",
+      "file": "cylinder_obstacle_low.json.gz",
+      "duration_s": 3,
+      "record_hz": 125,
+      "samples": 376,
+      "outcome": "fall",
+      "direction_deg": -5.0827e-7,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 33853
+    },
+    {
+      "id": "cylinder_obstacle_above_com",
+      "title": "Cilindro con obstáculo sobre el centro de masas",
+      "description": "Tirón de 1500 N con un obstáculo alto (1,2 m), por encima del centro de masas: el cilindro no vuelca y se queda en pie.",
+      "file": "cylinder_obstacle_above_com.json.gz",
+      "duration_s": 3,
+      "record_hz": 125,
+      "samples": 376,
+      "outcome": "standing",
+      "direction_deg": null,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 33306
+    },
+    {
+      "id": "uke_stand_75_175_neutral",
+      "title": "Humanoide de pie, sin perturbación",
+      "description": "Humanoide de 75 kg y 1,75 m con equilibrio activo y sin empujón, 10 s: línea de base de la postura en reposo.",
+      "file": "uke_stand_75_175_neutral.json.gz",
+      "duration_s": 10,
+      "record_hz": 50,
+      "samples": 501,
+      "outcome": "standing",
+      "direction_deg": null,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 183185
+    },
+    {
+      "id": "uke_relaxed_75_175_collapse",
+      "title": "Humanoide relajado: se desploma",
+      "description": "Mismo humanoide sin objetivos de postura (solo amortiguación pasiva y topes articulares): se desploma bajo su peso.",
+      "file": "uke_relaxed_75_175_collapse.json.gz",
+      "duration_s": 3,
+      "record_hz": 125,
+      "samples": 376,
+      "outcome": "fall",
+      "direction_deg": -4.8675e-14,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 161080
+    },
+    {
+      "id": "uke_tense_75_175_push_sternum",
+      "title": "Humanoide en tensión, empujón en el esternón",
+      "description": "Empujón hacia delante de 2356 N de pico (0,1 s) en el esternón con el humanoide en tensión: acaba cayendo hacia delante.",
+      "file": "uke_tense_75_175_push_sternum.json.gz",
+      "duration_s": 3,
+      "record_hz": 125,
+      "samples": 376,
+      "outcome": "fall",
+      "direction_deg": -3.64478e-14,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 132741
+    }
+  ]
+}

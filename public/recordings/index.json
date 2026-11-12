@@ -41,7 +41,7 @@
       "direction_deg": null,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 183185
+      "bytes": 195030
     },
     {
       "id": "uke_relaxed_75_175_collapse",
@@ -52,10 +52,10 @@
       "record_hz": 125,
       "samples": 376,
       "outcome": "fall",
-      "direction_deg": -4.8675e-14,
+      "direction_deg": -4.92998e-14,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 161080
+      "bytes": 174883
     },
     {
       "id": "uke_tense_75_175_push_sternum",
@@ -66,10 +66,10 @@
       "record_hz": 125,
       "samples": 376,
       "outcome": "fall",
-      "direction_deg": -3.64478e-14,
+      "direction_deg": -3.78845e-14,
       "expect": "pass",
       "engine_version": "0.1.0",
-      "bytes": 132741
+      "bytes": 140754
     }
   ]
 }

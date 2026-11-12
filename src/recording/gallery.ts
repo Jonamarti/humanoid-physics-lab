@@ -10,7 +10,7 @@ export const GALLERY_INDEX_SCHEMA_ID = "hpl.gallery.v1";
 export const GALLERY_DIR = "recordings";
 export const GALLERY_INDEX_FILE = "index.json";
 
-export const GALLERY_OUTCOMES = ["standing", "tilted", "fall"] as const;
+export const GALLERY_OUTCOMES = ["standing", "tilted", "fall", "stepped", "unresolved"] as const;
 export const GALLERY_EXPECTS = ["pass", "fail", "none"] as const;
 
 /** Identificador admitido: el mismo que el de un escenario y seguro dentro de una URL y de un nombre de archivo. */
@@ -190,13 +190,15 @@ const OUTCOME_TEXT: Readonly<Record<GalleryEntry["outcome"], string>> = {
   standing: "se mantiene en pie",
   tilted: "queda inclinado",
   fall: "cae",
+  stepped: "da un paso y se mantiene estable",
+  unresolved: "queda sin resolver",
 };
 
 /** Veredicto legible, por ejemplo «cae hacia 0°» o «se mantiene en pie». */
 export function describeVerdict(entry: Pick<GalleryEntry, "outcome" | "direction_deg" | "expect">): string {
   const direction = entry.direction_deg === null ? "" : ` hacia ${Math.round(entry.direction_deg) || 0}°`;
   const expect = entry.expect === "pass" ? " · cumple lo esperado" : entry.expect === "fail" ? " · NO cumple lo esperado" : "";
-  return `${OUTCOME_TEXT[entry.outcome]}${entry.outcome === "standing" ? "" : direction}${expect}`;
+  return `${OUTCOME_TEXT[entry.outcome]}${entry.outcome === "fall" || entry.outcome === "tilted" ? direction : ""}${expect}`;
 }
 
 /** Tamaño legible, por ejemplo «64 kB». */

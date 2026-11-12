@@ -151,7 +151,7 @@ function asRange(value: unknown, path: string, [lo, hi]: readonly [number, numbe
 
 function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
   checkKeys(obj, path, ["id", "kind", "mass_kg", "height_m"], [
-    "strength", "build", "segment_lengths_m", "attitude", "stance",
+    "strength", "build", "segment_lengths_m", "attitude", "stance", "waist_stiffness",
   ]);
   const actor: HumanoidActor = {
     id,
@@ -163,6 +163,7 @@ function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
     stance: "stance" in obj ? asEnum(obj.stance, join(path, "stance"), UKE_STANCES) : "neutral",
   };
   if ("build" in obj) actor.build = asRange(obj.build, join(path, "build"), [0, 1], "");
+  if ("waist_stiffness" in obj) actor.waist_stiffness = asRange(obj.waist_stiffness, join(path, "waist_stiffness"), [0, 1], "");
   if ("segment_lengths_m" in obj) {
     const p = join(path, "segment_lengths_m");
     const lengths = asObject(obj.segment_lengths_m, p);

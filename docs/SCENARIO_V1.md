@@ -82,6 +82,7 @@ Cuerpos referenciables por los efectores: `pelvis`, `abdomen`, `chest`, `head`, 
 | `mass_kg` | kg | Obligatorio, de 50 a 150. |
 | `height_m` | m | Obligatorio, de 1,50 a 2,05. |
 | `strength` | | Opcional, de 0,5 a 1,5 (por defecto 1). Escala el par máximo. |
+| `waist_stiffness` | | Opcional, de 0 a 1 (por defecto 1). Con menos de 1, el Uke en tensión se dobla por la cintura cuando lo cargan: escala la rigidez y el par máximo de las lumbares, las torácicas y la flexión de las caderas. El tronco se sigue sosteniendo contra su propio peso. |
 | `build` | | Opcional, de 0 a 1: fracción del exceso de masa (IMC > 27) que va al tronco (por defecto 0,6). |
 | `segment_lengths_m` | m | Opcional. Claves `thigh`, `shin`, `foot`, `upper_arm`, `forearm`, `trunk`, `neck`; cada una entre 0,5 y 2 veces el valor de v2. |
 | `attitude` | | Opcional (por defecto `tense`): `tense` o `relaxed` (sin objetivos, solo amortiguación pasiva; ver [UKE_CONTROL.md](UKE_CONTROL.md)). |

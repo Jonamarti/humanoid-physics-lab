@@ -30,6 +30,8 @@ export interface UkeControllerParams {
   strength: number;
   /** Objetivo articular por nombre de bisagra (de `applyStance`). */
   targets: ReadonlyMap<string, number>;
+  /** Rigidez de la cintura, de 0 a 1 (por defecto 1): escala el PD de lumbares, torácicas y flexión de caderas. */
+  waist_stiffness?: number;
 }
 
 export function createTenseController(
@@ -47,11 +49,15 @@ export function createTenseController(
     const group = jointGroupOf(name);
     const g = gains.groups[group];
     const id = model.jnt(name).id;
+    // Cintura flexible: el PD del tronco (lumbares y torácicas) y el de la flexión de las caderas empujan menos hacia la
+    // postura recta. El tope de la compensación de la gravedad (más abajo) no se escala: el tronco se sostiene solo, pero
+    // cede cuando lo cargan.
+    const waist = group === "spine" || /hip_pitch$/.test(name) ? params.waist_stiffness ?? 1 : 1;
     settings.set(id, {
       targetRad: params.targets.get(name) ?? 0,
-      stiffnessNmPerRad: g.kp,
+      stiffnessNmPerRad: g.kp * waist,
       dampingNmsPerRad: g.kd * (1 - IMPLICIT_DAMPING_FRACTION),
-      maxTorqueNm: g.maxNm,
+      maxTorqueNm: g.maxNm * waist,
     });
     const dof = model.jnt_dofadr[id]!;
     limitOf.set(dof, group === "ankle" ? gains.ankleLimitNm : g.maxNm);

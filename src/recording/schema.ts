@@ -2,6 +2,7 @@
  * Tipos de `hpl.recording.v1`: salida de `runScenario`. Nombres de campo en inglés y `snake_case`.
  * La reproducción de una grabación nunca recalcula física.
  */
+import type { BalanceSummary, FallInfo, StepInfo, UnbalanceInfo } from "../metrics/outcome";
 import type { Outcome, Vec3 } from "../scenario/schema";
 
 export const RECORDING_SCHEMA_ID = "hpl.recording.v1";
@@ -55,6 +56,14 @@ export interface RecordingSample {
   qvel: number[];
   effectors: EffectorSample[];
   contacts: ContactSample[];
+  /** Centro de masas del actor, en m. Solo con actor humanoide: las grabaciones anteriores no traen estos cuatro campos. */
+  com?: Vec3;
+  /** Punto de captura `c + v / w0` en el plano horizontal `[x, y]`, en m. */
+  xcom?: [number, number];
+  /** Polígono de apoyo: envolvente convexa antihoraria de los contactos de los pies con carga > 20 N, `[x, y]` en m; vacío sin apoyo. */
+  support_polygon?: Array<[number, number]>;
+  /** Margen con signo del punto de captura al polígono de apoyo (m, positivo dentro); `null` sin apoyo. */
+  capture_margin_m?: number | null;
 }
 
 export interface EffectorPeaks {
@@ -64,10 +73,72 @@ export interface EffectorPeaks {
   impulse_ns: Vec3;
   /** Trabajo `∫ F · v_punto dt`, en J. */
   work_j: number;
+  /** Tope de fuerza declarado por el escenario (`max_force_n`), en N; ausente si el efector no declara ninguno. */
+  limit_n?: number;
 }
 
 export interface RecordingPeaks {
   effectors: Record<string, EffectorPeaks>;
+}
+
+/** Tipos del detector de artefactos (`src/metrics/artifacts.ts`, `docs/ARTIFACTS.md`). */
+export const ARTIFACT_TYPES = [
+  "ground_penetration", "segment_penetration", "joint_speed", "contact_force", "foot_slip", "tremor",
+  "energy_gain", "effector_over_limit", "root_force",
+] as const;
+export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
+
+/** Un artefacto detectado: tipo, instante, elemento implicado, valor medido y umbral superado. */
+export interface ArtifactFinding {
+  type: ArtifactType;
+  /** Instante del escenario en que se midió el valor, en s. */
+  t_s: number;
+  /** Cuerpo, par de cuerpos, articulación o efector implicado (vacío si no aplica). */
+  where: string;
+  /** Valor medido (unidades en `docs/ARTIFACTS.md`). */
+  value: number;
+  /** Umbral superado. */
+  threshold: number;
+  detail: string;
+}
+
+/** Un detector que no pudo evaluarse (nunca equivale a «limpio»). */
+export interface ArtifactNotEvaluated {
+  type: ArtifactType;
+  reason: string;
+}
+
+/** Máximo de una magnitud medida en cada paso físico (500 Hz), con su instante y el elemento implicado. */
+export interface PeakAt {
+  value: number;
+  t_s: number;
+  where: string;
+}
+
+/**
+ * Medidas del ejecutor que el detector necesita y que NO se pueden sacar de las muestras a `record_hz` (se acumulan en cada
+ * paso físico; solo cuentan los pasos con `t >= 0`, no el asentamiento). Un campo ausente significa «no medido» (el
+ * detector lo marca como no evaluado): por ejemplo, sin articulaciones internas no hay `joint_speed`.
+ */
+export interface RecordingDiagnostics {
+  /** Masa del actor, en kg. */
+  actor_mass_kg: number;
+  /** Penetración máxima de una geometría del actor en el suelo, en m (`-dist` del contacto). */
+  ground_penetration: PeakAt;
+  /** Penetración máxima entre dos cuerpos distintos del actor, en m. Solo humanoide. */
+  segment_penetration?: PeakAt;
+  /** Mayor |velocidad| de una articulación interna (bisagra), en rad/s. */
+  joint_speed?: PeakAt;
+  /** Mayor fuerza normal de un contacto del actor (suelo, props o él mismo), en N. */
+  contact_force: PeakAt;
+  /** Mayor deslizamiento neto de un pie cargado y sin rozamiento saturado en un tramo continuo, en m. Solo humanoide. */
+  foot_slip?: PeakAt;
+  /** Mayor número de cambios de sentido (de al menos `amplitude_rad`) de una articulación en una ventana de 1 s. */
+  tremor?: PeakAt & { amplitude_rad: number };
+  /** Mayor exceso de energía mecánica sobre la aportada (pares internos y efectores), en J, y la escala de referencia. */
+  energy?: { max_excess_j: number; t_s: number; scale_j: number };
+  /** Mayor |fuerza generalizada| escrita en los 6 grados de la raíz (debe ser 0), en cualquier paso. */
+  root_generalized_force?: number;
 }
 
 export type ExpectResult = "pass" | "fail" | "none";
@@ -88,6 +159,14 @@ export interface UkeSummary {
   max_root_generalized_force: number;
   /** Estado del controlador (`UkeController.status()`). */
   controller: Record<string, unknown>;
+  /** Equilibrio: margen del punto de captura, desplazamiento de los pies y estabilidad final (ausente en grabaciones anteriores). */
+  balance?: BalanceSummary;
+  /** Datos de la caída; `null` si no hay caída. */
+  fall?: FallInfo | null;
+  /** Primer paso (pie e instante); `null` si ningún pie se movió más de 5 cm. */
+  step?: StepInfo | null;
+  /** Instante y dirección (una de 8) en que el punto de captura sale del apoyo; `null` si nunca sale. */
+  unbalance?: UnbalanceInfo | null;
 }
 
 export interface RecordingSummary {
@@ -95,6 +174,7 @@ export interface RecordingSummary {
   /**
    * Dirección de caída en grados (0 = +X, 90 = +Y): la del eje del actor cuando su inclinación supera 60 grados
    * por primera vez o, si nunca la supera, en su inclinación máxima; `null` si esa inclinación es < 5 grados.
+   * Humanoide: la del eje del tronco al caer (`uke.fall.direction_world_deg`) y, sin caída, la de su inclinación máxima.
    */
   direction_deg: number | null;
   /** Instante en que el veredicto adoptó su valor final y ya no cambió, en s. */
@@ -111,6 +191,10 @@ export interface RecordingSummary {
   expect_diffs: string[];
   /** Solo con actor humanoide. */
   uke?: UkeSummary;
+  /** Artefactos detectados (`detectArtifacts`); lista vacía = limpio. Ausente en grabaciones anteriores a la PR 5 de #75. */
+  artifacts?: ArtifactFinding[];
+  /** Detectores que no pudieron evaluarse y por qué. Ausente en grabaciones anteriores. */
+  artifacts_not_evaluated?: ArtifactNotEvaluated[];
 }
 
 export interface Recording {
@@ -120,4 +204,6 @@ export interface Recording {
   samples: RecordingSample[];
   peaks: RecordingPeaks;
   summary: RecordingSummary;
+  /** Medidas por paso físico para el detector de artefactos. Ausente en grabaciones anteriores. */
+  diagnostics?: RecordingDiagnostics;
 }

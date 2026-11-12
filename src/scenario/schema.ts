@@ -76,8 +76,11 @@ export type EffectorFrame = (typeof EFFECTOR_FRAMES)[number];
 export const EFFECTOR_WAVEFORMS = ["half_sine", "constant"] as const;
 export type EffectorWaveform = (typeof EFFECTOR_WAVEFORMS)[number];
 
-/** Resultados posibles del veredicto. */
-export const OUTCOMES = ["standing", "tilted", "fall"] as const;
+/**
+ * Resultados posibles del veredicto. Cilindro: `standing`, `tilted` o `fall`. Humanoide: `standing`, `stepped`, `fall` o
+ * `unresolved` (definiciones en `src/metrics/outcome.ts`).
+ */
+export const OUTCOMES = ["standing", "tilted", "fall", "stepped", "unresolved"] as const;
 export type Outcome = (typeof OUTCOMES)[number];
 
 export interface GroundSpec {

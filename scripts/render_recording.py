@@ -94,6 +94,14 @@ def actor_extent(model: mujoco.MjModel, body: int) -> float:
     for g in range(model.ngeom):
         if model.geom_bodyid[g] == body:
             best = max(best, 2.0 * float(np.max(model.geom_size[g])))
+    # Actor de varios cuerpos (humanoide): la altura es la de todo el árbol en la postura por defecto, no la de su raíz.
+    root = model.body_rootid[body]
+    tree = [g for g in range(model.ngeom) if model.body_rootid[model.geom_bodyid[g]] == root]
+    if len({int(model.geom_bodyid[g]) for g in tree}) > 1:
+        data = mujoco.MjData(model)
+        mujoco.mj_kinematics(model, data)
+        top = max(float(data.geom_xpos[g][2] + model.geom_rbound[g]) for g in tree)
+        best = max(best, top)
     return best
 
 
@@ -146,6 +154,84 @@ def add_arrow(scene, start, vec_m, rgba, width=ARROW_RADIUS_M):
     mujoco.mjv_connector(g, mujoco.mjtGeom.mjGEOM_ARROW, max(width, ARROW_RADIUS_M), start, start + vec)
     scene.ngeom += 1
     return True
+
+
+# ---------------------------------------------------------------- equilibrio (humanoide)
+
+COM_RGB = (40, 110, 255)            # centro de masas y su proyección en el suelo
+XCOM_RGB = (235, 40, 200)           # punto de captura
+SUPPORT_OK_RGB = (30, 170, 70)      # polígono de apoyo con el punto de captura dentro
+SUPPORT_OUT_RGB = (245, 110, 20)    # polígono de apoyo con el punto de captura fuera (o sin apoyo)
+GROUND_LIFT_M = 0.004               # los dibujos sobre el suelo se elevan 4 mm para no confundirse con él
+
+
+def balance_of(sample: dict):
+    """(com, xcom, polígono, margen) de la muestra, o None si la grabación no trae equilibrio (cilindro, grabaciones antiguas)."""
+    try:
+        com = np.array(sample["com"], float)
+        xcom = np.array(sample["xcom"], float)
+    except (KeyError, TypeError, ValueError):
+        return None
+    if com.shape != (3,) or xcom.shape != (2,):
+        return None
+    poly = []
+    for p in sample.get("support_polygon") or []:
+        try:
+            poly.append((float(p[0]), float(p[1])))
+        except (TypeError, ValueError, IndexError):
+            continue
+    margin = sample.get("capture_margin_m")
+    return com, xcom, poly, (float(margin) if isinstance(margin, (int, float)) else None)
+
+
+def draw_balance(img: Image.Image, sample: dict, cam, width: int, height: int, fovy: float) -> str | None:
+    """Dibuja sobre `img` (RGBA) el polígono de apoyo, el punto de captura y el centro de masas con su proyección.
+
+    Es una capa 2D proyectada desde la cámara de la escena (siempre visible, aunque el cuerpo tape el punto).
+    Devuelve el texto del margen para el rótulo, o None si la muestra no trae equilibrio.
+    """
+    b = balance_of(sample)
+    if b is None:
+        return None
+    com, xcom, poly, margin = b
+    inside = margin is not None and margin >= 0.0
+    support_rgb = SUPPORT_OK_RGB if inside else SUPPORT_OUT_RGB
+
+    def px(x, y, z):
+        return project(np.array([x, y, z]), cam, width, height, fovy)
+
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    r = max(6, width // 110)
+
+    pts = [px(x, y, GROUND_LIFT_M) for x, y in poly]
+    if len(pts) >= 3 and all(p is not None for p in pts):
+        d.polygon(pts, fill=support_rgb + (70,))
+    if len(pts) >= 2 and all(p is not None for p in pts):
+        d.line(pts + ([pts[0]] if len(pts) >= 3 else []), fill=support_rgb + (255,), width=max(3, r // 2))
+    elif len(pts) == 1 and pts[0] is not None:
+        d.ellipse([pts[0][0] - r, pts[0][1] - r, pts[0][0] + r, pts[0][1] + r], outline=support_rgb + (255,), width=3)
+
+    ground_com = px(com[0], com[1], GROUND_LIFT_M)
+    com_px = px(com[0], com[1], com[2])
+    xi_px = px(xcom[0], xcom[1], GROUND_LIFT_M)
+    if com_px is not None and ground_com is not None:       # plomada del centro de masas al suelo
+        d.line([com_px, ground_com], fill=COM_RGB + (200,), width=2)
+    if ground_com is not None and xi_px is not None:        # de la proyección del centro de masas al punto de captura
+        d.line([ground_com, xi_px], fill=XCOM_RGB + (230,), width=3)
+    if ground_com is not None:
+        d.ellipse([ground_com[0] - r // 2, ground_com[1] - r // 2, ground_com[0] + r // 2, ground_com[1] + r // 2],
+                  outline=COM_RGB + (255,), width=2)
+    if xi_px is not None:
+        d.ellipse([xi_px[0] - r, xi_px[1] - r, xi_px[0] + r, xi_px[1] + r], fill=XCOM_RGB + (255,),
+                  outline=(255, 255, 255, 255), width=2)
+    if com_px is not None:
+        d.ellipse([com_px[0] - r, com_px[1] - r, com_px[0] + r, com_px[1] + r], fill=COM_RGB + (255,),
+                  outline=(255, 255, 255, 255), width=2)
+    img.alpha_composite(layer)
+    if margin is None:
+        return "sin apoyo"
+    return f"margen de xi: {margin:+.3f} m".replace(".", ",")
 
 
 def effector_color(kind: str | None, index: int):
@@ -383,6 +469,7 @@ class FrameRenderer:
         img = Image.fromarray(self.renderer.render().copy()).convert("RGBA")
 
         cam = scene.camera[0]
+        margin_text = draw_balance(img, sample, cam, self.width, self.height, self.fovy)
         placed = []
         for start, vec, rgba, text in arrows:
             n = float(np.linalg.norm(vec))
@@ -408,8 +495,18 @@ class FrameRenderer:
         legend = "1 m de flecha = 1000 N"
         draw_label(img, (self.width - int(self.font.getlength(legend)) - 14, 10), legend, self.font,
                    (235, 235, 235), bg=(20, 24, 30, 170))
+        if margin_text is not None:
+            # leyenda del equilibrio abajo a la derecha; el color del margen es el del polígono
+            inside = balance_of(sample)[3] is not None and balance_of(sample)[3] >= 0.0
+            rows = [("centro de masas", COM_RGB), ("punto de captura (xi)", XCOM_RGB),
+                    (margin_text, SUPPORT_OK_RGB if inside else SUPPORT_OUT_RGB)]
+            y = self.height - 10 - self.font.size
+            for text, col in reversed(rows):
+                light = tuple(int(255 * (0.35 * v / 255 + 0.65)) for v in col)
+                draw_label(img, (self.width - int(self.font.getlength(text)) - 14, y), text, self.font, light)
+                y -= int(self.font.size * 1.5)
         info = {"xpos": self.data.xpos[self.body].copy(), "arrows": len(arrows), "follow": self.follow,
-                "banner": [t for t, _ in self.banner_lines(index)]}
+                "banner": [t for t, _ in self.banner_lines(index)], "balance": margin_text}
         return np.asarray(img.convert("RGB")), info
 
     def close(self):

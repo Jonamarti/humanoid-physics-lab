@@ -11,9 +11,9 @@ Pruebas: `tests/unit/ukeControl.test.ts`, `ukeStances.test.ts`, `ukeScenario.tes
   de bisagras internas; el ejecutor lanza un error si algún grado de libertad de la raíz recibe fuerza y registra el máximo en
   `summary.uke.max_root_generalized_force` (medido: 0 en todos los casos).
 - `tense` = objetivos articulares de la postura (PD) + equilibrio de tobillo por pie + compensación de la gravedad en tronco, cuello y brazos.
-- Veredicto mínimo (`src/metrics/outcome.ts`, `classifyHumanoid`): de pie si el tronco (cuerpo `chest`) se inclina menos de 3° y la
-  pelvis está por encima del 90 % de su altura tras el asentamiento; caído si la pelvis baja del 50 %; si no, `tilted`. El veredicto
-  completo (contactos, dirección de caída, etc.) es de otra PR. `summary.uke` añade inclinación máxima del tronco, alturas de pelvis y
+- Veredicto (`src/metrics/outcome.ts`, `classifyHumanoidTrajectory`): `fall`, `stepped`, `standing` o `unresolved`, con métricas de
+  equilibrio (`src/metrics/balance.ts`); definiciones en [RECORDING_V1.md](RECORDING_V1.md#veredicto-y-métricas-de-equilibrio-del-humanoide).
+  `summary.uke` añade inclinación máxima del tronco, alturas de pelvis y
   centro de masas, velocidad del centro de masas al acabar el asentamiento y estado del controlador (par máximo y su razón con el límite).
 
 ## Ley de escalado final (`gains.ts`)

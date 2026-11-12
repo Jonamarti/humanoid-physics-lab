@@ -132,6 +132,28 @@ def test_bright_scene_banner_follow_and_sheet_peak():
     assert peak_i in idxs and len(idxs) == 8 and idxs[0] == 0 and idxs[-1] == len(rec["samples"]) - 1
 
 
+def test_balance_overlay_drawn_only_when_present():
+    """Centro de masas, punto de captura y polígono de apoyo se dibujan si la muestra los trae; si no, nada cambia."""
+    rec = sample.make_recording(duration_s=0.2)
+    plain, plain_info = next(rr.iter_video_frames(rec, "side", SIZE, FPS, 0))
+    assert plain_info["balance"] is None and rr.balance_of(rec["samples"][0]) is None
+    for s in rec["samples"]:
+        s["com"] = [0.0, 0.0, 1.0]
+        s["xcom"] = [0.1, 0.0]
+        s["support_polygon"] = [[-0.07, -0.16], [0.198, -0.16], [0.198, 0.16], [-0.07, 0.16]]
+        s["capture_margin_m"] = 0.088
+    img, info = next(rr.iter_video_frames(rec, "side", SIZE, FPS, 0))
+    assert info["balance"] == "margen de xi: +0,088 m", info["balance"]
+    assert np.abs(img.astype(int) - plain.astype(int)).sum() > 0
+    # Sin apoyo (polígono vacío, margen nulo) y con el punto de captura fuera: rótulos distintos y sin errores.
+    for s in rec["samples"]:
+        s["support_polygon"], s["capture_margin_m"] = [], None
+    assert next(rr.iter_video_frames(rec, "side", SIZE, FPS, 0))[1]["balance"] == "sin apoyo"
+    for s in rec["samples"]:
+        s["support_polygon"], s["capture_margin_m"] = [[0.2, -0.1], [0.2, 0.1]], -0.1
+    assert next(rr.iter_video_frames(rec, "top", SIZE, FPS, 0))[1]["balance"] == "margen de xi: -0,100 m"
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

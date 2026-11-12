@@ -15,6 +15,7 @@ import { basename, join } from "node:path";
 import { describeArtifact } from "../metrics/artifacts";
 import type { Recording } from "../recording/schema";
 import { gzipRecording, roundDeep } from "../recording/write";
+import { readEngineVersion } from "./engineVersion";
 import { runScenario } from "./run";
 import { ScenarioValidationError, validateScenario } from "./validate";
 
@@ -105,7 +106,7 @@ async function runFile(path: string, outDir: string): Promise<Outcome> {
     }
     throw error;
   }
-  const recording = await runScenario(scenario);
+  const recording = await runScenario(scenario, { engineVersion: readEngineVersion() });
   const gz = gzipRecording(recording);
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, "recording.json.gz"), gz);

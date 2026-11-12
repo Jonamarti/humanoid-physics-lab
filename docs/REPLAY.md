@@ -21,6 +21,12 @@ El visor web puede reproducir una grabación `hpl.recording.v1` (`recording.json
 
 Flujo por fotograma: `RecordingPlayer.current()` → `ReplayKinematics.setQpos()` (`mj_forward`) → `BallViewer.setArticulatedPoses()` y `setMultiForces()`.
 
+## Editar y simular en la web
+
+Con una grabación de la galería abierta aparece **Editar y simular este escenario**: cambia valores, simula en el navegador
+y reproduce el resultado. Guía completa en [SCENARIO_EDITOR.md](SCENARIO_EDITOR.md). `npm run gallery` publica también el
+escenario de cada grabación en `public/scenarios/<id>.json`, que es lo que el editor descarga.
+
 ## Notas y límites
 
 - Las flechas usan la escala no lineal de `forceArrowLengthM` (la del laboratorio), no «1 m = 1000 N» del vídeo en Python: la dirección es exacta, la longitud es indicativa. El valor exacto está en el rótulo. Observado: `BallViewer.refreshMultiForceVisuals` normaliza el vector antes de pedir su longitud, así que las flechas múltiples del visor miden siempre ~0,25 m (defecto previo del visor, no tocado aquí).

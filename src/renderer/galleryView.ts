@@ -24,6 +24,8 @@ export interface GalleryViewOptions {
   fetchFn?: FetchLike;
   /** Se llama cuando cambia el texto de estado de la galería (para repetirlo en el estado general). */
   onStatus?(text: string): void;
+  /** Se llama cuando una grabación de la galería queda cargada en el reproductor. */
+  onOpened?(entry: GalleryEntry): void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, text?: string): HTMLElementTagNameMap[K] {
@@ -127,6 +129,7 @@ export class GalleryView {
     if (loaded) {
       this.say("");
       this.updateAddress(entry.id);
+      this.options.onOpened?.(entry);
     } else {
       this.say(`No se pudo reproducir «${entry.title}». Mira el mensaje de estado del visor.`, true);
     }

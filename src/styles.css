@@ -119,3 +119,20 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 .gallery-detail p { margin: 6px 0 0; line-height: 1.4; }
 .gallery-verdict { font-weight: 650; color: #7bdcc7; font-size: .9rem; }
 .gallery-link { display: inline-block; margin-top: 8px; padding: 8px 0; color: #83d6e8; font-size: .85rem; }
+
+/* Editor de escenarios (src/renderer/scenarioEditor.ts) */
+.scenario-editor { margin-top: 12px; padding-top: 12px; border-top: 1px solid #29445b; }
+.scenario-editor > summary, .scenario-advanced > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+.scenario-editor fieldset { border: 1px solid #29445b; border-radius: 9px; margin: 12px 0 0; padding: 8px 10px 12px; min-width: 0; }
+.scenario-editor legend { padding: 0 6px; font-weight: 700; }
+.scenario-editor fieldset > label { display: block; margin-top: 8px; }
+.scenario-editor fieldset > label input, .scenario-editor fieldset > label select { margin-top: 4px; padding: 8px; }
+.scenario-table { width: 100%; border-collapse: collapse; margin-top: 8px; table-layout: fixed; }
+.scenario-table th { overflow-wrap: anywhere; font-size: 0.7rem; font-weight: 600; text-align: left; padding: 2px; vertical-align: bottom; }
+.scenario-table th:last-child, .scenario-table td:last-child { width: 40px; }
+.scenario-table td { padding: 2px; }
+.scenario-table input { padding: 6px 4px; min-width: 0; font-size: 0.9rem; }
+.scenario-table button { padding: 6px 0; width: 100%; }
+.scenario-json { width: 100%; background: #0b192b; border: 1px solid #41607c; color: white; border-radius: 9px; padding: 8px; font-family: ui-monospace, monospace; font-size: 0.8rem; }
+.scenario-report { margin: 8px 0; padding-left: 18px; line-height: 1.4; }
+.scenario-message.is-error { color: #ff9c9c; }

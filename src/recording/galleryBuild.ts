@@ -6,6 +6,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { readEngineVersion } from "../scenario/engineVersion";
 import { runScenario } from "../scenario/run";
 import { validateScenario } from "../scenario/validate";
 import {
@@ -21,6 +22,8 @@ export const GALLERY_LIST_SCHEMA_ID = "hpl.gallery-list.v1";
 export const DEFAULT_GALLERY_LIST = join("scenarios", "gallery", "gallery.json");
 export const DEFAULT_SCENARIOS_DIR = "scenarios";
 export const DEFAULT_GALLERY_OUT = join("public", "recordings");
+/** Copia publicada de los escenarios de la galería (`<id>.json`), para el editor de la web. */
+export const DEFAULT_GALLERY_SCENARIOS_OUT = join("public", "scenarios");
 
 /** Entrada de `gallery.json`. */
 export interface GalleryListItem {
@@ -69,6 +72,8 @@ export interface BuiltRecording {
   entry: GalleryEntry;
   gz: Buffer;
   recording: Recording;
+  /** Escenario tal como lo escribió su autor (sin los campos que rellena el validador), con `record_hz` de la galería. */
+  source: Record<string, unknown>;
 }
 
 /** Ejecuta el escenario de un elemento de la lista y devuelve la grabación comprimida y su entrada del índice. */
@@ -80,7 +85,7 @@ export async function buildGalleryRecording(item: GalleryListItem, scenariosDir 
   if (item.record_hz !== undefined) json.record_hz = item.record_hz;
   const scenario = validateScenario(json, { fileName: `${item.id}.json` });
   if (scenario.id !== item.id) throw new Error(`${item.id}: el escenario declara el id "${scenario.id}"`);
-  const recording = await runScenario(scenario);
+  const recording = await runScenario(scenario, { engineVersion: readEngineVersion() });
   const gz = gzipRecording(recording);
   const summary = roundDeep(recording.summary);
   const last = recording.samples[recording.samples.length - 1]!;
@@ -98,7 +103,7 @@ export async function buildGalleryRecording(item: GalleryListItem, scenariosDir 
     engine_version: recording.meta.engine_version,
     bytes: gz.length,
   };
-  return { entry, gz, recording };
+  return { entry, gz, recording, source: json };
 }
 
 export function serializeGalleryIndex(index: GalleryIndex): string {
@@ -109,6 +114,8 @@ export interface BuildGalleryOptions {
   listPath?: string;
   scenariosDir?: string;
   outDir?: string;
+  /** Carpeta de los escenarios publicados. Por defecto `public/scenarios` solo si `outDir` es el de por defecto; si no, no se escriben. */
+  scenariosOutDir?: string;
   log?: (line: string) => void;
 }
 
@@ -129,6 +136,14 @@ export async function buildGallery(options: BuildGalleryOptions = {}): Promise<G
   for (const name of readdirSync(outDir)) if (name.endsWith(".json.gz") && !keep.has(name)) rmSync(join(outDir, name));
   for (const b of built) writeFileSync(join(outDir, b.entry.file), b.gz);
   writeFileSync(join(outDir, GALLERY_INDEX_FILE), serializeGalleryIndex(index));
+  const scenariosOut = options.scenariosOutDir ?? (options.outDir === undefined ? DEFAULT_GALLERY_SCENARIOS_OUT : undefined);
+  if (scenariosOut !== undefined) {
+    mkdirSync(scenariosOut, { recursive: true });
+    const wanted = new Set(built.map((b) => `${b.entry.id}.json`));
+    for (const name of readdirSync(scenariosOut)) if (name.endsWith(".json") && !wanted.has(name)) rmSync(join(scenariosOut, name));
+    for (const b of built) writeFileSync(join(scenariosOut, `${b.entry.id}.json`), `${JSON.stringify(b.source, null, 1)}
+`);
+  }
   const total = built.reduce((sum, b) => sum + b.entry.bytes, 0);
   log(`galería: ${built.length} grabaciones, ${total} bytes en ${outDir}`);
   return index;

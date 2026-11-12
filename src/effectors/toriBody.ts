@@ -239,6 +239,13 @@ function keyHand(params: ToriBodyParams, key: Required<ToriPoseKey>, side: "left
   return add(f.shoulderMid, add(scale(f.chestFwd, h[0]), add(scale(f.shoulderLeft, h[1]), scale(f.up, h[2]))));
 }
 
+/** Pasa un punto del mundo al marco del pecho de una postura clave (el formato de `left_hand_m` / `right_hand_m`). */
+export function toriWorldToHand(params: ToriBodyParams, key: ToriPoseKey, world: Vec3): Vec3 {
+  const f = trunkFrame(params, full(key));
+  const d = sub(world, f.shoulderMid);
+  return [dot(d, f.chestFwd), dot(d, f.shoulderLeft), dot(d, f.up)];
+}
+
 /**
  * Dónde pone la postura cada mano en `t`, en el mundo (el extremo de Tori de cada agarre). Entre dos posturas la mano va en
  * línea recta por el mundo de una a otra: si se interpolara en el marco del pecho, durante un giro describiría un arco ancho.
@@ -493,6 +500,8 @@ export function toriSegmentCommand(
 /**
  * Secuencia de posturas de partida: Tori empieza de frente a Uke (que está en el origen mirando a +X), entra girando media
  * vuelta a su izquierda hasta darle la espalda con las rodillas flexionadas, carga, y estira las piernas inclinando el tronco.
+ * La mano de la manga mantiene el brazo de Uke estirado hacia delante y arriba hasta la carga y luego baja. Con el tronco
+ * inclinado, «delante del pecho» apunta al suelo: por eso esas manos llevan valores negativos de «delante» y altos de «arriba».
  * Los tiempos salen de una demostración a velocidad real grabada de perfil a 25 fps (ver `docs/TORI_BODY.md`): entrada 0,55 s,
  * giro 0,25 s, carga 0,2 s y proyección 0,35 s. Es un punto de partida editable, no una técnica validada.
  */
@@ -511,10 +520,13 @@ export function defaultToriKeys(toriHeightM: number, startS = 0.2): ToriPoseKey[
   });
   return [
     key(0, 0.62, 0.98, 180, 5, [0.64, -0.13], [0.64, 0.13], [0.42, 0.2, -0.3], [0.5, 0, -0.1]),
-    key(0.25, 0.56, 0.93, 200, 8, [0.64, -0.13], [0.5, 0.08], [0.3, 0.12, -0.05], [0.32, -0.12, 0.05]),
-    key(0.45, 0.5, 0.78, 360, 20, [0.5, 0.14], [0.5, -0.14], [0.25, -0.2, -0.05], [0.1, 0.08, 0.05]),
-    key(0.65, 0.4, 0.66, 360, 40, [0.42, 0.14], [0.42, -0.14], [0.3, -0.2, -0.1], [0.1, 0.05, 0.05]),
-    key(1.0, 0.24, 1.0, 360, 100, [0.42, 0.14], [0.42, -0.14], [0.3, 0.25, -0.7], [0.3, 0.05, -0.4], 25),
-    key(1.6, 0.36, 0.95, 360, 60, [0.42, 0.14], [0.42, -0.14], [0.35, 0.1, -0.25], [0.3, 0, -0.3]),
+    // Desequilibrio: la mano de la manga lleva el brazo de Uke estirado hacia delante y unos 30° hacia arriba.
+    key(0.25, 0.56, 0.93, 200, 8, [0.64, -0.13], [0.5, 0.08], [0.11, 0.13, 0.27], [0.32, -0.12, 0.05]),
+    key(0.45, 0.5, 0.78, 360, 20, [0.5, 0.14], [0.5, -0.14], [-0.09, -0.2, 0.44], [0.1, 0.08, 0.05]),
+    // Carga: la manga sigue alta y delante; la solapa sujeta el pecho de Uke contra la espalda.
+    key(0.65, 0.4, 0.66, 360, 40, [0.42, 0.14], [0.42, -0.14], [-0.09, -0.2, 0.5], [0.1, 0.05, 0.05]),
+    // Proyección: piernas estiradas, tronco inclinado y las dos manos bajan.
+    key(1.0, 0.24, 1.0, 360, 100, [0.42, 0.14], [0.42, -0.14], [-0.17, -0.03, 0.26], [-0.06, 0.14, 0.11], 25),
+    key(1.6, 0.36, 0.95, 360, 60, [0.42, 0.14], [0.42, -0.14], [0.37, 0, -0.12], [0.27, 0.1, -0.19]),
   ];
 }

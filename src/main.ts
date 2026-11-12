@@ -6,6 +6,7 @@ import { MujocoSimulation, type PhysicsState } from "./physics/mujoco";
 import { BallViewer } from "./renderer/ballViewer";
 import { GalleryView } from "./renderer/galleryView";
 import { ReplayView } from "./renderer/replayView";
+import { ScenarioEditor } from "./renderer/scenarioEditor";
 import { forceDisplayForFrame } from "./renderer/forceDisplay";
 import { installForceEditor } from "./editor/forceEditor";
 import { projectBalanceToGround } from "./renderer/balanceProjection";
@@ -698,14 +699,21 @@ if (replayHost && viewport) {
     onModeChange: (active) => {
       clearLoadedScenario();
       for (const control of [loadButton, physicsModel]) control.disabled = active;
-      if (!active) gallery.reset(); // solo se llama tras construir la galería
+      if (!active) { gallery.reset(); editor.hide(); } // solo se llama tras construir la galería y el editor
     },
+  });
+  // Editor de escenarios (src/renderer/scenarioEditor.ts): edita y simula en el navegador el escenario de la grabación abierta.
+  const editor = new ScenarioEditor({
+    mount: (node) => replay.insertAfterPanel(node), show: (recording) => replay.show(recording), baseUrl: import.meta.env.BASE_URL,
   });
   // Grabaciones de ejemplo (src/renderer/galleryView.ts): selector junto a «Cargar grabación» y enlace `?rec=<id>`.
   const gallery = new GalleryView({
     replay, mount: (node) => replay.insertBeforePanel(node),
     baseUrl: import.meta.env.BASE_URL, search: window.location.search,
+    onOpened: (entry) => { void editor.openGalleryScenario(entry.id); },
   });
+  // Enlace con un escenario editado (`#scn=...`): se abre en el editor y se simula al llegar.
+  void editor.openFromHash(window.location.hash);
 }
 
 physicsModel.addEventListener("change", () => {

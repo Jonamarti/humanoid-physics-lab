@@ -89,13 +89,29 @@ export class ReplayView {
   /** Inserta un bloque de interfaz entre «Cargar grabación» y los controles de reproducción (lo usa la galería). */
   insertBeforePanel(node: HTMLElement): void { this.panel.before(node); }
 
+  /** Inserta un bloque de interfaz después de los controles de reproducción (lo usa el editor de escenarios). */
+  insertAfterPanel(node: HTMLElement): void { this.panel.after(node); }
+
   /** Carga y reproduce una grabación. Devuelve `true` si se pudo cargar (el motivo del fallo va a `onStatus`). */
   async load(file: Blob): Promise<boolean> {
     const { viewer, onStatus } = this.options;
     if (!viewer) { onStatus("Se necesita WebGL para reproducir grabaciones."); return false; }
     onStatus("Leyendo grabación…");
     try {
-      const recording = await parseRecording(await file.arrayBuffer());
+      return await this.show(await parseRecording(await file.arrayBuffer()));
+    } catch (error) {
+      this.release();
+      this.options.onModeChange(false);
+      onStatus("No se pudo cargar la grabación: " + (error instanceof Error ? error.message : String(error)));
+      return false;
+    }
+  }
+
+  /** Reproduce una grabación ya en memoria (la usa el editor de escenarios tras simular en el navegador). */
+  async show(recording: Recording): Promise<boolean> {
+    const { viewer, onStatus } = this.options;
+    if (!viewer) { onStatus("Se necesita WebGL para reproducir grabaciones."); return false; }
+    try {
       const mj = await loadPhysicsModule();
       this.release();
       this.options.onModeChange(true);

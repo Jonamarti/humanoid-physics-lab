@@ -1,0 +1,25 @@
+{
+ "schema": "hpl.scenario.v1",
+ "id": "uke_stand_75_175_neutral",
+ "duration_s": 10,
+ "record_hz": 50,
+ "ground": {
+  "friction": 1
+ },
+ "actors": [
+  {
+   "id": "uke",
+   "kind": "humanoid",
+   "mass_kg": 75,
+   "height_m": 1.75,
+   "strength": 1,
+   "attitude": "tense",
+   "stance": "neutral"
+  }
+ ],
+ "props": [],
+ "effectors": [],
+ "expect": {
+  "outcome": "standing"
+ }
+}

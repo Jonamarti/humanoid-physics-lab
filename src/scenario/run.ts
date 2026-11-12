@@ -7,7 +7,6 @@
  * `Recording.samples` y `peaks` conservan la precisión completa; el redondeo a 6 cifras
  * se aplica al escribir (`src/recording/write.ts`).
  */
-import { createHash } from "node:crypto";
 import type { StandingModel, StandingState } from "../control/standingBaseline";
 import { detectArtifacts } from "../metrics/artifacts";
 import { capturePoint, signedMargin, supportPolygon } from "../metrics/balance";
@@ -32,9 +31,9 @@ import {
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
 import { ArtifactProbe } from "./artifactProbe";
 import { buildScenarioModel } from "./buildModel";
-import { readEngineVersion } from "./engineVersion";
+import { sha256Hex } from "./sha256";
 import { compareExpect } from "./expect";
-import { getMujoco } from "./mujocoModule";
+import { getMujoco, type MujocoModule } from "./mujocoModule";
 import { ACTOR_BODIES, type EffectorSpec, type PrescribedForceEffector, type Outcome, type Scenario, type Vec3 } from "./schema";
 import { PHYSICS_HZ, PHYSICS_TIMESTEP_S } from "./worldOptions";
 
@@ -45,7 +44,9 @@ export const SETTLE_S = 0.5;
 const MIN_CONTACT_NORMAL_N = 1e-6;
 
 export interface RunOptions {
-  /** Versión del motor para `meta.engine_version`; por defecto, la de `package.json` del directorio de trabajo. */
+  /** Módulo MuJoCo ya cargado (el navegador pasa el del visor). Por defecto, el de `mujocoModule.ts`. */
+  mujoco?: MujocoModule;
+  /** Versión del motor para `meta.engine_version`. Por defecto `unknown`: el ejecutor no lee archivos (también corre en el navegador); en Node la pasan `cli.ts` y `galleryBuild.ts` con `readEngineVersion()`. */
   engineVersion?: string;
   /**
    * Observador opcional, llamado tras grabar cada muestra con el modelo y los datos de MuJoCo (solo lectura).
@@ -92,7 +93,7 @@ function triple(a: ArrayLike<number>, i: number): Vec3 {
 
 /** Hash del escenario validado (orden de claves fijado por el validador). */
 export function scenarioSha256(scenario: Scenario): string {
-  return createHash("sha256").update(JSON.stringify(scenario)).digest("hex");
+  return sha256Hex(JSON.stringify(scenario));
 }
 
 interface PendingWork {
@@ -101,7 +102,7 @@ interface PendingWork {
 }
 
 export async function runScenario(scenario: Scenario, options: RunOptions = {}): Promise<Recording> {
-  const mj = await getMujoco();
+  const mj = options.mujoco ?? await getMujoco();
   const built = buildScenarioModel(scenario);
   const model = mj.MjModel.from_xml_string(built.mjcf);
   const data = new mj.MjData(model);
@@ -646,7 +647,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       meta: {
         scenario_id: scenario.id,
         scenario_sha256: scenarioSha256(scenario),
-        engine_version: options.engineVersion ?? readEngineVersion(),
+        engine_version: options.engineVersion ?? "unknown",
         mujoco_version: mj.mj_versionString(),
         physics_hz: PHYSICS_HZ,
         record_hz: scenario.record_hz,

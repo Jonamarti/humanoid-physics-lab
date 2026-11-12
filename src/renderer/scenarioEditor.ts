@@ -479,6 +479,7 @@ export class ScenarioEditor {
         this.number("Masa (kg)", actor.mass_kg as number, (v) => { actor.mass_kg = v; }),
         this.number("Altura (m)", actor.height_m as number, (v) => { actor.height_m = v; }, "0.01"),
         this.number("Fuerza muscular (1 = normal)", actor.strength as number, (v) => { actor.strength = v; }, "0.1"),
+        this.number("Rigidez de la cintura (0 = se dobla, 1 = rígido)", actor.waist_stiffness as number | undefined, (v) => { actor.waist_stiffness = v; }, "0.1", "1"),
       );
       const attitude = el("select");
       for (const a of ["tense", "relaxed"]) attitude.append(el("option", { value: a, selected: actor.attitude === a }, a === "tense" ? "en tensión" : "relajado"));

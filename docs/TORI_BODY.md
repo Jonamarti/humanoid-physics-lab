@@ -132,6 +132,26 @@ Lo que queda mal:
   cabeza; bajando la manga a 0,6 m en vez de a 0,9 m, también (9 kN).
 - El detector solo avisa de una cosa: el pie izquierdo de Uke se hunde 4,9 cm en el suelo al caer (1,90 s).
 
+### Con Uke que se dobla por la cintura
+
+Por defecto el Uke en tensión mantiene el tronco y las caderas rectos: da la vuelta casi como una tabla. Con
+`waist_stiffness` en el actor (de 0 a 1; ver [SCENARIO_V1.md](SCENARIO_V1.md)) cede en las lumbares, las torácicas y la flexión
+de las caderas. `scenarios/uke_soft_waist_75_175_tori_body.json` es el mismo escenario con 0,3. Medido:
+
+| `waist_stiffness` | Flexión máxima del tronco | Giro máximo | Primer golpe | Tori |
+|---|---|---|---|---|
+| 1 (por defecto) | 30° | 180° | pelvis, 2,00 s (4,2 kN) | viable, 97 % |
+| 0,5 | 33° | 158° | antebrazo izquierdo 1,98 s; pelvis 2,02 s (4,2 kN) | 102 % del rozamiento durante 0,01 s |
+| 0,3 | 38° | 138° | antebrazo izquierdo 2,04 s; pelvis 2,14 s (2,3 kN) | 102 % durante 0,01 s |
+
+- El derribo sigue saliendo y la cabeza no toca el suelo en ningún caso.
+- Cuanto más se dobla Uke, menos gira: se pliega sobre la espalda de Tori en vez de voltear entero, y cae más tarde y con el
+  brazo por delante.
+- La flexión del tronco solo es la de las lumbares y torácicas (hasta 95° por los topes del modelo); la de las caderas no está
+  en esa columna.
+- De pie y sin perturbación, Uke con 0,3 sigue en pie 10 s sin inclinarse.
+- No está en la galería, para no pasar del límite de tamaño: se prueba en el editor con «Rigidez de la cintura».
+
 ## Tempos de referencia
 
 Medidos sobre una demostración a velocidad real grabada de perfil a 25 fps (56 fotogramas, un fotograma cada 0,04 s). No se

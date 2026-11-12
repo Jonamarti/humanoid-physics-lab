@@ -727,6 +727,9 @@ interface UkeBarResult {
   contactRatio: number;
   maxHorizontalCmdN: number;
   barDeviationM: number;
+  barDeviationFinalM: number;
+  barFirstSaturatedS: number | null;
+  peakContactAfterSatN: number;
   saturatedSteps: number;
   upright: boolean;
   frictionUse: number;
@@ -740,7 +743,7 @@ interface UkeBarResult {
  * `pushN` y se mantiene 2 s: la pelvis se apoya contra la barra, que cede o no según su tope. Se mide el desvío lateral
  * (Y) del centro de masas, el de la pelvis y el de la pelvis respecto a la barra.
  */
-async function ukeAgainstBar(options: { pushN: number; lateralN?: number; barY?: number; seconds?: number; friction?: number }): Promise<UkeBarResult> {
+async function ukeAgainstBar(options: { pushN: number; lateralN?: number; barY?: number; seconds?: number; friction?: number; barMaxForceN?: number }): Promise<UkeBarResult> {
   const mj = await getMujoco();
   const seconds = options.seconds ?? 2;
   const barY = options.barY ?? 0;
@@ -766,6 +769,7 @@ async function ukeAgainstBar(options: { pushN: number; lateralN?: number; barY?:
   const barParams = resolveObstacleParams({
     name: "hipbar", shape: "bar", tori_mass_kg: TORI_KG, start_m: [pelvisHalfDepth + 0.11 + 0.001, barY, pelvisZ],
     ...(options.friction !== undefined ? { friction: options.friction } : {}),
+    ...(options.barMaxForceN !== undefined ? { max_force_n: options.barMaxForceN } : {}),
   });
   const model = mj.MjModel.from_xml_string(appendToWorldbody(base(), buildObstacleMjcf(barParams)));
   const data = new mj.MjData(model);
@@ -837,11 +841,12 @@ async function ukeAgainstBar(options: { pushN: number; lateralN?: number; barY?:
     }
     const w = worstContactRatio(steps, barParams);
     const last = steps[steps.length - 1]!;
-    void last;
     return {
       lateralComM, lateralPelvisM, lateralRelativeM, yawDeg, forwardComM, chestTiltDeg: chestTilt,
       maxContactN: max(steps.map((s) => norm(s.contactOnOther))), contactRatio: w.ratio, maxHorizontalCmdN: max(maxCmd),
-      barDeviationM: max(steps.map((s) => s.sample.deviation_magnitude_m)), saturatedSteps: steps.filter((s) => s.sample.saturated).length,
+      barDeviationM: max(steps.map((s) => s.sample.deviation_magnitude_m)), barDeviationFinalM: last.sample.deviation_magnitude_m,
+      barFirstSaturatedS: steps.find((s) => s.sample.saturated)?.t ?? null,
+      peakContactAfterSatN: max(steps.filter((s) => s.sample.saturated).map((s) => norm(s.contactOnOther)).concat([0])), saturatedSteps: steps.filter((s) => s.sample.saturated).length,
       upright: chestTilt < 45, frictionUse, rootForceMax,
     };
   } finally {
@@ -879,6 +884,18 @@ describe("Uke tense apoyado contra una barra a la altura de la cadera (MuJoCo WA
     expect(rough.lateralPelvisM).toBeLessThan(0.02);
     expect(slick.lateralRelativeM).toBeGreaterThan(1.5 * rough.lateralRelativeM); // control: el rozamiento sí importa
   }, 120000);
+
+  it("si la barra se satura, cede: bandera, desviación creciente y fuerza de contacto acotada por tope + m·a (tope 100 N, empuje de 250 N)", async () => {
+    const r = await ukeAgainstBar({ pushN: 250, barMaxForceN: 100, seconds: 1.5 });
+    console.log(`barra saturada (tope 100 N, empuje 250 N): satura en t = ${r.barFirstSaturatedS?.toFixed(3)} s, ${r.saturatedSteps} pasos; la barra cede ${mm(r.barDeviationFinalM)} (máx ${mm(r.barDeviationM)}); contacto máx ${r.maxContactN.toFixed(0)} N, tras saturar ${r.peakContactAfterSatN.toFixed(0)} N, relación con tope + m·a ${r.contactRatio.toFixed(3)}; orden horizontal máx ${r.maxHorizontalCmdN.toFixed(2)} N; avance del CM ${mm(r.forwardComM)}; pecho ${r.chestTiltDeg.toFixed(1)}°; desvío lateral CM ${mm(r.lateralComM)}`);
+    expect(r.barFirstSaturatedS).not.toBeNull();
+    expect(r.saturatedSteps).toBeGreaterThan(50);
+    expect(r.maxHorizontalCmdN).toBeLessThanOrEqual(100 * (1 + 1e-9));
+    expect(r.barDeviationFinalM).toBeGreaterThan(0.05); // cede de verdad: más de 5 cm
+    expect(r.barDeviationFinalM).toBeGreaterThanOrEqual(0.99 * r.barDeviationM); // y sigue cediendo (la desviación final es la máxima)
+    expect(r.contactRatio).toBeLessThanOrEqual(1.1);
+    expect(r.rootForceMax).toBe(0);
+  }, 60000);
 
   it("sin empuje (Uke solo asentado junto a la barra) tampoco se desvía y la barra no se mueve", async () => {
     const r = await ukeAgainstBar({ pushN: 0, seconds: 1 });

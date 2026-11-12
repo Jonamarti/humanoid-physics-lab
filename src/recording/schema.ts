@@ -73,10 +73,72 @@ export interface EffectorPeaks {
   impulse_ns: Vec3;
   /** Trabajo `∫ F · v_punto dt`, en J. */
   work_j: number;
+  /** Tope de fuerza declarado por el escenario (`max_force_n`), en N; ausente si el efector no declara ninguno. */
+  limit_n?: number;
 }
 
 export interface RecordingPeaks {
   effectors: Record<string, EffectorPeaks>;
+}
+
+/** Tipos del detector de artefactos (`src/metrics/artifacts.ts`, `docs/ARTIFACTS.md`). */
+export const ARTIFACT_TYPES = [
+  "ground_penetration", "segment_penetration", "joint_speed", "contact_force", "foot_slip", "tremor",
+  "energy_gain", "effector_over_limit", "root_force",
+] as const;
+export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
+
+/** Un artefacto detectado: tipo, instante, elemento implicado, valor medido y umbral superado. */
+export interface ArtifactFinding {
+  type: ArtifactType;
+  /** Instante del escenario en que se midió el valor, en s. */
+  t_s: number;
+  /** Cuerpo, par de cuerpos, articulación o efector implicado (vacío si no aplica). */
+  where: string;
+  /** Valor medido (unidades en `docs/ARTIFACTS.md`). */
+  value: number;
+  /** Umbral superado. */
+  threshold: number;
+  detail: string;
+}
+
+/** Un detector que no pudo evaluarse (nunca equivale a «limpio»). */
+export interface ArtifactNotEvaluated {
+  type: ArtifactType;
+  reason: string;
+}
+
+/** Máximo de una magnitud medida en cada paso físico (500 Hz), con su instante y el elemento implicado. */
+export interface PeakAt {
+  value: number;
+  t_s: number;
+  where: string;
+}
+
+/**
+ * Medidas del ejecutor que el detector necesita y que NO se pueden sacar de las muestras a `record_hz` (se acumulan en cada
+ * paso físico; solo cuentan los pasos con `t >= 0`, no el asentamiento). Un campo ausente significa «no medido» (el
+ * detector lo marca como no evaluado): por ejemplo, sin articulaciones internas no hay `joint_speed`.
+ */
+export interface RecordingDiagnostics {
+  /** Masa del actor, en kg. */
+  actor_mass_kg: number;
+  /** Penetración máxima de una geometría del actor en el suelo, en m (`-dist` del contacto). */
+  ground_penetration: PeakAt;
+  /** Penetración máxima entre dos cuerpos distintos del actor, en m. Solo humanoide. */
+  segment_penetration?: PeakAt;
+  /** Mayor |velocidad| de una articulación interna (bisagra), en rad/s. */
+  joint_speed?: PeakAt;
+  /** Mayor fuerza normal de un contacto del actor (suelo, props o él mismo), en N. */
+  contact_force: PeakAt;
+  /** Mayor deslizamiento neto de un pie cargado y sin rozamiento saturado en un tramo continuo, en m. Solo humanoide. */
+  foot_slip?: PeakAt;
+  /** Mayor número de cambios de sentido (de al menos `amplitude_rad`) de una articulación en una ventana de 1 s. */
+  tremor?: PeakAt & { amplitude_rad: number };
+  /** Mayor exceso de energía mecánica sobre la aportada (pares internos y efectores), en J, y la escala de referencia. */
+  energy?: { max_excess_j: number; t_s: number; scale_j: number };
+  /** Mayor |fuerza generalizada| escrita en los 6 grados de la raíz (debe ser 0), en cualquier paso. */
+  root_generalized_force?: number;
 }
 
 export type ExpectResult = "pass" | "fail" | "none";
@@ -129,6 +191,10 @@ export interface RecordingSummary {
   expect_diffs: string[];
   /** Solo con actor humanoide. */
   uke?: UkeSummary;
+  /** Artefactos detectados (`detectArtifacts`); lista vacía = limpio. Ausente en grabaciones anteriores a la PR 5 de #75. */
+  artifacts?: ArtifactFinding[];
+  /** Detectores que no pudieron evaluarse y por qué. Ausente en grabaciones anteriores. */
+  artifacts_not_evaluated?: ArtifactNotEvaluated[];
 }
 
 export interface Recording {
@@ -138,4 +204,6 @@ export interface Recording {
   samples: RecordingSample[];
   peaks: RecordingPeaks;
   summary: RecordingSummary;
+  /** Medidas por paso físico para el detector de artefactos. Ausente en grabaciones anteriores. */
+  diagnostics?: RecordingDiagnostics;
 }

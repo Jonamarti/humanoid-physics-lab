@@ -82,6 +82,15 @@ sustituye al veredicto mínimo anterior (`classifyHumanoid`, retirado): «de pie
 Medido (12-11-2026, Uke `tense`, 75 kg, 1,75 m, impulso de medio seno de 0,1 s en `sternum` hacia atrás): 6 N·s `standing`; 25 N·s `fall`
 hacia atrás con `unbalance` hacia atrás; el umbral queda entre 12 y 13 N·s. `tense` no da pasos: `stepped` solo está probado con trayectorias sintéticas.
 
+## Artefactos (`summary.artifacts`, `diagnostics`)
+
+Issue #75, PR 5. Cada grabación lleva el resultado del detector de artefactos de la sección 12.5 del plan: `summary.artifacts` (lista; vacía = limpio),
+`summary.artifacts_not_evaluated` (detectores que no pudieron evaluarse y por qué: **nunca** se dan por limpios) y, en la raíz, `diagnostics` (picos medidos
+a 500 Hz en cada paso físico: penetración en el suelo y entre segmentos, velocidad articular, fuerza de contacto, patinazo de pie, temblor, exceso de energía
+y fuerza en la raíz). `peaks.effectors.<id>.limit_n` es el tope declarado del efector, si lo tiene. Los cuatro campos son opcionales: una grabación anterior se
+sigue leyendo (el lector no los exige) y el reproductor y la galería no los usan. Qué mide cada detector, con qué datos, sus umbrales y límites, y la tabla sobre
+los escenarios actuales: [ARTIFACTS.md](ARTIFACTS.md). `npm run sim -- ... --strict` sale con código 4 si hay artefactos.
+
 ## Contenido
 
 - `meta`: `scenario_id`, `scenario_sha256` (del escenario validado), `engine_version` (`package.json`), `mujoco_version`,

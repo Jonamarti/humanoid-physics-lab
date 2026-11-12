@@ -84,6 +84,20 @@
       "expect": "pass",
       "engine_version": "0.1.0",
       "bytes": 172615
+    },
+    {
+      "id": "uke_tense_75_175_hip_drive",
+      "title": "Volteo con la cadera que empuja",
+      "description": "Como el anterior, pero la barra no cede: empuja atrás y arriba cuando el humanoide ya está cargado sobre ella, y las manos lo acompañan hacia abajo. Da la vuelta completa y cae de espaldas.",
+      "file": "uke_tense_75_175_hip_drive.json.gz",
+      "duration_s": 3,
+      "record_hz": 125,
+      "samples": 376,
+      "outcome": "fall",
+      "direction_deg": 148.977,
+      "expect": "pass",
+      "engine_version": "0.1.0",
+      "bytes": 179699
     }
   ]
 }

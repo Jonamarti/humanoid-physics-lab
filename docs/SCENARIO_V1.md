@@ -189,6 +189,26 @@ sin reflejos de caída descrito en [ESTADO_DERRIBOS_20261112.md](ESTADO_DERRIBOS
 tabla porque `tense` no cede en la cintura. Barrido hecho a mano con `npm run sim`; solo las filas de 385 N y 500 N con
 barra están cubiertas por pruebas.
 
+`uke_tense_75_175_hip_drive.json` es la variante en la que la cadera empuja en vez de ceder. Mismas manos y misma barra, con
+tres cambios: la barra tiene topes más altos (1100 N horizontal y 1840 N vertical, 1,5 y 2,5 pesos de Tori) y entre 0,6 y
+1,0 s se desplaza 25 cm hacia Uke y 20 cm hacia arriba, cuando Uke ya está cargado sobre ella; y las manos añaden un tercer
+tramo (1,1 a 1,5 s) que lleva el agarre abajo y hacia Tori, y sueltan a 1,6 s. Medido:
+
+| | Barra que cede (`hip_tip`) | Barra que empuja (`hip_drive`) |
+|---|---|---|
+| Inclinación máxima del tronco | 162° | 168° |
+| Instante de la caída | 2,13 s | 1,68 s |
+| Primera parte en el suelo | cabeza | brazo izquierdo |
+| Fuerza de contacto por encima de 10 kN | sí (11,1 kN, pelvis) | no |
+| Carga máxima sobre la barra | 2192 N | 2193 N |
+| La barra se separa de su objetivo | 7,6 cm | 10,6 cm |
+| Tiempo con la barra saturada | 0,56 s | 0,24 s |
+| Trabajo de la barra | −85 J (absorbe) | +313 J (aporta) |
+
+Sigue marcando penetración al aterrizar (5,4 cm de un pie, 2,9 cm entre antebrazo y muslo). Con el mismo empuje de la barra
+y las manos soltando a 1,3 s sin el tercer tramo, Uke no completa el giro y cae de cabeza (24 kN): el acompañamiento de las
+manos es lo que termina la rotación.
+
 ## Notas y límites
 
 - **`record_hz` y el ejemplo de la issue #74.** El ejemplo de la issue usa `record_hz: 120`, pero su propia regla

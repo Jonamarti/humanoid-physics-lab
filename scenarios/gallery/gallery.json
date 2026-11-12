@@ -30,6 +30,11 @@
       "id": "uke_tense_75_175_hip_tip",
       "title": "Vuelco sobre la cadera: dos manos y una barra",
       "description": "Dos manos de 500 N tiran delante y arriba de la manga y el pecho, con una barra a la altura de la cadera: el humanoide gira por encima de ella y cae de espaldas."
+    },
+    {
+      "id": "uke_tense_75_175_hip_drive",
+      "title": "Volteo con la cadera que empuja",
+      "description": "Como el anterior, pero la barra no cede: empuja atrás y arriba cuando el humanoide ya está cargado sobre ella, y las manos lo acompañan hacia abajo. Da la vuelta completa y cae de espaldas."
     }
   ]
 }

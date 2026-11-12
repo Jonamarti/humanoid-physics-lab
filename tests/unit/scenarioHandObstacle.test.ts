@@ -134,3 +134,22 @@ describe("ejecutor: vuelco sobre la cadera con dos manos de 500 N y una barra", 
     expect(again.peaks).toEqual(rec.peaks);
   }, 120_000);
 });
+
+describe("ejecutor: la barra que empuja (`uke_tense_75_175_hip_drive`)", () => {
+  it("la barra aporta trabajo, sube con Uke encima y Uke da la vuelta sin golpe por encima del umbral", async () => {
+    const json = JSON.parse(readFileSync(new URL("../../scenarios/uke_tense_75_175_hip_drive.json", import.meta.url), "utf8")) as unknown;
+    const drive = await runScenario(validateScenario(json), { engineVersion: "test" });
+    const bar = drive.peaks.obstacles!.hip_bar!;
+    expect(drive.summary.outcome).toBe("fall");
+    expect(drive.summary.max_tilt_deg).toBeGreaterThan(150);
+    expect(bar.work_j).toBeGreaterThan(100); // empuja: aporta energía en vez de absorberla
+    expect(bar.max_horizontal_force_n).toBeLessThanOrEqual(1100 * (1 + 1e-9));
+    expect(bar.max_vertical_force_n).toBeLessThanOrEqual(1840 * (1 + 1e-9));
+    // Al final la barra está en su objetivo: 25 cm hacia Uke y 20 cm más arriba (deslizaderas x, y, z al final de qpos).
+    const [x, y, z] = drive.samples[drive.samples.length - 1]!.qpos.slice(-3);
+    expect(x).toBeCloseTo(-0.25, 2);
+    expect(y).toBeCloseTo(0, 2);
+    expect(z).toBeCloseTo(0.2, 2);
+    expect(drive.summary.artifacts!.some((a) => a.type === "contact_force" || a.type === "effector_over_limit")).toBe(false);
+  }, 120_000);
+});

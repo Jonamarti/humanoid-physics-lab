@@ -36,9 +36,29 @@ export const ACTOR_BODIES: Readonly<Record<ActorKind, readonly string[]>> = {
   ],
 };
 
-/** Actitudes de Uke. De momento solo `tense`. */
-export const UKE_ATTITUDES = ["tense"] as const;
+/**
+ * Actitudes de Uke: `tense` (postura objetivo y equilibrio activo) y `relaxed` (sin objetivos: solo amortiguación
+ * articular pasiva y los topes de rango del MJCF).
+ */
+export const UKE_ATTITUDES = ["tense", "relaxed"] as const;
 export type UkeAttitude = (typeof UKE_ATTITUDES)[number];
+
+/**
+ * Sitios con nombre del humanoide y el cuerpo al que pertenecen (`src/uke/generate.ts`). Un efector puede apuntar a uno
+ * con `site` en lugar de `body` + `local_point_m`.
+ */
+export const HUMANOID_SITE_BODY: Readonly<Record<string, string>> = {
+  pelvis_origin: "pelvis",
+  belt_front: "abdomen", belt_back: "abdomen", abdomen_front: "abdomen",
+  sternum: "chest", sternum_impact: "chest",
+  nape: "head", head_front: "head", head_side_left: "head", head_side_right: "head",
+  ...Object.fromEntries(["left", "right"].flatMap((s) => [
+    [`${s}_shoulder_impact`, `${s}_upperarm`], [`${s}_triceps`, `${s}_upperarm`], [`${s}_armpit`, `${s}_upperarm`],
+    [`${s}_forearm_impact`, `${s}_forearm`], [`${s}_sleeve_elbow`, `${s}_forearm`], [`${s}_wrist`, `${s}_forearm`],
+    [`${s}_knee_back`, `${s}_shin`],
+    [`${s}_sole`, `${s}_foot`], [`${s}_ankle`, `${s}_foot`],
+  ])),
+};
 
 /** Posturas iniciales de Uke (tabla en `src/uke/stances.ts`). */
 export const UKE_STANCES = ["neutral", "natural_grip", "defensive", "staggered_left", "staggered_right"] as const;
@@ -113,9 +133,17 @@ export interface PrescribedForceEffector {
   kind: "prescribed_force";
   /** `id` de un actor existente. */
   actor: string;
-  /** Cuerpo del actor al que se aplica (ver `ACTOR_BODIES`). */
+  /**
+   * Cuerpo del actor al que se aplica (ver `ACTOR_BODIES`). Con `site`, el validador lo rellena con el cuerpo
+   * que contiene el sitio.
+   */
   body: string;
-  /** Punto de aplicación en el sistema local del cuerpo, en m. */
+  /** Alternativa a `body` + `local_point_m` (solo humanoide): sitio con nombre (ver `HUMANOID_SITE_BODY`). */
+  site?: string;
+  /**
+   * Punto de aplicación en el sistema local del cuerpo, en m. Con `site` es un desplazamiento opcional (por defecto
+   * `[0, 0, 0]`) respecto al sitio, en los ejes del cuerpo.
+   */
   local_point_m: Vec3;
   frame: EffectorFrame;
   /** Fuerza máxima en N, expresada en `frame`. */

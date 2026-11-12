@@ -126,3 +126,54 @@ describe("validateScenario", () => {
     }
   });
 });
+
+const HUMANOID = {
+  schema: "hpl.scenario.v1", id: "uke_site", duration_s: 1, record_hz: 125, ground: { friction: 1 },
+  actors: [{ id: "uke", kind: "humanoid", mass_kg: 75, height_m: 1.75 }],
+  props: [],
+  effectors: [{
+    id: "push", kind: "prescribed_force", actor: "uke", site: "sternum",
+    frame: "world", force_n: [100, 0, 0], start_s: 0, duration_s: 0.1, waveform: "half_sine",
+  }],
+};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function humanoid(edit: (s: any) => void = () => undefined): unknown {
+  const copy = structuredClone(HUMANOID);
+  edit(copy);
+  return copy;
+}
+function reasonOf(json: unknown): string {
+  try {
+    validateScenario(json);
+  } catch (e) {
+    return `${(e as ScenarioValidationError).path}: ${(e as ScenarioValidationError).reason}`;
+  }
+  return "no lanzó";
+}
+
+describe("validateScenario: actitud relaxed y efectores por sitio (#75 PR 3)", () => {
+  it("acepta attitude relaxed y rechaza una actitud desconocida", () => {
+    const s = validateScenario(humanoid((c) => { c.actors[0].attitude = "relaxed"; }));
+    expect(s.actors[0]).toMatchObject({ attitude: "relaxed" });
+    expect(reasonOf(humanoid((c) => { c.actors[0].attitude = "floppy"; }))).toContain("actors[0].attitude");
+  });
+
+  it("site rellena el cuerpo que lo contiene y deja el desplazamiento a cero por defecto", () => {
+    const s = validateScenario(humanoid());
+    expect(s.effectors[0]).toMatchObject({ site: "sternum", body: "chest", local_point_m: [0, 0, 0] });
+    const off = validateScenario(humanoid((c) => { c.effectors[0].local_point_m = [0, 0.01, 0]; }));
+    expect(off.effectors[0]!.local_point_m).toEqual([0, 0.01, 0]);
+  });
+
+  it("rechaza site desconocido, site junto a body y site en un actor que no es humanoide", () => {
+    expect(reasonOf(humanoid((c) => { c.effectors[0].site = "nariz"; }))).toContain('no tiene el sitio "nariz"');
+    expect(reasonOf(humanoid((c) => { c.effectors[0].body = "chest"; }))).toContain("no puede combinarse con site");
+    expect(reasonOf(mutated((c) => { delete c.effectors[0].body; c.effectors[0].site = "sternum"; })))
+      .toContain('no tiene el sitio "sternum"');
+  });
+
+  it("sin site siguen siendo obligatorios body y local_point_m", () => {
+    expect(reasonOf(mutated((c) => { delete c.effectors[0].body; }))).toContain("effectors[0].body");
+    expect(reasonOf(mutated((c) => { delete c.effectors[0].local_point_m; }))).toContain("effectors[0].local_point_m");
+  });
+});

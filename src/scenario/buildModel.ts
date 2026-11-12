@@ -4,7 +4,7 @@
  * No depende de `src/physics/`.
  */
 import { generateHumanoidMJCF } from "../uke/generate";
-import { ukeJointDamping } from "../uke/gains";
+import { attitudeJointDamping } from "../uke/damping";
 import { ACTOR_BODIES, type HumanoidActor, type Scenario } from "./schema";
 import { worldOptionTag } from "./worldOptions";
 
@@ -125,7 +125,7 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
     extraWorldXml: propBlocks.join("\n"),
     optionAttrs: COLLISION_ATTRS,
     modelName: scenario.id,
-    jointDampingByName: ukeJointDamping(actor.mass_kg, actor.height_m, actor.strength),
+    jointDampingByName: attitudeJointDamping(actor.attitude, actor.mass_kg, actor.height_m, actor.strength),
   });
   return {
     mjcf,

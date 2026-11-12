@@ -10,7 +10,8 @@
 import { createHash } from "node:crypto";
 import type { StandingModel, StandingState } from "../control/standingBaseline";
 import { FALL_MIN_TILT_DEG, classifyHumanoid, classifyTilt, fallDirectionDeg, tiltDeg } from "../metrics/outcome";
-import { createUkeController, type UkeController } from "../uke/attitudes";
+import { createUkeController, type UkeController, type UkeControllerParams } from "../uke/attitudes";
+import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke/damping";
 import { applyStance } from "../uke/stances";
 import { RECORDING_SCHEMA_ID, type ContactSample, type EffectorPeaks, type EffectorSample, type Recording, type RecordingSample, type RecordingSummary } from "../recording/schema";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
@@ -104,11 +105,26 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     // Cuerpo cuya inclinación se mide: el tronco (`chest`) del humanoide o el propio actor.
     const tiltBodyId = humanoid ? built.bodies.indexOf("chest") : actorBodyId;
 
-    const effectors = scenario.effectors.map((spec) => ({
-      spec,
-      bodyId: built.bodies.indexOf(spec.body),
-      local: spec.local_point_m,
-    }));
+    // Amortiguación articular de la actitud, escrita en `model.dof_damping` en tiempo de ejecución (`src/uke/damping.ts`).
+    // Un Uke `relaxed` asienta con la actitud `tense` (si no, se desplomaría durante el asentamiento y el escenario
+    // empezaría ya cayendo) y pasa a `relaxed` (controlador y amortiguación) en t = 0.
+    const settleAttitude = humanoid && humanoid.attitude === "relaxed" ? "tense" : humanoid?.attitude;
+    if (humanoid) {
+      setJointDamping(model as unknown as DampingModel, attitudeJointDamping(
+        settleAttitude!, humanoid.mass_kg, humanoid.height_m, humanoid.strength,
+      ));
+    }
+
+    const effectors = scenario.effectors.map((spec) => {
+      let local: Vec3 = spec.local_point_m;
+      if (spec.site !== undefined) {
+        // Punto de un sitio con nombre: su posición en el cuerpo más el desplazamiento opcional (ejes del cuerpo).
+        const siteId = model.site(spec.site).id;
+        const sp = model.site_pos as Float64Array;
+        local = [sp[3 * siteId]! + local[0], sp[3 * siteId + 1]! + local[1], sp[3 * siteId + 2]! + local[2]];
+      }
+      return { spec, bodyId: built.bodies.indexOf(spec.body), local };
+    });
     const peaks: Record<string, EffectorPeaks> = {};
     for (const e of effectors) peaks[e.spec.id] = { max_force_n: 0, impulse_ns: [0, 0, 0], work_j: 0 };
     const pending: Array<PendingWork | null> = effectors.map(() => null);
@@ -126,6 +142,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
     // Humanoide: postura inicial cinemática y controlador (se llama antes de cada `mj_step`, también al asentar).
     let uke: UkeController | undefined;
+    let ukeParams: UkeControllerParams | undefined;
     let rootForceMax = 0;
     const runUke = (t: number): void => {
       mj.mj_subtreeVel(model, data);
@@ -137,10 +154,11 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     if (humanoid) {
       const placement = applyStance(mj, model, data, humanoid.stance);
       mj.mj_forward(model, data); // también deja `qfrc_bias` (gravedad) listo para el controlador
-      uke = createUkeController({
-        attitude: humanoid.attitude, stance: humanoid.stance, mass_kg: humanoid.mass_kg,
+      ukeParams = {
+        attitude: settleAttitude!, stance: humanoid.stance, mass_kg: humanoid.mass_kg,
         height_m: humanoid.height_m, strength: humanoid.strength, targets: placement.targets,
-      }, model as unknown as StandingModel, data as unknown as StandingState);
+      };
+      uke = createUkeController(ukeParams, model as unknown as StandingModel, data as unknown as StandingState);
     }
 
     // 1. Asentamiento sin efectores.
@@ -151,6 +169,13 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         runUke(-SETTLE_S + i * dt);
       }
       mj.mj_step(model, data);
+    }
+    if (humanoid && ukeParams && humanoid.attitude !== settleAttitude) {
+      uke = createUkeController({ ...ukeParams, attitude: humanoid.attitude },
+        model as unknown as StandingModel, data as unknown as StandingState);
+      setJointDamping(model as unknown as DampingModel, attitudeJointDamping(
+        humanoid.attitude, humanoid.mass_kg, humanoid.height_m, humanoid.strength,
+      ));
     }
 
     // 2. Escenario. `data.time` no se usa: el tiempo del escenario es `i * dt`.

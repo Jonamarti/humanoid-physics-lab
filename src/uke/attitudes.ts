@@ -165,10 +165,28 @@ export function createTenseController(
   };
 }
 
+/**
+ * `relaxed`: sin objetivos ni equilibrio. No escribe ningún par: solo actúan la amortiguación articular pasiva
+ * (`damping` del MJCF, ver `damping.ts`) y los topes de rango del modelo. Cae como un cuerpo sin tono.
+ */
+export function createRelaxedController(params: UkeControllerParams): UkeController {
+  let steps = 0;
+  return {
+    step(_m, d): void {
+      d.qfrc_applied.fill(0);
+      steps++;
+    },
+    status(): Record<string, unknown> {
+      return { attitude: "relaxed", stance: params.stance, steps };
+    },
+  };
+}
+
 export function createUkeController(
   params: UkeControllerParams, model: StandingModel, data: StandingState,
 ): UkeController {
   switch (params.attitude) {
     case "tense": return createTenseController(params, model, data);
+    case "relaxed": return createRelaxedController(params);
   }
 }

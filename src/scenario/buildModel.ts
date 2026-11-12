@@ -3,9 +3,11 @@
  * (cono elíptico, ver `docs/CONTACT_CALIBRATION.md`) y los parámetros de contacto de `humanoid_step_v2.xml`.
  * No depende de `src/physics/`.
  */
+import { appendToWorldbody, buildObstacleMjcf, resolveObstacleParams, type ObstacleParams } from "../effectors/obstacle";
 import { generateHumanoidMJCF } from "../uke/generate";
 import { attitudeJointDamping } from "../uke/damping";
 import { ACTOR_BODIES, type HumanoidActor, type Scenario } from "./schema";
+import { obstacleConfig } from "./validate";
 import { worldOptionTag } from "./worldOptions";
 
 /** Contacto de las geometrías (los de `humanoid_step_v2.xml`). */
@@ -32,6 +34,32 @@ export interface ScenarioModel {
   actorBody: string;
   /** Presente si el actor es un humanoide (ver `src/uke/`). */
   humanoid?: HumanoidActor;
+  /** Obstáculos del escenario, resueltos, en el orden de `scenario.obstacles`. Sus cuerpos van al final del modelo. */
+  obstacles: ObstacleParams[];
+}
+
+/**
+ * Añade los obstáculos al final de `<worldbody>` (después del actor: la pelvis debe seguir siendo el cuerpo 1 y la raíz
+ * libre los seis primeros grados de libertad; ver `appendToWorldbody`).
+ */
+function withObstacles(scenario: Scenario, model: Omit<ScenarioModel, "obstacles">): ScenarioModel {
+  const obstacles = (scenario.obstacles ?? []).map((spec) => resolveObstacleParams(obstacleConfig(spec)));
+  let mjcf = model.mjcf;
+  const taken = new Set<string>(["floor", ...model.bodies]);
+  for (const o of obstacles) {
+    if (taken.has(o.name) || taken.has(`${o.name}_geom`)) {
+      throw new Error(`obstacles[].id "${o.name}" colisiona con un nombre reservado del modelo`);
+    }
+    taken.add(o.name);
+    mjcf = appendToWorldbody(mjcf, buildObstacleMjcf(o));
+  }
+  return {
+    ...model,
+    mjcf,
+    bodies: [...model.bodies, ...obstacles.map((o) => o.name)],
+    joints: [...model.joints, ...obstacles.flatMap((o) => [`${o.name}_x`, `${o.name}_y`, `${o.name}_z`])],
+    obstacles,
+  };
 }
 
 function num(x: number): string {
@@ -49,7 +77,7 @@ export function buildScenarioModel(scenario: Scenario): ScenarioModel {
   const actor = scenario.actors[0]!;
   const actorBody = ACTOR_BODIES[actor.kind][0]!;
   const friction = `${num(scenario.ground.friction)} ${TORSIONAL} ${ROLLING}`;
-  if (actor.kind === "humanoid") return buildHumanoidModel(scenario, actor, friction);
+  if (actor.kind === "humanoid") return withObstacles(scenario, buildHumanoidModel(scenario, actor, friction));
 
   const bodies = ["world"];
   const joints: string[] = [];
@@ -91,7 +119,7 @@ ${propBlocks.join("\n")}
   </worldbody>
 </mujoco>
 `;
-  return { mjcf, bodies, joints, actorBody };
+  return withObstacles(scenario, { mjcf, bodies, joints, actorBody });
 }
 
 /** Nombres en el orden de aparición en el MJCF (el de MuJoCo): cuerpos tras `world` y articulaciones. */
@@ -101,7 +129,7 @@ function namesInOrder(mjcf: string, tags: readonly string[]): string[] {
 }
 
 /** Actor humanoide: el modelo lo genera `src/uke/generate.ts`; los props se insertan tras el suelo. */
-function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: string): ScenarioModel {
+function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: string): Omit<ScenarioModel, "obstacles"> {
   const reserved = new Set<string>(["world", "floor", ...ACTOR_BODIES.humanoid]);
   const propBlocks = scenario.props.map((prop) => {
     if (reserved.has(prop.id) || reserved.has(`${prop.id}_geom`)) {

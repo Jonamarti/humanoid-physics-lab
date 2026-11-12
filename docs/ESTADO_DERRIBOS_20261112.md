@@ -3,6 +3,11 @@
 Resumen de lo hecho en las fases 1 a 3 del [plan de derribos](PLAN_DERRIBOS.md), lo que quedó a medias al parar el
 trabajo el 12-11-2026 y el diagnóstico de por qué las caídas no pasan el detector de artefactos.
 
+> **Actualización del 12-11-2026 (tarde).** Fusionados después de escribir este documento: el catálogo de agarres (#96)
+> y la conexión de la mano virtual y del obstáculo al formato de escenario, con el primer vuelco visible:
+> `?rec=uke_tense_75_175_hip_tip`. Campos y medidas en [SCENARIO_V1.md](SCENARIO_V1.md). Las secciones 1 y 3 describen
+> el estado anterior a esos dos cambios.
+
 ## 1. Cómo verlo en la web
 
 Web desplegada: <https://jonamarti.github.io/humanoid-physics-lab/> (despliegue del commit `4c0487c`, comprobado el

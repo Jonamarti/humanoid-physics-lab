@@ -114,7 +114,31 @@ export interface EffectorPeaks {
   hand?: HandPeaks;
 }
 
+/** Resumen de un obstáculo con fuerza limitada (a 500 Hz, desde t = 0); ver `docs/LIMITED_OBSTACLE.md`. */
+export interface ObstaclePeaks {
+  /** Máximos de la orden del actuador (incluye la compensación del peso propio), en N. */
+  max_force_n: number;
+  max_horizontal_force_n: number;
+  max_vertical_force_n: number;
+  /** Topes declarados (horizontal y vertical), en N. */
+  limit_horizontal_n: number;
+  limit_vertical_n: number;
+  /** Máximo del módulo de la fuerza de contacto del obstáculo sobre el actor, en N. */
+  max_contact_force_on_actor_n: number;
+  /** Impulso de la fuerza de contacto sobre el actor, en N·s. */
+  contact_impulse_on_actor_ns: Vec3;
+  /** Máxima separación entre el obstáculo y su objetivo (cuánto cede), en m. */
+  max_deviation_m: number;
+  max_speed_mps: number;
+  /** Tiempo con algún tope recortando la orden, en s. */
+  time_saturated_s: number;
+  /** Trabajo de la orden del actuador, en J. */
+  work_j: number;
+}
+
 export interface RecordingPeaks {
+  /** Solo si el escenario tiene obstáculos. */
+  obstacles?: Record<string, ObstaclePeaks>;
   effectors: Record<string, EffectorPeaks>;
 }
 

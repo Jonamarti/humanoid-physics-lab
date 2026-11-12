@@ -209,6 +209,53 @@ export interface HandEffector {
 
 export type EffectorSpec = PrescribedForceEffector | HandEffector;
 
+/** Formas y superficies del obstáculo (`src/effectors/obstacle.ts`). */
+export const OBSTACLE_SHAPES = ["bar", "post", "pad", "foot"] as const;
+export type ObstacleShapeKind = (typeof OBSTACLE_SHAPES)[number];
+export const OBSTACLE_SURFACES = ["cloth", "skin"] as const;
+export type ObstacleSurfaceKind = (typeof OBSTACLE_SURFACES)[number];
+
+/** Tramo de la trayectoria de un obstáculo: desplazamiento acumulado respecto a `start_m` (mínimo tirón). */
+export interface ObstaclePhaseSpec {
+  start_s: number;
+  duration_s: number;
+  /** Desplazamiento acumulado en m, en el MUNDO, alcanzado al final del tramo. */
+  offset_m: Vec3;
+}
+
+/**
+ * Obstáculo con masa y fuerza limitada (`src/effectors/obstacle.ts`, `docs/LIMITED_OBSTACLE.md`): la cadera, la pierna o
+ * el pie de Tori en abstracto. Es un cuerpo del modelo (se llama como su `id`) que sigue su trayectoria con topes de fuerza;
+ * si Uke empuja más, cede. A diferencia de la mano, `start_m` y los desplazamientos están en el MUNDO: el cuerpo se crea
+ * antes del asentamiento, cuando aún no existe el marco `actor_initial`. Durante el asentamiento se mantiene en `start_m`.
+ * Los campos opcionales ausentes toman los valores por defecto de `OBSTACLE_DEFAULTS` (no se rellenan al validar).
+ */
+export interface ObstacleSpec {
+  /** `[a-z][a-z0-9_]*`; nombre del cuerpo en el modelo y en la grabación. */
+  id: string;
+  shape: ObstacleShapeKind;
+  /** Masa de Tori en kg: fija la masa del obstáculo (la mitad) y los topes por defecto (0,8 y 2,0 pesos). */
+  tori_mass_kg: number;
+  /** Posición inicial del centro de la geometría en el mundo, en m. */
+  start_m: Vec3;
+  phases: ObstaclePhaseSpec[];
+  mass_kg?: number;
+  /** `bar` y `post`: tramo recto y radio. */
+  length_m?: number;
+  radius_m?: number;
+  /** `pad` y `foot`: aristas completas. */
+  size_m?: Vec3;
+  surface?: ObstacleSurfaceKind;
+  friction?: number;
+  kp_n_per_m?: number;
+  damping_ratio?: number;
+  /** Tope horizontal (módulo en XY), en N. */
+  max_force_n?: number;
+  /** Tope vertical, en N. */
+  max_vertical_force_n?: number;
+  max_speed_mps?: number;
+}
+
 export interface ExpectSpec {
   outcome: Outcome;
   /** Dirección de caída en grados (0 = +X, 90 = +Y). Solo con `outcome: "fall"`. */
@@ -229,5 +276,7 @@ export interface Scenario {
   actors: ActorSpec[];
   props: PropSpec[];
   effectors: EffectorSpec[];
+  /** Obstáculos con fuerza limitada. Opcional: ausente equivale a ninguno (y no cambia el hash de los escenarios anteriores). */
+  obstacles?: ObstacleSpec[];
   expect?: ExpectSpec;
 }

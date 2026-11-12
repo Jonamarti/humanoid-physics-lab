@@ -46,15 +46,15 @@
     },
     {
       "id": "uke_tense_75_175_side_impact_post",
-      "record_hz": 100,
+      "record_hz": 50,
       "title": "Sin Tori: impacto lateral contra un poste",
       "description": "Un golpe de 1500 N de pico (0,12 s) en el hombro izquierdo empuja al humanoide contra un poste a la altura del muslo derecho: cae de lado por encima de él. Ejemplo de fuerzas directas y obstáculos sin Tori."
     },
     {
       "id": "uke_tense_75_175_tori_body",
-      "record_hz": 100,
-      "title": "Tori con cuerpo: entrada de espaldas y carga",
-      "description": "Tori tiene cuerpo: entra girando media vuelta, se agacha de espaldas al humanoide, estira las piernas e inclina el tronco. Las manos tiran primero arriba y delante, luego abajo, y al final sostienen. El humanoide rueda sobre la espalda de Tori y cae sobre la pelvis, sin tocar con la cabeza."
+      "record_hz": 50,
+      "title": "Tori con cuerpo y agarres: entrada de espaldas y carga",
+      "description": "Tori tiene cuerpo y agarra la manga derecha y la solapa del humanoide (300 N por mano como mucho). Entra girando media vuelta, se agacha de espaldas, estira las piernas e inclina el tronco; el tirón sale de su movimiento. El humanoide queda cargado sobre su espalda y gira 155°, pero la proyección no está resuelta: se desliza y toca el suelo con la cabeza."
     }
   ]
 }

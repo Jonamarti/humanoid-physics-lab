@@ -263,6 +263,19 @@ export interface ToriPoseKeySpec {
   /** Apoyo de cada pie; z = altura de la planta. */
   left_foot_m: Vec3;
   right_foot_m: Vec3;
+  /** Dónde pone cada mano, en el marco del pecho: `[delante, izquierda, arriba]` desde el punto medio entre los hombros. */
+  left_hand_m?: Vec3;
+  right_hand_m?: Vec3;
+}
+
+/** Agarre de una mano de Tori sobre un sitio de Uke: cuerda con muelle y tope de fuerza entre la mano y el sitio. */
+export interface ToriGripSpec {
+  /** Sitio con nombre del humanoide (ver `HUMANOID_SITE_BODY`). */
+  site: string;
+  /** Tope de fuerza en N (por defecto 500). */
+  max_force_n?: number;
+  /** Instante en que suelta, en s. Sin él, no suelta. */
+  release_s?: number;
 }
 
 /**
@@ -275,8 +288,8 @@ export interface ToriBodySpec {
   enabled?: boolean;
   /** Rozamiento de su tela contra Uke (por defecto 0,8). */
   friction?: number;
-  /** Efectores (por `id`) cuyo punto de agarre siguen las muñecas. */
-  hands?: { left?: string; right?: string };
+  /** Agarres de cada mano sobre Uke. En la grabación son los efectores `tori_left_hand` y `tori_right_hand`. */
+  grips?: { left?: ToriGripSpec; right?: ToriGripSpec };
   keys: ToriPoseKeySpec[];
 }
 

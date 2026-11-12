@@ -2,7 +2,7 @@
  "schema": "hpl.scenario.v1",
  "id": "uke_tense_75_175_side_impact_post",
  "duration_s": 3,
- "record_hz": 100,
+ "record_hz": 50,
  "ground": {
   "friction": 1
  },

@@ -35,8 +35,23 @@ se recorta a un tope de fuerza horizontal, uno vertical y uno de par. Es el mism
 Las fracciones se normalizan para que sumen la masa de Tori. El tope de par es el horizontal por 0,25 m. Todos son puntos de
 partida sin calibrar.
 
-Los brazos no chocan con nada. La fuerza de las manos la siguen poniendo los efectores `pull` y `hand`; los brazos solo
-acompañan: cada muñeca va al punto de agarre del efector que se le asigne en `hands`.
+Los brazos no chocan con nada: lo que une a Tori con Uke son los agarres.
+
+## Agarres
+
+Cada mano puede agarrar un sitio de Uke (`grips.left`, `grips.right`): la manga, la solapa, una muñeca... El agarre es una
+cuerda con muelle (2500 N/m, 200 N·s/m, 2 cm de holgura) entre el punto donde la postura pone la mano y el sitio agarrado:
+
+- Solo tira, nunca empuja, y se recorta a `max_force_n` (500 N por defecto).
+- El tirón sale del movimiento de Tori. No hay curva de fuerzas: si Tori gira y se lleva las manos, Uke va detrás.
+- En t = 0 la mano está en el punto agarrado, sin fuerza. De ahí va a la trayectoria de las posturas, que alcanza en la
+  segunda postura.
+- Entre dos posturas la mano va en línea recta por el mundo.
+- La muñeca se dibuja en el punto agarrado mientras el brazo llega; si no llega, el brazo queda estirado hacia él.
+- Con `release_s` la mano suelta en ese instante.
+
+En la grabación cada agarre es un efector más (`tori_left_hand`, `tori_right_hand`): se ve su flecha en el visor, sale en el
+informe con su máximo y su tope, y cuenta en el presupuesto de Tori como mano.
 
 ## Qué no es
 
@@ -46,7 +61,8 @@ acompañan: cada muñeca va al punto de agarre del efector que se le asigne en `
 - Los topes son por segmento, no del cuerpo entero: la suma de lo que empujan tronco, pelvis y hombros puede superar lo que
   una persona haría. El presupuesto lo detecta por el rozamiento y la carga de los pies, no lo impide.
 - Un empujón a un segmento no se transmite a los demás.
-- Las manos no agarran: la fuerza de un `pull` va en la dirección que dice su curva, no hacia la mano de Tori.
+- La reacción de los agarres no actúa sobre los brazos de Tori: solo se suma en el presupuesto.
+- Los dedos no existen: un agarre no se rompe por fuerza, solo se suelta a la hora que se le diga.
 - Con Tori activo, todos los efectores cuentan como manos suyas en el presupuesto, también una fuerza directa añadida a mano.
 
 ## Formato (`tori.body`)
@@ -56,7 +72,7 @@ acompañan: cada muñeca va al punto de agarre del efector que se le asigne en `
 | `height_m` | m | Obligatorio, de 1,40 a 2,20. La masa es `tori.mass_kg` (de 40 a 200 kg con cuerpo). |
 | `enabled` | | Opcional, por defecto `true`. |
 | `friction` | | Opcional, por defecto 0,8. Rozamiento de su tela contra Uke. |
-| `hands` | | Opcional: `{ "left": "<id de efector>", "right": "<id de efector>" }`. |
+| `grips` | | Opcional: `{ "left": { "site", "max_force_n"?, "release_s"? }, "right": { ... } }`. `site` es un sitio del humanoide. |
 | `keys[]` | | Obligatorio, al menos una postura, con `t_s` creciente. |
 
 Cada postura de `keys[]`, en coordenadas del MUNDO (Uke empieza en el origen mirando a +X; +Y es su izquierda):
@@ -70,6 +86,7 @@ Cada postura de `keys[]`, en coordenadas del MUNDO (Uke empieza en el origen mir
 | `side_lean_deg` | ° | Opcional. Tronco hacia su izquierda. |
 | `twist_deg` | ° | Opcional. Giro de los hombros respecto a la pelvis. |
 | `left_foot_m`, `right_foot_m` | m | Apoyo de cada pie, bajo el tobillo; z es la altura de la planta. |
+| `left_hand_m`, `right_hand_m` | m | Opcional. Dónde pone cada mano, en el marco del pecho: `[delante, a su izquierda, hacia la cabeza]` desde el punto medio entre los hombros. Con el tronco horizontal, «delante» apunta al suelo. |
 
 Entre posturas se interpola con mínimo tirón; antes de la primera y después de la última, Tori se queda en ellas. Las rodillas y
 los codos salen por cinemática inversa: la rodilla se dobla hacia donde mira la pelvis; el codo, hacia abajo y hacia fuera.
@@ -86,27 +103,30 @@ El trabajo de las órdenes de los segmentos entra en el balance de energía del 
 
 ## El escenario de ejemplo
 
-`uke_tense_75_175_tori_body`: Tori de 75 kg y 1,75 m frente a un Uke igual, en tensión. La secuencia es la de
-`defaultToriKeys`: de frente, paso de entrada, media vuelta a su izquierda, cadera baja de espaldas a Uke con el tronco a 40°,
-y piernas estiradas con el tronco a 95°. Las dos manos tiran 150 N a 45° hacia arriba, luego 250 N en horizontal, 300 N a 45°
-hacia abajo, y al final sostienen hacia arriba (hasta 300 N).
+`uke_tense_75_175_tori_body`: Tori de 75 kg y 1,75 m frente a un Uke igual, en tensión. No hay curvas de fuerza. La mano
+izquierda de Tori agarra la manga derecha de Uke (sitio `right_sleeve_elbow`) y la derecha la solapa (`sternum`), con 300 N de
+tope cada una; la solapa se suelta a 1,05 s. La secuencia es la de `defaultToriKeys`: de frente, paso de entrada, media vuelta
+a su izquierda, cadera baja de espaldas a Uke con el tronco a 40°, y piernas estiradas con el tronco a 100° mientras la mano de
+la manga baja hacia su rodilla izquierda.
 
 Medido con el motor de esta versión:
 
-- Uke rueda sobre la espalda de Tori: inclinación máxima 164°.
-- Cargan el tronco (0,29 s, 2,3 kN de pico), la pelvis (0,26 s, 1,2 kN), los hombros y la cabeza de Tori.
-- Uke llega al suelo con la pelvis a los 2,04 s (8,6 kN); la cabeza no toca.
-- Tori es viable: usa el 63 % del rozamiento de sus pies.
-- Con `enabled: false` y las mismas manos, Uke no llega a 150° de inclinación.
+- Las dos manos empiezan sin fuerza y llegan a su tope de 300 N.
+- Uke avanza centrado y queda cargado sobre la espalda de Tori: el tronco lo sostiene 0,59 s (2,8 kN de pico); cargan
+  también los hombros, la cabeza y la pelvis de Tori.
+- Uke gira 155°.
 
-Lo que queda mal:
+Lo que no funciona:
 
-- Uke tarda 1,85 s desde el primer tirón hasta el suelo. La referencia tarda 1,45 s. El tramo final en el que las manos
-  sostienen hacia arriba evita el golpe en la cabeza y es el que alarga la caída.
-- Sin ese tramo final, con las manos tirando solo hacia abajo, Uke cae de cabeza (11 kN a 1,37 s).
-- El detector avisa de penetración de un pie de Uke en el suelo (4,6 cm), pies que se cruzan y 11 kN en la pelvis al caer.
-- El pico de 2,3 kN del tronco supera su tope de orden: es fuerza de contacto, que incluye la inercia de los 22 kg del
-  segmento, no solo lo que empuja el actuador.
+- **La proyección no está resuelta.** Uke queda colgado sobre la espalda y se desliza de cabeza: la cabeza toca el suelo a
+  1,70 s antes que el resto, con un pico de 12 kN (el informe del editor, que muestrea a 50 Hz, enseña 2,8 kN). En la referencia, Uke da la vuelta completa y cae de espaldas.
+- **Tori no es viable** en la entrada: durante 0,26 s necesita el 160 % del rozamiento de sus pies.
+- Con 400 N por mano Uke sale antes de cargar del todo y cae de pecho (116° de giro).
+- Tarda 1,50 s del primer tirón al suelo; la referencia, 1,45 s. La coincidencia no dice mucho mientras la caída sea otra.
+
+Antes de los agarres se probó el mismo cuerpo con dos tirones de curva fija (los de los escenarios anteriores): con ellos Uke
+rodaba 164° sobre la espalda y caía sobre la pelvis sin tocar con la cabeza, y Tori era viable. Se descartó porque las manos no
+unían a los dos: la fuerza seguía su curva aunque Tori estuviera en otro sitio.
 
 ## Tempos de referencia
 

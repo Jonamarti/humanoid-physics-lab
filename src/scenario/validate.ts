@@ -32,6 +32,7 @@ import {
   type PropSpec,
   type PullEffector,
   type ToriBodySpec,
+  type ToriGripSpec,
   type ToriPoseKeySpec,
   type ToriSpec,
   type Scenario,
@@ -404,29 +405,37 @@ function validateTori(value: unknown, path: string, effectorIds: readonly string
 
 function validateToriBody(value: unknown, path: string, massKg: number, effectorIds: readonly string[]): ToriBodySpec {
   const obj = asObject(value, path);
-  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "hands"]);
+  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "grips"]);
   const body: ToriBodySpec = { height_m: asPositive(obj.height_m, join(path, "height_m")), keys: [] };
   if ("enabled" in obj) {
     if (typeof obj.enabled !== "boolean") fail(join(path, "enabled"), `debe ser true o false, no ${describe(obj.enabled)}`);
     body.enabled = obj.enabled;
   }
   if ("friction" in obj) body.friction = asNonNegative(obj.friction, join(path, "friction"));
-  if ("hands" in obj) {
-    const hands = asObject(obj.hands, join(path, "hands"));
-    checkKeys(hands, join(path, "hands"), [], ["left", "right"]);
-    body.hands = {};
+  if ("grips" in obj) {
+    const grips = asObject(obj.grips, join(path, "grips"));
+    checkKeys(grips, join(path, "grips"), [], ["left", "right"]);
+    body.grips = {};
     for (const side of ["left", "right"] as const) {
-      if (!(side in hands)) continue;
-      const id = asString(hands[side], join(path, `hands.${side}`));
-      if (!effectorIds.includes(id)) fail(join(path, `hands.${side}`), `no hay ningún efector con id "${id}"`);
-      body.hands[side] = id;
+      if (!(side in grips)) continue;
+      const gp = join(path, `grips.${side}`);
+      const g = asObject(grips[side], gp);
+      checkKeys(g, gp, ["site"], ["max_force_n", "release_s"]);
+      const site = asString(g.site, join(gp, "site"));
+      if (!(site in HUMANOID_SITE_BODY)) fail(join(gp, "site"), `"${site}" no es un sitio del humanoide`);
+      const grip: ToriGripSpec = { site };
+      if ("max_force_n" in g) grip.max_force_n = asPositive(g.max_force_n, join(gp, "max_force_n"));
+      if ("release_s" in g) grip.release_s = asNonNegative(g.release_s, join(gp, "release_s"));
+      body.grips[side] = grip;
+      const id = `tori_${side}_hand`;
+      if (effectorIds.includes(id)) fail(gp, `el id de efector "${id}" está reservado para este agarre`);
     }
   }
   if (!Array.isArray(obj.keys)) fail(join(path, "keys"), `debe ser una lista, no ${describe(obj.keys)}`);
   body.keys = obj.keys.map((raw, i) => {
     const kp = `${join(path, "keys")}[${i}]`;
     const k = asObject(raw, kp);
-    checkKeys(k, kp, ["t_s", "pelvis_m", "yaw_deg", "left_foot_m", "right_foot_m"], ["lean_deg", "side_lean_deg", "twist_deg"]);
+    checkKeys(k, kp, ["t_s", "pelvis_m", "yaw_deg", "left_foot_m", "right_foot_m"], ["lean_deg", "side_lean_deg", "twist_deg", "left_hand_m", "right_hand_m"]);
     const key: ToriPoseKeySpec = {
       t_s: asNonNegative(k.t_s, join(kp, "t_s")),
       pelvis_m: asVec3(k.pelvis_m, join(kp, "pelvis_m")),
@@ -436,6 +445,9 @@ function validateToriBody(value: unknown, path: string, massKg: number, effector
     };
     for (const name of ["lean_deg", "side_lean_deg", "twist_deg"] as const) {
       if (name in k) key[name] = asFinite(k[name], join(kp, name));
+    }
+    for (const name of ["left_hand_m", "right_hand_m"] as const) {
+      if (name in k) key[name] = asVec3(k[name], join(kp, name));
     }
     return key;
   });

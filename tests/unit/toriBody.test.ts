@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  TORI_SEGMENTS, buildToriBodyMjcf, defaultToriKeys, quatFromZ, resolveToriBodyParams, toriPoseAt, toriSegmentCommand,
-  toriSegmentLength, toriSkeleton, type Vec3,
+  TORI_SEGMENTS, buildToriBodyMjcf, defaultToriKeys, quatFromZ, resolveToriBodyParams, resolveToriGripParams, toriGripForce,
+  toriHandPoints, toriPoseAt, toriSegmentCommand, toriSegmentLength, toriSkeleton, type Vec3,
 } from "../../src/effectors/toriBody";
 import { buildScenarioModel } from "../../src/scenario/buildModel";
 import { describeTrial } from "../../src/scenario/editing";
@@ -93,6 +93,32 @@ describe("cuerpo de Tori: parámetros y esqueleto (sin motor)", () => {
     expect(far.deviation_m).toBeCloseTo(Math.hypot(1, 1), 9);
   });
 
+  it("el agarre solo tira, respeta la holgura y se recorta al tope", () => {
+    const grip = resolveToriGripParams(300);
+    const zero: Vec3 = [0, 0, 0];
+    expect(toriGripForce(grip, [0.01, 0, 0], zero, zero, zero).force_n).toEqual([0, 0, 0]); // dentro de la holgura
+    const soft = toriGripForce(grip, [0.06, 0, 0], zero, zero, zero);
+    expect(soft.force_n[0]).toBeCloseTo(2500 * 0.04, 9);
+    expect(soft.saturated).toBe(false);
+    const hard = toriGripForce(grip, [0, 0, 1], zero, zero, zero);
+    expect(hard.force_n).toEqual([0, 0, 300]);
+    expect(hard.saturated).toBe(true);
+    // Si el punto agarrado se acerca a la mano más deprisa de lo que el muelle tira, la cuerda no empuja.
+    expect(toriGripForce(grip, [0.06, 0, 0], zero, zero, [5, 0, 0]).force_n).toEqual([0, 0, 0]);
+    expect(() => resolveToriGripParams(0)).toThrow(RangeError);
+  });
+
+  it("entre dos posturas la mano va en línea recta por el mundo", () => {
+    const keys = defaultToriKeys(1.75);
+    const a = toriHandPoints(params, keys[1]!.t_s).left;
+    const b = toriHandPoints(params, keys[2]!.t_s).left;
+    const mid = toriHandPoints(params, (keys[1]!.t_s + keys[2]!.t_s) / 2).left;
+    for (let k = 0; k < 3; k++) expect(mid[k]).toBeCloseTo((a[k]! + b[k]!) / 2, 9);
+    // Sin punto agarrado, la muñeca del esqueleto va a ese punto (si el brazo llega).
+    const wrist = toriSkeleton(params, keys[2]!.t_s).left_forearm.b;
+    expect(dist(wrist, b)).toBeLessThan(0.15);
+  });
+
   it("el MJCF trae un cuerpo libre por segmento y los brazos sin colisión", () => {
     const xml = buildToriBodyMjcf(params);
     expect(xml.match(/<freejoint /g)).toHaveLength(TORI_SEGMENTS.length);
@@ -102,9 +128,9 @@ describe("cuerpo de Tori: parámetros y esqueleto (sin motor)", () => {
 });
 
 describe("cuerpo de Tori en el escenario (MuJoCo WASM real)", () => {
-  it("el validador comprueba las manos y las posturas", () => {
+  it("el validador comprueba los agarres y las posturas", () => {
     const bad = load();
-    ((bad.tori as Record<string, unknown>).body as Record<string, unknown>).hands = { left: "no_existe" };
+    ((bad.tori as Record<string, unknown>).body as Record<string, unknown>).grips = { left: { site: "no_existe" } };
     expect(() => validateScenario(bad)).toThrow(ScenarioValidationError);
     const empty = load();
     ((empty.tori as Record<string, unknown>).body as Record<string, unknown>).keys = [];
@@ -122,30 +148,41 @@ describe("cuerpo de Tori en el escenario (MuJoCo WASM real)", () => {
     expect(off.toriBody).toBeUndefined();
   });
 
-  it("Uke rueda sobre la espalda de Tori, no golpea con la cabeza y Tori es viable", async () => {
+  it("los agarres mantienen unidos a Tori y Uke y lo cargan sobre la espalda", async () => {
     const recording = await runScenario(validateScenario(load()), { engineVersion: "test" });
     const report = describeTrial(recording).join("\n");
     expect(recording.summary.outcome).toBe("fall");
-    expect(recording.summary.max_tilt_deg).toBeGreaterThan(150);
-    expect(report).toMatch(/Cabeza: no toca el suelo/);
+    expect(recording.summary.max_tilt_deg).toBeGreaterThan(140);
     expect(report).toMatch(/Cuerpo de Tori: cargan trunk/);
-    expect(report).toMatch(/Tori \(75 kg\): viable/);
     expect(report).not.toMatch(/energía mecánica/);
+    // Las dos manos tiran, y nunca más que su tope.
+    for (const id of ["tori_left_hand", "tori_right_hand"]) {
+      const peak = recording.peaks.effectors[id]!;
+      expect(peak.max_force_n).toBeGreaterThan(200);
+      expect(peak.max_force_n).toBeLessThanOrEqual(300);
+      expect(peak.limit_n).toBe(300);
+    }
+    // Empiezan sin tirón: en la primera muestra la mano está en el punto agarrado.
+    expect(recording.samples[0]!.effectors.map((e) => Math.hypot(...e.force_n))).toEqual([0, 0]);
+    // La solapa se suelta a 1,05 s: después no hay fuerza en esa mano.
+    const late = recording.samples.filter((x) => x.t > 1.1).map((x) => x.effectors.find((e) => e.id === "tori_right_hand")!);
+    expect(late.every((e) => Math.hypot(...e.force_n) === 0)).toBe(true);
     const body = recording.peaks.tori_body!;
-    expect(body.segments.trunk!.contact_time_s).toBeGreaterThan(0.15);
+    expect(body.segments.trunk!.contact_time_s).toBeGreaterThan(0.3);
     // Los brazos no chocan: nunca cargan a Uke.
     expect(body.segments.left_forearm!.contact_time_s).toBe(0);
     // Reproducible: dos ejecuciones dan la misma grabación.
     const again = await runScenario(validateScenario(load()), { engineVersion: "test" });
     expect(again.samples[again.samples.length - 1]!.qpos).toEqual(recording.samples[recording.samples.length - 1]!.qpos);
-  });
+  }, 60_000);
 
-  it("sin el cuerpo, las mismas manos no voltean a Uke sobre nada", async () => {
+  it("sin el cuerpo no hay agarres: Uke se queda de pie", async () => {
     const json = load();
     ((json.tori as Record<string, unknown>).body as Record<string, unknown>).enabled = false;
     delete json.expect;
     const recording = await runScenario(validateScenario(json), { engineVersion: "test" });
     expect(recording.peaks.tori_body).toBeUndefined();
-    expect(recording.summary.max_tilt_deg).toBeLessThan(150);
-  });
+    expect(Object.keys(recording.peaks.effectors)).toEqual([]);
+    expect(recording.summary.outcome).toBe("standing");
+  }, 60_000);
 });

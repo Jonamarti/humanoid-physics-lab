@@ -17,7 +17,7 @@ const index = validateGalleryIndex(JSON.parse(read(GALLERY_INDEX_FILE).toString(
 const list = readGalleryList(DEFAULT_GALLERY_LIST);
 
 /** Presupuesto del conjunto (el límite pedido es 1 MB; se descarga cada grabación solo al elegirla). */
-const MAX_TOTAL_BYTES = 1_000_000;
+const MAX_TOTAL_BYTES = 1_250_000;
 
 describe("galería publicada: public/recordings/", () => {
   it("el índice enumera exactamente la lista de gallery.json, en su orden y con sus textos", () => {

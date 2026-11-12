@@ -19,8 +19,10 @@ import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke
 import { applyStance } from "../uke/stances";
 import { limitPullPower, pullDemand, resolvePullParams, type PullParams } from "../effectors/pull";
 import { ToriBudget } from "../effectors/toriBudget";
-import { toriSegmentCommand, toriSkeleton, type ToriHandTargets } from "../effectors/toriBody";
-import { createHandState, resolveHandParams, stepHand, type HandParams, type HandState } from "../effectors/hand";
+import {
+  resolveToriGripParams, toriGripForce, toriHandPoints, toriSegmentCommand, toriSkeleton, type ToriHandTargets,
+} from "../effectors/toriBody";
+import { createHandState, minimumJerk, resolveHandParams, stepHand, type HandParams, type HandState } from "../effectors/hand";
 import {
   applyObstacleCommand, createObstacleState, readObstacleContactForce, readObstacleKinematics, resolveObstacleHandles,
   settleObstacleWork, stepObstacle, type ObstacleContactData, type ObstacleModelLike, type ObstacleState,
@@ -197,12 +199,26 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         peaks: { max_contact_force_on_actor_n: 0, contact_time_s: 0, max_deviation_m: 0, time_saturated_s: 0 },
       };
     });
-    const toriSegmentOfBody = new Map(toriSegments.map((s) => [s.bodyId, s]));
-    const toriHandEffectors = (["left", "right"] as const).flatMap((side) => {
-      const id = scenario.tori?.body?.hands?.[side];
-      const e = id === undefined ? undefined : effectors.find((x) => x.spec.id === id);
-      return e ? [{ side, e }] : [];
+    // Agarres: cuerda con muelle entre la mano de la postura y un sitio de Uke. Se graban como efectores `tori_<lado>_hand`.
+    const toriGrips = (["left", "right"] as const).flatMap((side) => {
+      const spec = toriBody ? scenario.tori?.body?.grips?.[side] : undefined;
+      if (!spec) return [];
+      const siteId = model.site(spec.site).id;
+      const sp = model.site_pos as Float64Array;
+      const id = `tori_${side}_hand`;
+      const params = resolveToriGripParams(spec.max_force_n);
+      peaks[id] = { max_force_n: 0, impulse_ns: [0, 0, 0], work_j: 0, limit_n: params.max_force_n };
+      return [{
+        side, id, params, release_s: spec.release_s ?? Infinity,
+        bodyId: (model.site_bodyid as Int32Array)[siteId]!, local: triple(sp, 3 * siteId),
+        last: undefined as { force: Vec3; velocity: Vec3 } | undefined,
+        // Distancia de la mano de la postura al punto agarrado en t = 0: se absorbe poco a poco para empezar sin tirón.
+        offset: undefined as Vec3 | undefined,
+      }];
     });
+    const gripPoint = (g: { bodyId: number; local: Vec3 }): Vec3 =>
+      add(triple(data.xpos as Float64Array, 3 * g.bodyId), rotate(data.xmat as Float64Array, 9 * g.bodyId, g.local));
+    const toriSegmentOfBody = new Map(toriSegments.map((s) => [s.bodyId, s]));
     // Trabajo de las órdenes de los segmentos (trapecio, como los efectores): cuenta en el balance de energía del detector.
     let toriWorkJ = 0;
     const toriPeaks: ToriBodyPeaks = { max_contact_force_on_actor_n: 0, contact_impulse_on_actor_ns: [0, 0, 0], segments: {} };
@@ -213,9 +229,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const xmat = data.xmat as Float64Array;
       const cvel = data.cvel as Float64Array;
       const hands: ToriHandTargets = {};
-      for (const { side, e } of toriHandEffectors) {
-        hands[side] = add(triple(xpos, 3 * e.bodyId), rotate(xmat, 9 * e.bodyId, e.local));
-      }
+      // Mientras agarra, la muñeca se dibuja en el punto agarrado (hasta donde llegue el brazo).
+      for (const g of toriGrips) if (t < g.release_s) hands[g.side] = gripPoint(g);
+      void xpos;
       const now = toriSkeleton(toriBody, t, hands);
       const next = toriSkeleton(toriBody, t + dt, hands);
       for (const s of toriSegments) {
@@ -608,6 +624,50 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         sampleEffectors.push(effectorSample);
       });
 
+      if (toriBody && toriGrips.length > 0) {
+        const handsNow = toriHandPoints(toriBody, t + dt / 2);
+        const handsNext = toriHandPoints(toriBody, t + dt / 2 + dt);
+        // La mano parte del punto agarrado y llega a la trayectoria de la postura al alcanzar la segunda postura.
+        const keys = toriBody.keys;
+        const blendEnd = keys[1]?.t_s ?? keys[0]!.t_s + 0.3;
+        const fade = (at: number): number => 1 - minimumJerk((at - keys[0]!.t_s) / (blendEnd - keys[0]!.t_s));
+        for (const g of toriGrips) {
+          const { point, velocity } = pointState(g.bodyId, g.local);
+          if (!g.offset) g.offset = sub(point, toriHandPoints(toriBody, 0)[g.side]);
+          const o = g.offset;
+          const shift = (h: Vec3, k: number): Vec3 => [h[0] + o[0] * k, h[1] + o[1] * k, h[2] + o[2] * k];
+          handsNow[g.side] = shift(handsNow[g.side], fade(t + dt / 2));
+          handsNext[g.side] = shift(handsNext[g.side], fade(t + dt / 2 + dt));
+          if (g.last) {
+            peaks[g.id]!.work_j += dot(g.last.force, add(g.last.velocity, velocity)) * dt / 2;
+          }
+          let force: Vec3 = [0, 0, 0];
+          if (t < g.release_s) {
+            const hand = handsNow[g.side];
+            const handVelocity: Vec3 = [
+              (handsNext[g.side][0] - hand[0]) / dt, (handsNext[g.side][1] - hand[1]) / dt, (handsNext[g.side][2] - hand[2]) / dt,
+            ];
+            force = toriGripForce(g.params, hand, handVelocity, point, velocity).force_n;
+          }
+          if (force[0] !== 0 || force[1] !== 0 || force[2] !== 0) {
+            const torque = cross(sub(point, triple(data.xipos as Float64Array, 3 * g.bodyId)), force);
+            const o = 6 * g.bodyId;
+            for (let k = 0; k < 3; k++) {
+              xfrc[o + k] = xfrc[o + k]! + force[k]!;
+              xfrc[o + 3 + k] = xfrc[o + 3 + k]! + torque[k]!;
+            }
+          }
+          if (i < totalSteps) {
+            const peak = peaks[g.id]!;
+            peak.max_force_n = Math.max(peak.max_force_n, Math.min(Math.hypot(...force), g.params.max_force_n));
+            peak.impulse_ns = [peak.impulse_ns[0] + force[0] * dt, peak.impulse_ns[1] + force[1] * dt, peak.impulse_ns[2] + force[2] * dt];
+          }
+          g.last = i < totalSteps ? { force, velocity } : undefined;
+          handsForce = add(handsForce, force);
+          handsPower += dot(force, velocity);
+          sampleEffectors.push({ id: g.id, point_m: point, force_n: force });
+        }
+      }
       applyToriBody(t, i < totalSteps);
 
       // Obstáculos: orden del actuador para el paso [t, t + dt]. Se escribe ya (para el `mj_forward` de la muestra) y otra

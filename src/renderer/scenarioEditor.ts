@@ -290,13 +290,13 @@ export class ScenarioEditor {
     return typeof uke?.height_m === "number" ? uke.height_m : 1.75;
   }
 
-  /** Cuerpo de Tori de partida: la secuencia de `defaultToriKeys` y las manos en los dos primeros tirones o manos. */
+  /** Cuerpo de Tori de partida: la secuencia de `defaultToriKeys`, con la manga derecha y la solapa de Uke agarradas. */
   private defaultToriBody(): Json {
-    const grips = ((this.draft?.effectors ?? []) as Json[]).filter((e) => e.kind === "pull" || e.kind === "hand").map((e) => String(e.id));
-    const hands: Json = {};
-    if (grips[0]) hands.left = grips[0];
-    if (grips[1]) hands.right = grips[1];
-    return { height_m: this.ukeHeight(), hands, keys: defaultToriKeys(this.ukeHeight()) };
+    return {
+      height_m: this.ukeHeight(),
+      grips: { left: { site: "right_sleeve_elbow", max_force_n: 300 }, right: { site: "sternum", max_force_n: 300 } },
+      keys: defaultToriKeys(this.ukeHeight()),
+    };
   }
 
   private renderTori(d: Json, ground: Json): void {
@@ -308,7 +308,7 @@ export class ScenarioEditor {
       return;
     }
     const tori = d.tori as Json;
-    const g = this.group("Tori", "Con cuerpo, Tori ejecuta la secuencia de posturas y sus segmentos chocan con Uke con fuerza limitada. El presupuesto juzga si podría sostener esas fuerzas con sus pies.");
+    const g = this.group("Tori", "Con cuerpo, Tori ejecuta la secuencia de posturas, sus segmentos chocan con Uke con fuerza limitada y sus manos tiran de lo que agarran. El presupuesto juzga si podría sostener esas fuerzas con sus pies.");
     g.append(
       this.number("Masa (kg)", tori.mass_kg as number, (v) => { tori.mass_kg = v; }),
       this.number("Rozamiento de sus pies", tori.friction as number | undefined, (v) => { tori.friction = v; }, "0.05", `${String(ground.friction)} (el del suelo)`),
@@ -333,18 +333,29 @@ export class ScenarioEditor {
       this.number("Altura (m)", body.height_m as number, (v) => { body.height_m = v; }, "0.01"),
       this.number("Rozamiento de su cuerpo con Uke", body.friction as number | undefined, (v) => { body.friction = v; }, "0.05", "0.8"),
     );
-    const hands = (body.hands ?? (body.hands = {})) as Json;
-    const grips: Array<readonly [string, string]> = [["", "suelta (no agarra)"],
-      ...((d.effectors ?? []) as Json[]).map((e) => [String(e.id), `${String(e.id)} (${String(e.site ?? e.body ?? "")})`] as const)];
-    // Una mano que seguía a un efector ya quitado queda suelta (el validador no admite ids inexistentes).
-    for (const side of ["left", "right"]) if (!grips.some(([id]) => id === hands[side])) delete hands[side];
-    for (const [side, text] of [["left", "Mano izquierda sigue a"], ["right", "Mano derecha sigue a"]] as const) {
-      g.append(this.select(text, grips, String(hands[side] ?? ""), (v) => { if (v === "") delete hands[side]; else hands[side] = v; }));
+    const grips = (body.grips ?? (body.grips = {})) as Json;
+    const sites: Array<readonly [string, string]> = [["", "no agarra"],
+      ...Object.keys(HUMANOID_SITE_BODY).filter((site) => POINT_LABELS[site]).map((site) => [site, POINT_LABELS[site]!] as const)];
+    for (const [side, text] of [["left", "Mano izquierda agarra"], ["right", "Mano derecha agarra"]] as const) {
+      const grip = grips[side] as Json | undefined;
+      g.append(this.select(text, sites, String(grip?.site ?? ""), (v) => {
+        if (v === "") delete grips[side]; else grips[side] = { ...(grip ?? {}), site: v };
+        this.render();
+      }));
+      if (!grip) continue;
+      g.append(
+        this.number("  Tope de fuerza (N)", grip.max_force_n as number | undefined, (v) => { grip.max_force_n = v; }, "10", "500"),
+        this.number("  Suelta a (s)", grip.release_s as number | undefined, (v) => { grip.release_s = v; }, "0.05", "no suelta"),
+      );
     }
-    type Key = { t_s: number; pelvis_m: Vec; yaw_deg: number; lean_deg?: number; twist_deg?: number; left_foot_m: Vec; right_foot_m: Vec };
+    type Key = {
+      t_s: number; pelvis_m: Vec; yaw_deg: number; lean_deg?: number; twist_deg?: number; left_foot_m: Vec; right_foot_m: Vec;
+      left_hand_m?: Vec; right_hand_m?: Vec;
+    };
+    const REST: Record<"left" | "right", Vec> = { left: [0.25, 0.15, -0.35], right: [0.25, -0.15, -0.35] };
     const keys = body.keys as Key[];
     const make = (last: Key | undefined): Key => last
-      ? { ...last, t_s: Number((last.t_s + 0.2).toFixed(3)), pelvis_m: [...last.pelvis_m] as Vec, left_foot_m: [...last.left_foot_m] as Vec, right_foot_m: [...last.right_foot_m] as Vec }
+      ? JSON.parse(JSON.stringify({ ...last, t_s: Number((last.t_s + 0.2).toFixed(3)) })) as Key
       : (defaultToriKeys(this.ukeHeight())[0] as unknown as Key);
     g.append(el("p", { className: "muted" }, "Posturas (mundo: Uke empieza en X = 0 mirando a +X; Y es su izquierda). Entre filas se interpola. Giro: 180° = de frente a Uke, 360° = de espaldas tras girar a su izquierda."));
     this.table(g, ["Instante (s)", "Pelvis X (m)", "Pelvis Z (m)", "Giro (°)", "Tronco adelante (°)", "Hombros (°)"], keys,
@@ -356,6 +367,14 @@ export class ScenarioEditor {
       (k) => [k.t_s, k.left_foot_m[0], k.left_foot_m[1], k.right_foot_m[0], k.right_foot_m[1]],
       (k, v) => { k.t_s = v[0]!; k.left_foot_m = [v[1]!, v[2]!, k.left_foot_m[2]]; k.right_foot_m = [v[3]!, v[4]!, k.right_foot_m[2]]; },
       make);
+    for (const [side, text] of [["left", "izquierda"], ["right", "derecha"]] as const) {
+      const field = `${side}_hand_m` as const;
+      g.append(el("p", { className: "muted" }, `Mano ${text} en cada postura, desde el punto medio entre sus hombros: delante del pecho, a su izquierda y hacia la cabeza. El agarre tira de Uke hacia ese punto.`));
+      this.table(g, ["Instante (s)", "Delante (m)", "A su izq. (m)", "Hacia la cabeza (m)"], keys,
+        (k) => [k.t_s, ...(k[field] ?? REST[side])],
+        (k, v) => { k.t_s = v[0]!; k[field] = [v[1]!, v[2]!, v[3]!]; },
+        make);
+    }
     g.append(remove);
   }
 

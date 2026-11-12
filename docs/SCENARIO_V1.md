@@ -156,6 +156,10 @@ No tiene alcance ni resbalón: no hay hombro ni muelle. La viabilidad del conjun
 Opcional. `{ "mass_kg": 75 }` más `friction` (por defecto `ground.friction`), `total_pull_max_n` (1100) y
 `total_power_max_w` (1500). Con él la grabación lleva `summary.tori_budget` (ver [RECORDING_V1.md](RECORDING_V1.md)).
 
+`tori.body` (opcional) le da cuerpo: segmentos con fuerza limitada que siguen una secuencia de posturas, chocan con Uke y
+lo agarran con las manos. Campos y límites en [TORI_BODY.md](TORI_BODY.md). Los agarres se graban como los efectores
+`tori_left_hand` y `tori_right_hand`, y `peaks.tori_body` resume el contacto de cada segmento.
+
 ### `obstacles[]`
 
 Obstáculo con masa y fuerza limitada ([LIMITED_OBSTACLE.md](LIMITED_OBSTACLE.md)): la cadera, la pierna o el pie de Tori en

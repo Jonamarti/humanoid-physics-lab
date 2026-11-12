@@ -6,8 +6,11 @@
  * cede. No hay articulaciones entre segmentos: se mantienen unidos porque sus objetivos salen del mismo esqueleto. Tampoco
  * hay equilibrio propio: que Tori pudiera sostener esas fuerzas lo juzga el presupuesto (`toriBudget.ts`).
  *
- * La postura se describe con pocos números por instante (pelvis, orientación, inclinación del tronco y pies); las piernas y los
- * brazos salen por cinemática inversa de dos tramos. Las manos van a los puntos de agarre que se le indiquen.
+ * La postura se describe con pocos números por instante (pelvis, orientación, inclinación del tronco, pies y manos); las piernas
+ * y los brazos salen por cinemática inversa de dos tramos.
+ *
+ * Agarres: cada mano puede agarrar un punto de Uke. El agarre es una cuerda con muelle entre el punto donde la postura pone la
+ * mano y el punto agarrado, con tope de fuerza: el tirón sale del movimiento del cuerpo de Tori, no de una curva de fuerzas.
  *
  * Unidades SI; vectores en el mundo (+X delante de Uke, +Y izquierda, +Z arriba); ángulos de la postura en grados.
  */
@@ -27,7 +30,15 @@ export const TORI_BODY_DEFAULTS = Object.freeze({
   tracking_rad_per_s: 40,
   /** Brazo de palanca con el que el tope de par sale del tope de fuerza horizontal, m. */
   torque_arm_m: 0.25,
+  /** Agarre: rigidez (N/m), amortiguación (N·s/m), holgura (m) y tope de fuerza (N) por mano. Sin calibrar. */
+  grip_k_n_per_m: 2500,
+  grip_c_ns_per_m: 200,
+  grip_slack_m: 0.02,
+  grip_max_force_n: 500,
 });
+
+/** Mano en reposo (sin dato en la postura): delante del pecho y baja. Marco del pecho: `[delante, izquierda, arriba]`. */
+const REST_HAND: Readonly<Record<"left" | "right", Vec3>> = { left: [0.25, 0.15, -0.35], right: [0.25, -0.15, -0.35] };
 
 /** Segmentos, en el orden en que se añaden al modelo. */
 export const TORI_SEGMENTS = [
@@ -82,6 +93,12 @@ export interface ToriPoseKey {
   /** Apoyo de cada pie (bajo el tobillo): `[x, y, z]` con z = altura de la planta sobre el suelo. */
   readonly left_foot_m: Vec3;
   readonly right_foot_m: Vec3;
+  /**
+   * Dónde pone cada mano, en el marco del pecho: `[delante, a su izquierda, arriba]` en m desde el punto medio entre los hombros
+   * («arriba» sigue al tronco: con el tronco horizontal apunta hacia delante). Sin dato, la mano queda en reposo.
+   */
+  readonly left_hand_m?: Vec3;
+  readonly right_hand_m?: Vec3;
 }
 
 export interface ToriBodyConfig {
@@ -155,6 +172,9 @@ export function resolveToriBodyParams(config: ToriBodyConfig): ToriBodyParams {
     for (const key of ["pelvis_m", "left_foot_m", "right_foot_m"] as const) {
       if (!finiteVec(k[key])) throw new RangeError(`keys[${i}].${key}: debe ser [x, y, z] con números finitos`);
     }
+    for (const key of ["left_hand_m", "right_hand_m"] as const) {
+      if (k[key] !== undefined && !finiteVec(k[key])) throw new RangeError(`keys[${i}].${key}: debe ser [delante, izquierda, arriba] con números finitos`);
+    }
     if (!(k.pelvis_m[2] > 0.15)) throw new RangeError(`keys[${i}].pelvis_m: la pelvis debe quedar a más de 0,15 m del suelo`);
     if (k.left_foot_m[2] < 0 || k.right_foot_m[2] < 0) throw new RangeError(`keys[${i}]: los pies no pueden quedar bajo el suelo`);
     for (const key of ["yaw_deg", "lean_deg", "side_lean_deg", "twist_deg"] as const) {
@@ -189,10 +209,56 @@ export function resolveToriBodyParams(config: ToriBodyConfig): ToriBodyParams {
 }
 
 /** Postura interpolada en `t` (mínimo tirón entre cada par de posturas). */
-export function toriPoseAt(keys: readonly ToriPoseKey[], t: number): Required<ToriPoseKey> {
-  const full = (k: ToriPoseKey): Required<ToriPoseKey> => ({
+function full(k: ToriPoseKey): Required<ToriPoseKey> {
+  return {
     ...k, lean_deg: k.lean_deg ?? 0, side_lean_deg: k.side_lean_deg ?? 0, twist_deg: k.twist_deg ?? 0,
-  });
+    left_hand_m: k.left_hand_m ?? REST_HAND.left, right_hand_m: k.right_hand_m ?? REST_HAND.right,
+  };
+}
+
+/** Ejes y puntos del tronco de una postura. */
+function trunkFrame(params: ToriBodyParams, pose: Required<ToriPoseKey>) {
+  const d = params.dims;
+  const yaw = pose.yaw_deg * DEG;
+  const fwd: Vec3 = [Math.cos(yaw), Math.sin(yaw), 0];
+  const left: Vec3 = [-Math.sin(yaw), Math.cos(yaw), 0];
+  const P = pose.pelvis_m;
+  // Tronco: la vertical, inclinada hacia delante (giro alrededor de `left`) y hacia su izquierda (alrededor de `-fwd`).
+  let up: Vec3 = rotateAbout([0, 0, 1], left, pose.lean_deg * DEG);
+  up = rotateAbout(up, fwd, -pose.side_lean_deg * DEG);
+  const trunkFwd = unit(cross(left, up), fwd);
+  const shoulderLeft = rotateAbout(unit(cross(up, trunkFwd), left), up, pose.twist_deg * DEG);
+  const chestFwd = unit(cross(shoulderLeft, up), trunkFwd);
+  return { fwd, left, P, up, shoulderLeft, chestFwd, neck: add(P, scale(up, d.trunk)), shoulderMid: add(P, scale(up, d.trunk * 0.9)) };
+}
+
+/** Mano de una postura CLAVE, en el mundo. */
+function keyHand(params: ToriBodyParams, key: Required<ToriPoseKey>, side: "left" | "right"): Vec3 {
+  const f = trunkFrame(params, key);
+  const h = side === "left" ? key.left_hand_m : key.right_hand_m;
+  return add(f.shoulderMid, add(scale(f.chestFwd, h[0]), add(scale(f.shoulderLeft, h[1]), scale(f.up, h[2]))));
+}
+
+/**
+ * Dónde pone la postura cada mano en `t`, en el mundo (el extremo de Tori de cada agarre). Entre dos posturas la mano va en
+ * línea recta por el mundo de una a otra: si se interpolara en el marco del pecho, durante un giro describiría un arco ancho.
+ */
+export function toriHandPoints(params: ToriBodyParams, t: number): { left: Vec3; right: Vec3 } {
+  const keys = params.keys;
+  const at = (side: "left" | "right"): Vec3 => {
+    if (t <= keys[0]!.t_s) return keyHand(params, full(keys[0]!), side);
+    for (let i = 1; i < keys.length; i++) {
+      const b = keys[i]!;
+      if (t > b.t_s) continue;
+      const a = keys[i - 1]!;
+      return lerp3(keyHand(params, full(a), side), keyHand(params, full(b), side), minimumJerk((t - a.t_s) / (b.t_s - a.t_s)));
+    }
+    return keyHand(params, full(keys[keys.length - 1]!), side);
+  };
+  return { left: at("left"), right: at("right") };
+}
+
+export function toriPoseAt(keys: readonly ToriPoseKey[], t: number): Required<ToriPoseKey> {
   const first = keys[0]!;
   if (t <= first.t_s) return full(first);
   for (let i = 1; i < keys.length; i++) {
@@ -210,6 +276,8 @@ export function toriPoseAt(keys: readonly ToriPoseKey[], t: number): Required<To
       twist_deg: lerp(a.twist_deg, fb.twist_deg, u),
       left_foot_m: lerp3(a.left_foot_m, fb.left_foot_m, u),
       right_foot_m: lerp3(a.right_foot_m, fb.right_foot_m, u),
+      left_hand_m: lerp3(a.left_hand_m, fb.left_hand_m, u),
+      right_hand_m: lerp3(a.right_hand_m, fb.right_hand_m, u),
     };
   }
   return full(keys[keys.length - 1]!);
@@ -232,25 +300,49 @@ function twoLink(root: Vec3, end: Vec3, l1: number, l2: number, bend: Vec3): { m
   return { mid: add(root, add(scale(dir, along), scale(side, off))), end: add(root, scale(dir, D)) };
 }
 
-/** Puntos de agarre a los que van las muñecas (mundo). Sin punto, el brazo cuelga delante del cuerpo. */
+/** Puntos a los que van las muñecas (mundo): el punto agarrado de Uke. Sin punto, la mano va a donde dice la postura. */
 export interface ToriHandTargets { left?: Vec3; right?: Vec3 }
+
+export interface ToriGripParams {
+  k_n_per_m: number;
+  c_ns_per_m: number;
+  slack_m: number;
+  max_force_n: number;
+}
+
+export function resolveToriGripParams(maxForceN?: number): ToriGripParams {
+  const max = maxForceN ?? TORI_BODY_DEFAULTS.grip_max_force_n;
+  if (!(Number.isFinite(max) && max > 0)) throw new RangeError(`max_force_n: debe ser > 0 (recibido ${max})`);
+  return {
+    k_n_per_m: TORI_BODY_DEFAULTS.grip_k_n_per_m, c_ns_per_m: TORI_BODY_DEFAULTS.grip_c_ns_per_m,
+    slack_m: TORI_BODY_DEFAULTS.grip_slack_m, max_force_n: max,
+  };
+}
+
+/**
+ * Fuerza del agarre sobre Uke: una cuerda con muelle y amortiguador del punto agarrado `grip` hacia la mano `hand`. Solo tira
+ * (nunca empuja), no actúa dentro de la holgura y se recorta a `max_force_n`.
+ */
+export function toriGripForce(
+  p: ToriGripParams, hand: Vec3, handVelocity: Vec3, grip: Vec3, gripVelocity: Vec3,
+): { force_n: Vec3; stretch_m: number; saturated: boolean } {
+  const d = sub(hand, grip);
+  const dist = norm(d);
+  const stretch = dist - p.slack_m;
+  if (!(stretch > 0)) return { force_n: [0, 0, 0], stretch_m: 0, saturated: false };
+  const dir = scale(d, 1 / dist);
+  const closing = dot(sub(handVelocity, gripVelocity), dir);
+  const wanted = p.k_n_per_m * stretch + p.c_ns_per_m * closing;
+  const magnitude = Math.min(Math.max(wanted, 0), p.max_force_n);
+  return { force_n: scale(dir, magnitude), stretch_m: stretch, saturated: wanted > p.max_force_n };
+}
 
 /** Esqueleto de Tori en `t`: extremos de cada segmento en el mundo. */
 export function toriSkeleton(params: ToriBodyParams, t: number, hands: ToriHandTargets = {}): Record<ToriSegment, SegmentEnds> {
   const d = params.dims;
   const pose = toriPoseAt(params.keys, t);
-  const yaw = pose.yaw_deg * DEG;
-  const fwd: Vec3 = [Math.cos(yaw), Math.sin(yaw), 0];
-  const left: Vec3 = [-Math.sin(yaw), Math.cos(yaw), 0];
-  const P = pose.pelvis_m;
-  // Tronco: la vertical, inclinada hacia delante (giro alrededor de `left`) y hacia su izquierda (alrededor de `-fwd`).
-  let up: Vec3 = rotateAbout([0, 0, 1], left, pose.lean_deg * DEG);
-  up = rotateAbout(up, fwd, -pose.side_lean_deg * DEG);
-  const trunkFwd = unit(cross(left, up), fwd);
-  const shoulderLeft = rotateAbout(unit(cross(up, trunkFwd), left), up, pose.twist_deg * DEG);
-  const chestFwd = unit(cross(shoulderLeft, up), trunkFwd);
-  const neck = add(P, scale(up, d.trunk));
-  const shoulderMid = add(P, scale(up, d.trunk * 0.9));
+  const { fwd, left, P, up, shoulderLeft, neck, shoulderMid } = trunkFrame(params, pose);
+  const posedHands = toriHandPoints(params, t);
   const out = {} as Record<ToriSegment, SegmentEnds>;
   out.pelvis = { a: add(P, scale(left, d.hip_half * 1.3)), b: add(P, scale(left, -d.hip_half * 1.3)) };
   out.trunk = { a: add(P, scale(up, d.trunk * 0.2)), b: add(P, scale(up, d.trunk * 0.82)) };
@@ -270,8 +362,7 @@ export function toriSkeleton(params: ToriBodyParams, t: number, hands: ToriHandT
     out[`${side}_foot`] = { a: add(sole, scale(fwd, -d.foot_back)), b: add(sole, scale(fwd, d.foot_front)) };
 
     const shoulder = sign > 0 ? out.shoulders.a : out.shoulders.b;
-    const rest = add(shoulder, add(scale(chestFwd, 0.3 * d.upper_arm), add(scale(up, -0.9 * d.upper_arm), scale(chestFwd, 0.6 * d.forearm))));
-    const target = hands[side] ?? rest;
+    const target = hands[side] ?? posedHands[side];
     // Codo hacia abajo y hacia fuera.
     const arm = twoLink(shoulder, target, d.upper_arm, d.forearm, add([0, 0, -1], scale(shoulderLeft, 0.6 * sign)));
     out[`${side}_upperarm`] = { a: shoulder, b: arm.mid };
@@ -409,18 +500,21 @@ export function defaultToriKeys(toriHeightM: number, startS = 0.2): ToriPoseKey[
   const hs = toriHeightM / REFERENCE_HEIGHT_M;
   const stand = 0.91 * hs;
   const r = (x: number): number => Number(x.toFixed(3));
+  type Hand = [number, number, number];
   const key = (
-    dt: number, x: number, z: number, yaw: number, lean: number, lf: [number, number], rf: [number, number], twist = 0,
+    dt: number, x: number, z: number, yaw: number, lean: number, lf: [number, number], rf: [number, number],
+    lh: Hand, rh: Hand, twist = 0,
   ): ToriPoseKey => ({
     t_s: r(startS + dt), pelvis_m: [r(x), 0, r(z * stand)], yaw_deg: yaw, lean_deg: lean, twist_deg: twist,
     left_foot_m: [r(lf[0]), r(lf[1]), 0], right_foot_m: [r(rf[0]), r(rf[1]), 0],
+    left_hand_m: [r(lh[0] * hs), r(lh[1] * hs), r(lh[2] * hs)], right_hand_m: [r(rh[0] * hs), r(rh[1] * hs), r(rh[2] * hs)],
   });
   return [
-    key(0, 0.62, 0.98, 180, 5, [0.64, -0.13], [0.64, 0.13]),
-    key(0.25, 0.56, 0.93, 200, 8, [0.64, -0.13], [0.5, 0.08]),
-    key(0.45, 0.5, 0.78, 360, 20, [0.5, 0.14], [0.5, -0.14]),
-    key(0.65, 0.4, 0.66, 360, 40, [0.42, 0.14], [0.42, -0.14]),
-    key(1.0, 0.32, 0.95, 360, 95, [0.42, 0.14], [0.42, -0.14], 15),
-    key(1.6, 0.36, 0.95, 360, 60, [0.42, 0.14], [0.42, -0.14]),
+    key(0, 0.62, 0.98, 180, 5, [0.64, -0.13], [0.64, 0.13], [0.42, 0.2, -0.3], [0.5, 0, -0.1]),
+    key(0.25, 0.56, 0.93, 200, 8, [0.64, -0.13], [0.5, 0.08], [0.3, 0.12, -0.05], [0.32, -0.12, 0.05]),
+    key(0.45, 0.5, 0.78, 360, 20, [0.5, 0.14], [0.5, -0.14], [0.25, -0.2, -0.05], [0.1, 0.08, 0.05]),
+    key(0.65, 0.4, 0.66, 360, 40, [0.42, 0.14], [0.42, -0.14], [0.3, -0.2, -0.1], [0.1, 0.05, 0.05]),
+    key(1.0, 0.24, 1.0, 360, 100, [0.42, 0.14], [0.42, -0.14], [0.3, 0.25, -0.7], [0.3, 0.05, -0.4], 25),
+    key(1.6, 0.36, 0.95, 360, 60, [0.42, 0.14], [0.42, -0.14], [0.35, 0.1, -0.25], [0.3, 0, -0.3]),
   ];
 }

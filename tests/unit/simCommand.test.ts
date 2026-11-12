@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { afterAll, describe, expect, it } from "vitest";
-import { BATCH_CSV_HEADER, EXIT_EXPECT_FAILED, EXIT_INVALID, EXIT_OK, runCli } from "../../src/scenario/cli";
+import {
+  BATCH_CSV_HEADER, EXIT_ARTIFACTS, EXIT_EXPECT_FAILED, EXIT_INVALID, EXIT_OK, EXIT_RUNTIME_ERROR, runCli,
+} from "../../src/scenario/cli";
 
 /**
  * Prueba del comando `npm run sim` (función principal `runCli`, la misma que usa `scripts/sim.ts`).
@@ -138,4 +140,66 @@ describe("runCli (comando sim)", () => {
     expect(csv[1]).toMatch(/^case_bad,invalid,/);
     expect(csv[2]).toMatch(/^case_ok,ok,/);
   });
+});
+
+describe("runCli: artefactos y --strict (#75 PR 5)", () => {
+  const ABOVE = new URL("cylinder_obstacle_above_com.json", SCENARIOS); // no cae: sin artefactos
+
+  it("sin --strict los artefactos se imprimen y se guardan, pero no cambian el código de salida", async () => {
+    const outDir = join(tempRoot, "art_default");
+    const log = capture();
+    expect(await runCli([fileURLToPath(LOW), "--out", outDir], log.io)).toBe(EXIT_OK);
+    const text = log.out.join("\n");
+    expect(text).toContain("artefacto: ground_penetration a ");
+    expect(text).toContain("artefacto: contact_force a ");
+    expect(text).toContain("no evaluado: ");
+    const summary = JSON.parse(readFileSync(join(outDir, "summary.json"), "utf8")) as {
+      summary: { artifacts: Array<{ type: string; t_s: number; where: string; value: number; threshold: number }>; artifacts_not_evaluated: unknown[] };
+    };
+    expect(summary.summary.artifacts.map((a) => a.type).sort()).toEqual(["contact_force", "ground_penetration"]);
+    for (const a of summary.summary.artifacts) expect(a.value).toBeGreaterThan(a.threshold);
+    expect(summary.summary.artifacts_not_evaluated.length).toBeGreaterThan(0);
+  }, 60000);
+
+  it("--strict sale con 4 si hay artefactos (el 3 sigue siendo excepción del ejecutor)", async () => {
+    expect([EXIT_OK, EXIT_EXPECT_FAILED, EXIT_INVALID, EXIT_RUNTIME_ERROR, EXIT_ARTIFACTS]).toEqual([0, 1, 2, 3, 4]);
+    const log = capture();
+    expect(await runCli([fileURLToPath(LOW), "--out", join(tempRoot, "art_strict"), "--strict"], log.io)).toBe(EXIT_ARTIFACTS);
+    expect(log.out.join("\n")).toContain("expect pass"); // el escenario cumple su expect; solo fallan los artefactos
+  }, 60000);
+
+  it("--strict con un escenario limpio sale con 0 e imprime «artefactos: ninguno»", async () => {
+    const log = capture();
+    expect(await runCli([fileURLToPath(ABOVE), "--out", join(tempRoot, "art_clean"), "--strict"], log.io)).toBe(EXIT_OK);
+    expect(log.out.join("\n")).toContain("artefactos: ninguno");
+  }, 60000);
+
+  it("--strict no oculta un expect incumplido (1 manda sobre 4) ni un escenario inválido (2)", async () => {
+    const dir = join(tempRoot, "art_priority");
+    mkdirSync(dir);
+    const scenario = lowScenario();
+    scenario.id = "strict_fail";
+    scenario.expect = { outcome: "standing" };
+    writeFileSync(join(dir, "strict_fail.json"), JSON.stringify(scenario));
+    expect(await runCli([join(dir, "strict_fail.json"), "--out", join(dir, "out"), "--strict"], capture().io)).toBe(EXIT_EXPECT_FAILED);
+    expect(await runCli([join(dir, "no_existe.json"), "--strict"], capture().io)).toBe(EXIT_INVALID);
+  }, 60000);
+
+  it("batch.csv lleva la columna artifacts al final y --batch --strict sale con 4", async () => {
+    const dir = join(tempRoot, "art_batch");
+    mkdirSync(dir);
+    const clean = JSON.parse(readFileSync(ABOVE, "utf8")) as Record<string, unknown>;
+    clean.id = "batch_clean";
+    writeFileSync(join(dir, "batch_clean.json"), JSON.stringify(clean));
+    const dirty = lowScenario();
+    dirty.id = "batch_dirty";
+    writeFileSync(join(dir, "batch_dirty.json"), JSON.stringify(dirty));
+    const log = capture();
+    expect(await runCli(["--batch", dir, "--out", join(dir, "out"), "--strict"], log.io)).toBe(EXIT_ARTIFACTS);
+    const csv = readFileSync(join(dir, "out", "batch.csv"), "utf8").trim().split("\n");
+    expect(csv[0]!.endsWith(",artifacts")).toBe(true);
+    expect(csv[1]).toMatch(/^batch_clean,ok,.*,$/);
+    expect(csv[2]).toMatch(/,contact_force;ground_penetration$|,ground_penetration;contact_force$/);
+    expect(log.out[log.out.length - 1]).toContain("1 con artefactos");
+  }, 60000);
 });

@@ -29,7 +29,9 @@ npm.cmd run sim -- --batch scenarios --out out/batch
 (En CI y en Linux: `npm run sim -- ...`.) Escribe `recording.json.gz` y `summary.json` en la carpeta de `--out` (por defecto
 `out/<id>`), e imprime el resumen. Con `--batch <carpeta>` ejecuta todos los `.json` de la carpeta, deja una subcarpeta por
 escenario y una tabla `batch.csv`. Código de salida: 0 si `expect` pasa o no existe, 1 si falla, 2 si el escenario es inválido o el
-uso es incorrecto, 3 si el ejecutor lanza una excepción. Formatos: [SCENARIO_V1.md](SCENARIO_V1.md) y [RECORDING_V1.md](RECORDING_V1.md).
+uso es incorrecto, 3 si el ejecutor lanza una excepción, 4 solo con `--strict` si el detector de artefactos encuentra alguno (el 3 ya era
+excepción del ejecutor, por eso no se reutilizó; ver [ARTIFACTS.md](ARTIFACTS.md)). Sin `--strict` los artefactos se imprimen y se guardan en
+`summary.artifacts`, pero no cambian el código. Formatos: [SCENARIO_V1.md](SCENARIO_V1.md) y [RECORDING_V1.md](RECORDING_V1.md).
 
 - El script `sim` compila `scripts/sim.ts` con `vite build --ssr` a `dist-cli/` y lo ejecuta con `node`. Se eligió esto y no
   `vite-node` porque `vite build` admite `--configLoader runner` (ya incluido en el script) y la ayuda de `vite-node` no ofrece

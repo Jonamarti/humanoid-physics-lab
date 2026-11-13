@@ -55,6 +55,25 @@ label{display:block;margin:13px 0 5px;font-weight:650;font-size:.9rem}select,inp
 <p id="physical-status" role="status" class="hint">Abre el ensayo con el editor físico existente; desde allí podrás inspeccionar colisiones y guardar el JSON experimental si te interesa.</p>
 <p class="hint">«Sin apoyo» conserva idénticas fuerzas sobre Uke; solo elimina el obstáculo. En modo «Tori completo» no se ofrece ese control, porque eliminar el cuerpo también elimina los agarres.</p>
 </section>
+<section style="margin:18px 0;padding:13px;border:1px solid #507388;border-radius:9px;background:#0d2134" aria-label="Ensayo de pie de fulcro">
+<h2>Ensayo físico independiente: apoyo unilateral y par angular</h2>
+<p class="hint">Uke parte erguido. Dos fuerzas iguales y paralelas tiran de sus hombros hacia delante (+X). El obstáculo está delante de <strong>una sola pierna</strong>: el pie contrario permanece libre. La física normal calcula vuelco, torsión y elevación de los pies.</p>
+<label for="fulcrum-side">Pierna que recibe el tope</label><select id="fulcrum-side">
+<option value="right">Derecha de Uke (−Y)</option><option value="left">Izquierda de Uke (+Y)</option><option value="none">Sin tope — control simétrico</option>
+</select>
+<label for="fulcrum-height">Altura de la barrera</label><select id="fulcrum-height">
+<option value="ankle">Tobillo / pie (13 cm)</option><option value="shin">Espinilla (33 cm)</option><option value="knee">Rodilla (55 cm)</option><option value="thigh">Muslo (78 cm)</option>
+</select>
+<label for="fulcrum-force">Intensidad de los dos tirones</label><select id="fulcrum-force">
+<option value="low">Suave — 260 N por hombro</option><option value="medium" selected>Media — 650 N por hombro</option><option value="high">Fuerte — 1.200 N por hombro</option>
+</select>
+<label for="fulcrum-site">Dónde aplicamos la fuerza</label><select id="fulcrum-site"><option value="shoulder">Hombros (comparación principal)</option><option value="sleeve">Mangas (antebrazos)</option></select>
+<label for="fulcrum-stance">Posición inicial</label><select id="fulcrum-stance"><option value="neutral">Ambos pies paralelos, Uke vertical</option><option value="staggered_left">Pie izquierdo delante, derecho atrás</option><option value="staggered_right">Pie derecho delante, izquierdo atrás</option></select>
+<div class="controls"><button type="button" id="fulcrum-run">Simular con MuJoCo</button><button type="button" id="fulcrum-control">Misma fuerza, sin tope</button></div>
+<p class="hint" id="fulcrum-prediction" role="status"></p>
+<p class="hint">El tope está hecho con una caja fija que solo puede chocar con esa pierna; <strong>no inmoviliza</strong> el pie con una junta artificial. Si resbala o salta por encima del obstáculo, el modelo debe mostrarlo. La altura cambia la zona de contacto, no la potencia del tirón.</p>
+<p class="hint" id="fulcrum-status" role="status">Abre el escenario en una pestaña del laboratorio original. No cambia las grabaciones ni el solver.</p>
+</section>
 <div id="report" class="report" role="status" aria-live="polite"></div>
 <p class="hint">Las distancias son entre <strong>segmentos del esqueleto</strong>, no penetraciones de malla; no acreditan contacto físico ni fuerzas. La hipótesis invierte el yaw alrededor de la pelvis y conserva el resto de las articulaciones relativas; puede cambiar agarres y contactos. Revisar fotograma a fotograma antes de llevar una corrección a AnimeSpec.</p>
 </section></div>

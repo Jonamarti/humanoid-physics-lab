@@ -1,3 +1,4 @@
+import {buildFulcrumScenario,fulcrumScenarioHash,expectedYawMoment,FULCRUM_LEVELS} from "./fulcrum-scenarios.js";
 /* global document, window, URL, requestAnimationFrame */
 import { buildThrowPhysicsScenario, physicsScenarioHash } from "./throw-axis-physics.js";
 // Self-contained kinematic diagnostic. No imports from HPL/AnimSpec, no persistence or network requests.
@@ -119,3 +120,38 @@ function physicalButtons(){
 }
 $("physical-model").addEventListener("change",physicalButtons);
 physicalButtons();
+
+function selectedFulcrumConfig(blockedOverride) {
+  return {blocked:blockedOverride??$("fulcrum-side").value,
+    height:$("fulcrum-height").value,
+    level:$("fulcrum-force").value,
+    site:$("fulcrum-site").value,
+    stance:$("fulcrum-stance").value};
+}
+function updateFulcrumPrediction() {
+  const c=selectedFulcrumConfig();
+  const f=FULCRUM_LEVELS[c.level];
+  const tau=expectedYawMoment(f,c.blocked);
+  const direction=tau<0?"sentido horario visto desde arriba (−Z)":tau>0?"sentido antihorario desde arriba (+Z)":"sin par horizontal por el apoyo";
+  $("fulcrum-prediction").textContent="Predicción geométrica idealizada alrededor del pie: τz = "+
+    Math.round(tau)+" N·m, "+direction+
+    ". No prueba que haya contacto; el giro real lo calcula MuJoCo.";
+}
+function openFulcrumTrial(withoutStop) {
+  const status=$("fulcrum-status");
+  try {
+    const cfg=selectedFulcrumConfig(withoutStop?"none":undefined);
+    const scenario=buildFulcrumScenario(cfg);
+    const url=new URL("./",window.location.href);
+    url.hash=fulcrumScenarioHash(scenario);
+    const opened=window.open(url.toString(),"_blank","noopener,noreferrer");
+    status.textContent=(opened?"Ensayo preparado: ":"Ventana bloqueada. Abre el enlace: ")+scenario.id;
+    let link=$("fulcrum-link");
+    if(!link){link=document.createElement("a");link.id="fulcrum-link";link.target="_blank";link.rel="noopener noreferrer";link.textContent="Abrir ensayo de fulcro";status.after(link);}
+    link.href=url.toString();
+  } catch(err) {status.textContent=err instanceof Error?err.message:String(err);}
+}
+for(const id of ["fulcrum-side","fulcrum-force","fulcrum-height","fulcrum-site","fulcrum-stance"])$(id).addEventListener("change",updateFulcrumPrediction);
+$("fulcrum-run").addEventListener("click",()=>openFulcrumTrial(false));
+$("fulcrum-control").addEventListener("click",()=>openFulcrumTrial(true));
+updateFulcrumPrediction();

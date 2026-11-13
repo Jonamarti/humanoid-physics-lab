@@ -98,7 +98,8 @@ Sobre `uke_tense_75_175_hip_roll` (volteo con tirón en arco):
 Sobre `uke_tense_75_175_tori_body` (Tori con cuerpo y agarres):
 
 - **¿Qué hace el cuerpo?** Desmarca «Cuerpo de Tori» y simula: sin cuerpo no hay agarres y Uke se queda de pie.
-- **¿Y si no suelta la solapa?** Borra «Suelta a (s)» de la mano derecha.
+- **¿Y si suelta la solapa?** Pon «Suelta a (s)» de la mano derecha en 1,05.
+- **¿Y si la manga va pegada al cuerpo?** En la tabla de la mano izquierda, baja «Hacia la cabeza» de las filas 2 a 4 a 0.
 - **¿Y si agarra la muñeca en vez de la manga?** Cambia «Mano izquierda agarra» a «muñeca derecha».
 - **¿Y si entra más bajo?** Baja «Pelvis Z» de la cuarta postura.
 
@@ -110,7 +111,7 @@ Sin Tori (pulsa «Quitar a Tori» y quita los tirones, o abre `uke_tense_75_175_
 ## Límites
 
 - **El cuerpo de Tori es una marioneta** de segmentos sueltos con fuerza limitada, sin equilibrio propio; sus límites están
-  en [TORI_BODY.md](TORI_BODY.md). Con él, la proyección de espaldas todavía no sale bien.
+  en [TORI_BODY.md](TORI_BODY.md).
 - Elegir el punto en el visor pausa la reproducción y usa la postura de ese instante. El punto queda fijo en el cuerpo tocado.
 - La simulación bloquea la pestaña mientras calcula (medio segundo en un portátil; más en un móvil).
 - El visor web dibuja el cuerpo, el obstáculo y las flechas de las manos. No dibuja las fuerzas de contacto ni el centro de

@@ -148,13 +148,18 @@ describe("cuerpo de Tori en el escenario (MuJoCo WASM real)", () => {
     expect(off.toriBody).toBeUndefined();
   });
 
-  it("los agarres mantienen unidos a Tori y Uke y lo cargan sobre la espalda", async () => {
+  it("los agarres mantienen unidos a Tori y Uke, que da la vuelta sobre la espalda sin golpear con la cabeza", async () => {
     const recording = await runScenario(validateScenario(load()), { engineVersion: "test" });
     const report = describeTrial(recording).join("\n");
     expect(recording.summary.outcome).toBe("fall");
-    expect(recording.summary.max_tilt_deg).toBeGreaterThan(140);
+    expect(recording.summary.max_tilt_deg).toBeGreaterThan(170);
     expect(report).toMatch(/Cuerpo de Tori: cargan trunk/);
+    expect(report).toMatch(/Cabeza: no toca el suelo/);
+    expect(report).toMatch(/Suelo, por orden de llegada: pelvis/);
+    expect(report).toMatch(/Tori \(75 kg\): viable/);
     expect(report).not.toMatch(/energía mecánica/);
+    // Los segmentos de Tori no salen en la lista de golpes de Uke contra el suelo.
+    expect(report).not.toMatch(/Suelo, por orden de llegada:.*tori_/);
     // Las dos manos tiran, y nunca más que su tope.
     for (const id of ["tori_left_hand", "tori_right_hand"]) {
       const peak = recording.peaks.effectors[id]!;
@@ -164,16 +169,26 @@ describe("cuerpo de Tori en el escenario (MuJoCo WASM real)", () => {
     }
     // Empiezan sin tirón: en la primera muestra la mano está en el punto agarrado.
     expect(recording.samples[0]!.effectors.map((e) => Math.hypot(...e.force_n))).toEqual([0, 0]);
-    // La solapa se suelta a 1,05 s: después no hay fuerza en esa mano.
-    const late = recording.samples.filter((x) => x.t > 1.1).map((x) => x.effectors.find((e) => e.id === "tori_right_hand")!);
-    expect(late.every((e) => Math.hypot(...e.force_n) === 0)).toBe(true);
+    // Hasta la carga, la manga tira hacia delante y hacia arriba.
+    const sleeve = recording.samples.find((x) => Math.abs(x.t - 0.7) < 1e-9)!.effectors.find((e) => e.id === "tori_left_hand")!;
+    expect(sleeve.force_n[0]).toBeGreaterThan(50);
+    expect(sleeve.force_n[2]).toBeGreaterThan(50);
     const body = recording.peaks.tori_body!;
-    expect(body.segments.trunk!.contact_time_s).toBeGreaterThan(0.3);
+    expect(body.segments.trunk!.contact_time_s).toBeGreaterThan(0.2);
     // Los brazos no chocan: nunca cargan a Uke.
     expect(body.segments.left_forearm!.contact_time_s).toBe(0);
     // Reproducible: dos ejecuciones dan la misma grabación.
     const again = await runScenario(validateScenario(load()), { engineVersion: "test" });
     expect(again.samples[again.samples.length - 1]!.qpos).toEqual(recording.samples[recording.samples.length - 1]!.qpos);
+  }, 60_000);
+
+  it("una mano suelta a su hora", async () => {
+    const json = load();
+    ((((json.tori as Record<string, unknown>).body as Record<string, unknown>).grips as Record<string, unknown>).right as Record<string, unknown>).release_s = 1.05;
+    delete json.expect;
+    const recording = await runScenario(validateScenario(json), { engineVersion: "test" });
+    const late = recording.samples.filter((x) => x.t > 1.1).map((x) => x.effectors.find((e) => e.id === "tori_right_hand")!);
+    expect(late.every((e) => Math.hypot(...e.force_n) === 0)).toBe(true);
   }, 60_000);
 
   it("sin el cuerpo no hay agarres: Uke se queda de pie", async () => {

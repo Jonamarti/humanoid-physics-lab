@@ -105,28 +105,32 @@ El trabajo de las órdenes de los segmentos entra en el balance de energía del 
 
 `uke_tense_75_175_tori_body`: Tori de 75 kg y 1,75 m frente a un Uke igual, en tensión. No hay curvas de fuerza. La mano
 izquierda de Tori agarra la manga derecha de Uke (sitio `right_sleeve_elbow`) y la derecha la solapa (`sternum`), con 300 N de
-tope cada una; la solapa se suelta a 1,05 s. La secuencia es la de `defaultToriKeys`: de frente, paso de entrada, media vuelta
-a su izquierda, cadera baja de espaldas a Uke con el tronco a 40°, y piernas estiradas con el tronco a 100° mientras la mano de
-la manga baja hacia su rodilla izquierda.
+tope cada una; ninguna suelta.
+
+La secuencia es la de `defaultToriKeys`: de frente, paso de entrada, media vuelta a su izquierda, cadera baja de espaldas a
+Uke con el tronco a 40°, y piernas estiradas con el tronco a 100°. Las manos:
+
+- **Manga.** Desde el primer tirón hasta la carga lleva el brazo de Uke estirado hacia delante y unos 30° hacia arriba: el
+  punto al que tira va por delante del hombro de Uke y sube de 1,62 a 1,65 m. En la proyección baja a 0,9 m y acaba a 0,75 m.
+- **Solapa.** Sujeta el pecho de Uke contra la espalda de Tori; en la proyección baja a 0,9 m y acaba a 0,8 m, sosteniendo.
 
 Medido con el motor de esta versión:
 
 - Las dos manos empiezan sin fuerza y llegan a su tope de 300 N.
-- Uke avanza centrado y queda cargado sobre la espalda de Tori: el tronco lo sostiene 0,59 s (2,8 kN de pico); cargan
-  también los hombros, la cabeza y la pelvis de Tori.
-- Uke gira 155°.
+- Uke queda cargado sobre la espalda de Tori: el tronco lo sostiene 0,33 s (2,4 kN de pico); cargan también la pelvis, la
+  cabeza y los hombros de Tori.
+- Uke da la vuelta completa: inclinación máxima 180°, con los pies a 1,9 m de altura a los 1,4 s.
+- Cae sobre la pelvis a los 2,00 s (4,2 kN). La cabeza no toca el suelo.
+- Tori es viable: usa el 97 % del rozamiento de sus pies.
 
-Lo que no funciona:
+Lo que queda mal:
 
-- **La proyección no está resuelta.** Uke queda colgado sobre la espalda y se desliza de cabeza: la cabeza toca el suelo a
-  1,70 s antes que el resto, con un pico de 12 kN (el informe del editor, que muestrea a 50 Hz, enseña 2,8 kN). En la referencia, Uke da la vuelta completa y cae de espaldas.
-- **Tori no es viable** en la entrada: durante 0,26 s necesita el 160 % del rozamiento de sus pies.
-- Con 400 N por mano Uke sale antes de cargar del todo y cae de pecho (116° de giro).
-- Tarda 1,50 s del primer tirón al suelo; la referencia, 1,45 s. La coincidencia no dice mucho mientras la caída sea otra.
-
-Antes de los agarres se probó el mismo cuerpo con dos tirones de curva fija (los de los escenarios anteriores): con ellos Uke
-rodaba 164° sobre la espalda y caía sobre la pelvis sin tocar con la cabeza, y Tori era viable. Se descartó porque las manos no
-unían a los dos: la fuerza seguía su curva aunque Tori estuviera en otro sitio.
+- Tarda 1,80 s del primer tirón al suelo; la referencia, 1,45 s.
+- Tori va justo: el 97 % del rozamiento no deja margen, y 300 N por mano es poco frente a los 470 a 620 N medidos por manga en
+  judocas. Con 400 N en la manga y la solapa suelta a 1,05 s, Uke también da la vuelta, pero cae sobre el brazo izquierdo.
+- La forma de la bajada importa mucho. Con la manga pegada al pecho de Tori, Uke se quedaba colgado sobre la espalda y caía de
+  cabeza; bajando la manga a 0,6 m en vez de a 0,9 m, también (9 kN).
+- El detector solo avisa de una cosa: el pie izquierdo de Uke se hunde 4,9 cm en el suelo al caer (1,90 s).
 
 ## Tempos de referencia
 

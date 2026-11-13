@@ -112,7 +112,7 @@ export function describeTrial(recording: Recording): string[] {
     if (!known) firstByBody.set(g.body, { ...g });
     else known.max_n = Math.max(known.max_n, g.max_n);
   }
-  const order = [...firstByBody.values()].filter((g) => !recording.peaks.obstacles?.[g.body]).sort((a, b) => a.from_s - b.from_s);
+  const order = [...firstByBody.values()].filter((g) => !recording.peaks.obstacles?.[g.body] && !g.body.startsWith("tori_")).sort((a, b) => a.from_s - b.from_s);
   if (order.length > 0) {
     lines.push("Suelo, por orden de llegada: " + order.slice(0, 6).map((g) => `${g.body} a ${sec(g.from_s)} (${kN(g.max_n)})`).join(", "));
     const head = firstByBody.get("head");

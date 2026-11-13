@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildScenarioModel } from "../../src/scenario/buildModel";
 import { validateScenario } from "../../src/scenario/validate";
+// @ts-expect-error Browser-only public JavaScript is intentionally untyped.
 import { buildThrowPhysicsScenario, physicsScenarioHash } from "../../public/throw-axis-physics.js";
 
 // Synthetic 23-point pose; no proprietary rig or animation data.

@@ -1,23 +1,25 @@
-## Prueba adicional: manga derecha única con barra diagonal de contacto (en diagnóstico)
+## Manga derecha única + barra diagonal real: corrección y resultados validados (CI #879)
 
-Se incorpora un escenario autónomo en `public/one-sleeve-lab.js` y en `throw-axis-lab.html`:
+**Error identificado y corregido:** al añadir el `fixed_bar` *antes* del humanoide en el MJCF, el pelvis de Uke dejaba de ser el primer cuerpo y el controlador original seguía leyendo `subtree_com[3]` como si correspondiese a Uke. Por eso el muñeco retrocedía o caía incluso **sin ningún tirón** y aun con la barra a dos metros. La solución mantiene el controlador y las físicas intactas: las nuevas barras se añaden **después** del humanoide; las cajas originales conservan exactamente el mismo MJCF, incluidas las posiciones de texto.
 
-- Uke articulado `tense`, `neutral`, `strength=1.5`; sin Tori.
-- Único efector `pull` en `right_sleeve_elbow`, en marco inicial: tirón breve +X, prolongado +X, o redirigido +X/+Z → +X → +X/−Z.
-- Barra diagonal real: **nueva geometría opcional** `fixed_bar`, cápsula definida por extremos `from_m` y `to_m`. No cambia las fuerzas ni ecuaciones físicas del solver; conserva el MJCF original para `fixed_box`.
-- La barra principal solo cubre la pierna derecha (lado −Y). Controles sin barra, con ambas piernas y con componente adicional +Y.
-- Medición del signo de orientación del pecho: +Y señala **hacia la izquierda** de Uke; no confundir yaw del tronco con giro de todo el cuerpo ni con ukemi correcto.
+La variante definitiva crea una sola barra diagonal orientada en Y/Z frente a la pierna derecha (-Y), y un único efector `pull` aplicado en `right_sleeve_elbow`. Uke parte erguido, `tense`, `neutral`, fuerza articular 1,5×. No hay cuerpo de Tori ni ninguna curva de rotación prescrita.
 
-**Resultado confirmado de CI #868 (8 ejecuciones reales, todas las nuevas pruebas pasan):** sin barra, tirón breve sobre la manga derecha produce una componente de orientación del pecho hacia +Y de **0,792 a t=1 s** y primera recepción en antebrazo derecho. Esto demuestra que un tirón unilateral puede introducir **rotación hacia la izquierda**, sin imponer ninguna rotación cinemática.
+**La batería de GitHub Actions #879 ha pasado:** 90 archivos de test superados, 6 omitidos, más compilación y lint. Las barras no provocan desplazamiento previo (métrica redondeada: 0 m); los controles sin fuerzas con la barra entre 55 cm y 2 m de distancia no se caen y apenas derivan < 1 mm. Las colisiones posteriores con espinilla y pie derechos son fuerzas reales del solver.
 
-**Fallo importante:** con la primera barra fija diagonal, los cinco ensayos presentaron desplazamiento previo a la fuerza (~0,70–0,80 m de pelvis) y ninguna muestra de contacto fiable posterior. Por tanto **NO están validados como pruebas de pivotaje**, independientemente del gran ángulo de giro observado: el tope ya contamina el asentamiento inicial. A diferencia del control sin barra, se cae antes de comenzar a tirar.
+| Un solo tirón de la manga derecha | Giro del pecho hacia la izquierda a ~1 s | Primer contacto barra | Primer suelo |
+|---|---:|---|---|
+| Breve, fuerza media 420 N, **sin barra** | 52,3° | ninguno | antebrazo derecho |
+| Breve, fuerza media 420 N, **barra diagonal solo derecha** | 52,2° | espinilla derecha a 1,352 s | antebrazo derecho |
+| Breve, fuerza suave 230 N, barra derecha | 25,3° | espinilla derecha a 1,728 s | pecho |
+| Prolongado, fuerza suave 230 N, barra derecha | **13,1°** | espinilla derecha a 1,656 s | antebrazo derecho |
+| Prolongado, fuerza media 420 N, barra derecha | 30,4° | espinilla derecha a 1,416 s | antebrazo derecho |
+| Redirigido, fuerza media 420 N, barra derecha | 31,7° | espinilla derecha a 1,416 s | antebrazo derecho |
 
-Se ha parametrizado la distancia frontal (`barX`) y añadido una matriz de control sin tirón a 55, 95 y 200 cm para diagnosticar si el problema deriva de colisión durante el asentamiento o de la propia geometría. Hasta tener un ensayo en el que Uke comience estable y el contacto posterior esté registrado, no atribuir el giro al bloqueo. La PR sigue en borrador, sin cambios a grabaciones de AnimSpec.
+**Respuesta física:** una fuerza hacia +X aplicada únicamente a la manga del lado derecho (Y negativo) genera por sí sola un par de yaw positivo, es decir, gira el pecho hacia **+Y, la izquierda** de Uke. En el caso medio breve, a ~0,96 s el pecho está girado 52° sin tocar aún la barra; al comenzar la caída (~1,54 s) ha girado ~98°. La tracción unilateral explica el **giro inicial**; no se puede atribuir ese giro al tope, ya que sin barra ocurre casi igual. El tope cambia el recorrido de la espinilla y del pie tras entrar en contacto.
 
+**Limitaciones:** en el perfil breve medio, la tracción termina aproximadamente a t=1,20 s y el choque ocurre a 1,35 s, por lo que el choque no es un ejemplo válido de tirón *continuado* sobre el fulcro. En el perfil prolongado medio sí hay contacto durante la fuerza, con inicio a 1,416 s y separación a 1,68 s. La caída no está validada como Tai Otoshi: no se ha confirmado ukemi dorsal ni ausencia de contacto peligroso de cabeza en toda la trayectoria. La variante redirigida llega también a rozar el pie izquierdo; no es un bloqueo estrictamente unilateral perfecto. La fuerza máxima final puede estar recortada por el limitador de potencia del `pull`.
 
-# Diagnóstico aislado del sentido de giro de Uke
-
-**Entrada web:** `/throw-axis-lab.html` (en desarrollo: `http://localhost:5173/throw-axis-lab.html`; en Pages: `https://jonamarti.github.io/humanoid-physics-lab/throw-axis-lab.html`). También hay un enlace desde la página principal.
+**Estado:** escenarios y pruebas aislados en PR #104, en borrador. No se han sobrescrito grabaciones, guiones de AnimSpec ni algoritmo de física. Recomendación para visualizar primero: barra derecha, tirón prolongado suave (13° iniciales), y después tirón prolongado medio, con vista cenital y lateral.
 
 ## Objetivo y aislamiento
 

@@ -3,7 +3,7 @@ import { buildScenarioModel } from "../../src/scenario/buildModel";
 import { runScenario } from "../../src/scenario/run";
 import { validateScenario } from "../../src/scenario/validate";
 // @ts-expect-error Browser-only public JS intentionally has no TS declarations.
-import { buildFulcrumScenario, expectedYawMoment } from "../../public/fulcrum-scenarios.js";
+import { buildFulcrumScenario, buildCircularKuzushiScenario, expectedYawMoment } from "../../public/fulcrum-scenarios.js";
 
 /** Just the world coordinates of the main skeleton points, not a saved recording. */
 const BODY_NAMES=[
@@ -99,4 +99,85 @@ describe("fulcro unilateral y tirón simétrico de hombros (MuJoCo real)",()=>{
   ])("ejecuta ensayo físico %j",(async opts=>{
     await runOne(opts,true);
   }),90_000);
+});
+
+
+describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)",()=>{
+  const cases=[
+    {name:"recto_sin_tope",mode:"straight",blocked:"none",bias:"balanced"},
+    {name:"circular_sin_tope",mode:"arc",blocked:"none",bias:"balanced"},
+    {name:"circular_tobillo_bilateral",mode:"arc",blocked:"right",bias:"balanced"},
+    {name:"circular_tobillo_derecho",mode:"arc",blocked:"right",bias:"right"},
+    {name:"circular_tobillo_derecho_fuerte",mode:"arc",blocked:"right",bias:"strong"},
+    {name:"circular_tobillo_izquierdo",mode:"arc",blocked:"left",bias:"right"},
+    {name:"circular_tobillo_derecho_retirada",mode:"arc",blocked:"right",bias:"right",support:"withdraw"},
+    {name:"circular_espinilla_derecha",mode:"arc",blocked:"right",bias:"right",height:"shin"},
+    {name:"circular_tobillo_derecho_largo",mode:"arc",blocked:"right",bias:"right",tempo:"extended"},
+    {name:"recto_tobillo_derecho",mode:"straight",blocked:"right",bias:"right"},
+    {name:"circular_tobillo_suave",mode:"arc",blocked:"right",bias:"right",level:"low"},
+    {name:"circular_tobillo_fuerte",mode:"arc",blocked:"right",bias:"right",level:"high"},
+  ] as const;
+  it("las curvas realmente contienen 4 fases y el brazo derecho sigue después del contacto estimado",()=>{
+    const s=validateScenario(buildCircularKuzushiScenario({mode:"arc",blocked:"right",bias:"right"}));
+    expect(s.effectors).toHaveLength(2);
+    expect(s.effectors.every(e=>e.kind==="pull")).toBe(true);
+    if(s.effectors.every(e=>e.kind==="pull")){
+      const right=s.effectors[1]!.keys;
+      expect(right[2]!.force_n[2]).toBeGreaterThan(0);  // arriba
+      expect(right[5]!.force_n[2]).toBe(0);              // adelante
+      expect(right[7]!.force_n[2]).toBeLessThan(0);       // adelante y abajo
+      expect(right.at(-1)!.t_s).toBeGreaterThan(2.5);
+      expect(right[7]!.force_n[0]).toBeGreaterThan(s.effectors[0]!.keys[7]!.force_n[0]);
+    }
+    const recto=validateScenario(buildCircularKuzushiScenario({mode:"straight",blocked:"right",bias:"right"}));
+    expect(recto.effectors.every(e=>e.kind==="pull"&&e.keys.every(k=>k.force_n[2]===0))).toBe(true);
+    expect(buildCircularKuzushiScenario({blocked:"none"}).props).toHaveLength(0);
+    const withdrawn=validateScenario(buildCircularKuzushiScenario({support:"withdraw"}));
+    expect(withdrawn.obstacles).toHaveLength(1);
+    expect(withdrawn.obstacles![0]!.phases.length).toBeGreaterThan(0);
+  });
+  it.each(cases)("evaluación física por fases: $name",async opts=>{
+    const {name,...config}=opts;
+    const sc=validateScenario(buildCircularKuzushiScenario(config));
+    const built=buildScenarioModel(sc);
+    const ids=BODY_NAMES.map(x=>built.bodies.indexOf(x));
+    const snap:Snapshot[]=[];
+    const rec=await runScenario(sc,{engineVersion:"circular-kuzushi-test",onSample:(_m,raw,index)=>{
+      if(index%10!==0)return;
+      const d=raw as {xpos:Float64Array;xmat:Float64Array};
+      const pelvisId=ids[0]!;
+      snap.push({t:r(index/sc.record_hz),
+        poses:ids.map(id=>[r(d.xpos[3*id]!),r(d.xpos[3*id+1]!),r(d.xpos[3*id+2]!)]),
+        yaw_deg:r(Math.atan2(d.xmat[9*pelvisId+3]!,d.xmat[9*pelvisId]!)*180/Math.PI)});
+    }});
+    const contact=rec.samples.flatMap(q=>q.contacts.filter(c=>c.body_a==="foot_stop"||c.body_b==="foot_stop")
+      .map(c=>({t:r(q.t),body:c.body_a==="foot_stop"?c.body_b:c.body_a,
+        fn:r(Math.hypot(...c.force_n))})));
+    const contactFirst=contact[0]?.t??null, contactLast=contact.at(-1)?.t??null;
+    const minZ=(p:string)=>Math.min(...snap.map(x=>x.poses[BODY_NAMES.indexOf(p as typeof BODY_NAMES[number])]![2]));
+    const maxZ=(p:string)=>Math.max(...snap.map(x=>x.poses[BODY_NAMES.indexOf(p as typeof BODY_NAMES[number])]![2]));
+    const summary={
+      name,id:sc.id,outcome:rec.summary.outcome,fall_t_s:rec.summary.uke?.fall?.t_s??null,
+      direction_deg:rec.summary.direction_deg,
+      first_part:rec.summary.uke?.fall?.first_part??null,
+      head_impact_mps:rec.summary.uke?.fall?.impact.head?.speed_mps??null,
+      body_contact_parts:Array.from(new Set(contact.map(x=>x.body))),
+      first_contact_s:contactFirst,last_contact_s:contactLast,
+      separated_before_end:contactLast!==null&&contactLast<sc.duration_s-.2,
+      peak_contact_n:r(Math.max(0,...contact.map(x=>x.fn))),
+      left_foot_lift_m:r(maxZ("left_foot")-snap[0]!.poses[10]![2]),
+      right_foot_lift_m:r(maxZ("right_foot")-snap[0]!.poses[13]![2]),
+      min_head_z_m:r(minZ("head")),
+      max_trunk_tilt_deg:r(rec.summary.max_tilt_deg),
+      final_yaw_deg:snap.at(-1)!.yaw_deg,
+      artifacts:rec.summary.artifacts?.map(a=>a.type)??[],
+    };
+    expect(rec.samples.length).toBeGreaterThan(150);
+    expect(rec.samples.at(-1)!.qpos.every(Number.isFinite)).toBe(true);
+    if(name==="circular_tobillo_derecho_retirada")expect(built.bodies).toContain("foot_stop");
+    console.log("ARC_METRICS|"+JSON.stringify(summary));
+    if(["recto_sin_tope","circular_sin_tope","circular_tobillo_derecho","circular_tobillo_derecho_retirada","circular_tobillo_derecho_fuerte"].includes(name)){
+      console.log("ARC_FRAMES|"+name+"|"+Buffer.from(JSON.stringify({summary,snaps:snap})).toString("base64"));
+    }
+  },90_000);
 });

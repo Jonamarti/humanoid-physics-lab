@@ -208,13 +208,14 @@ describe("equilibrio previo, Uke firme y fuerzas reales",()=>{
   const series=[
     {name:"sin_fuerza",posture:"firm",begin:1.2,noForce:true},
     {name:"sin_fuerza_con_tope",posture:"firm",begin:1.2,noForce:true},
+    {name:"sin_fuerza_tope_fijo",posture:"firm",begin:1.2,noForce:true},
     {name:"tense_08",posture:"tense",begin:.8,noForce:false},
     {name:"firm_08",posture:"firm",begin:.8,noForce:false},
     {name:"firm_12",posture:"firm",begin:1.2,noForce:false},
   ] as const;
   it.each(series)("mide retroceso sin traccion: $name",async ({name,posture,begin,noForce})=>{
     const scenario=buildCircularKuzushiScenario({
-      blocked:"right",height:"shin",support:"withdraw",bias:"right",
+      blocked:"right",height:"shin",support:name==="sin_fuerza_tope_fijo"?"fixed":"withdraw",bias:"right",
       posture,begin,
     });
     if(noForce){

@@ -101,10 +101,15 @@ export interface ToriPoseKey {
   readonly right_hand_m?: Vec3;
 }
 
+/** Cómo se pasa de una postura a la siguiente: con mínimo tirón (parada en cada postura) o en línea recta. */
+export type ToriInterp = "min_jerk" | "linear";
+
 export interface ToriBodyConfig {
   mass_kg: number;
   height_m: number;
   friction?: number;
+  /** Por defecto `min_jerk`. Con muchas posturas seguidas (una secuencia muestreada) conviene `linear`: no para en cada una. */
+  interp?: ToriInterp;
   keys: readonly ToriPoseKey[];
 }
 
@@ -124,6 +129,7 @@ export interface ToriBodyParams {
   readonly mass_kg: number;
   readonly height_m: number;
   readonly friction: number;
+  readonly interp: ToriInterp;
   readonly keys: readonly ToriPoseKey[];
   readonly segments: readonly ToriSegmentParams[];
   /** Longitudes del esqueleto, m. */
@@ -205,7 +211,12 @@ export function resolveToriBodyParams(config: ToriBodyConfig): ToriBodyParams {
     hip_half: 0.09 * hs, shoulder_half: 0.19 * hs, head_radius: 0.095 * hs, foot_back: 0.07 * hs, foot_front: 0.17 * hs,
     standing_pelvis: 0.91 * hs,
   };
-  return { mass_kg: m, height_m: h, friction, keys: config.keys.map((k) => ({ ...k })), segments, dims };
+  return { mass_kg: m, height_m: h, friction, interp: config.interp ?? "min_jerk", keys: config.keys.map((k) => ({ ...k })), segments, dims };
+}
+
+/** Avance entre dos posturas para una fracción de tiempo `u` en [0, 1]. */
+function ease(interp: ToriInterp, u: number): number {
+  return interp === "linear" ? Math.min(1, Math.max(0, u)) : minimumJerk(u);
 }
 
 /** Postura interpolada en `t` (mínimo tirón entre cada par de posturas). */
@@ -258,14 +269,14 @@ export function toriHandPoints(params: ToriBodyParams, t: number): { left: Vec3;
       const b = keys[i]!;
       if (t > b.t_s) continue;
       const a = keys[i - 1]!;
-      return lerp3(keyHand(params, full(a), side), keyHand(params, full(b), side), minimumJerk((t - a.t_s) / (b.t_s - a.t_s)));
+      return lerp3(keyHand(params, full(a), side), keyHand(params, full(b), side), ease(params.interp, (t - a.t_s) / (b.t_s - a.t_s)));
     }
     return keyHand(params, full(keys[keys.length - 1]!), side);
   };
   return { left: at("left"), right: at("right") };
 }
 
-export function toriPoseAt(keys: readonly ToriPoseKey[], t: number): Required<ToriPoseKey> {
+export function toriPoseAt(keys: readonly ToriPoseKey[], t: number, interp: ToriInterp = "min_jerk"): Required<ToriPoseKey> {
   const first = keys[0]!;
   if (t <= first.t_s) return full(first);
   for (let i = 1; i < keys.length; i++) {
@@ -273,7 +284,7 @@ export function toriPoseAt(keys: readonly ToriPoseKey[], t: number): Required<To
     if (t > b.t_s) continue;
     const a = full(keys[i - 1]!);
     const fb = full(b);
-    const u = minimumJerk((t - a.t_s) / (b.t_s - a.t_s));
+    const u = ease(interp, (t - a.t_s) / (b.t_s - a.t_s));
     return {
       t_s: t,
       pelvis_m: lerp3(a.pelvis_m, fb.pelvis_m, u),
@@ -347,7 +358,7 @@ export function toriGripForce(
 /** Esqueleto de Tori en `t`: extremos de cada segmento en el mundo. */
 export function toriSkeleton(params: ToriBodyParams, t: number, hands: ToriHandTargets = {}): Record<ToriSegment, SegmentEnds> {
   const d = params.dims;
-  const pose = toriPoseAt(params.keys, t);
+  const pose = toriPoseAt(params.keys, t, params.interp);
   const { fwd, left, P, up, shoulderLeft, neck, shoulderMid } = trunkFrame(params, pose);
   const posedHands = toriHandPoints(params, t);
   const out = {} as Record<ToriSegment, SegmentEnds>;

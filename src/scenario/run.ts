@@ -209,7 +209,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const params = resolveToriGripParams(spec.max_force_n);
       peaks[id] = { max_force_n: 0, impulse_ns: [0, 0, 0], work_j: 0, limit_n: params.max_force_n };
       return [{
-        side, id, params, release_s: spec.release_s ?? Infinity,
+        side, id, params, engage_s: spec.engage_s ?? 0, release_s: spec.release_s ?? Infinity,
         bodyId: (model.site_bodyid as Int32Array)[siteId]!, local: triple(sp, 3 * siteId),
         last: undefined as { force: Vec3; velocity: Vec3 } | undefined,
         // Distancia de la mano de la postura al punto agarrado en t = 0: se absorbe poco a poco para empezar sin tirón.
@@ -230,7 +230,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const cvel = data.cvel as Float64Array;
       const hands: ToriHandTargets = {};
       // Mientras agarra, la muñeca se dibuja en el punto agarrado (hasta donde llegue el brazo).
-      for (const g of toriGrips) if (t < g.release_s) hands[g.side] = gripPoint(g);
+      for (const g of toriGrips) if (t >= g.engage_s && t < g.release_s) hands[g.side] = gripPoint(g);
       void xpos;
       const now = toriSkeleton(toriBody, t, hands);
       const next = toriSkeleton(toriBody, t + dt, hands);
@@ -634,7 +634,8 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         const fade = (at: number): number => 1 - minimumJerk((at - keys[0]!.t_s) / (blendEnd - keys[0]!.t_s));
         for (const g of toriGrips) {
           const { point, velocity } = pointState(g.bodyId, g.local);
-          if (!g.offset) g.offset = sub(point, toriHandPoints(toriBody, 0)[g.side]);
+          // Un agarre que entra más tarde (`engage_s`) no arrastra ese desfase inicial: la mano llega por su trayectoria.
+          if (!g.offset) g.offset = g.engage_s > 0 ? [0, 0, 0] : sub(point, toriHandPoints(toriBody, 0)[g.side]);
           const o = g.offset;
           const shift = (h: Vec3, k: number): Vec3 => [h[0] + o[0] * k, h[1] + o[1] * k, h[2] + o[2] * k];
           handsNow[g.side] = shift(handsNow[g.side], fade(t + dt / 2));
@@ -643,7 +644,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
             peaks[g.id]!.work_j += dot(g.last.force, add(g.last.velocity, velocity)) * dt / 2;
           }
           let force: Vec3 = [0, 0, 0];
-          if (t < g.release_s) {
+          if (t >= g.engage_s && t < g.release_s) {
             const hand = handsNow[g.side];
             const handVelocity: Vec3 = [
               (handsNext[g.side][0] - hand[0]) / dt, (handsNext[g.side][1] - hand[1]) / dt, (handsNext[g.side][2] - hand[2]) / dt,

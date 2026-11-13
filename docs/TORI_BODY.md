@@ -72,7 +72,8 @@ informe con su máximo y su tope, y cuenta en el presupuesto de Tori como mano.
 | `height_m` | m | Obligatorio, de 1,40 a 2,20. La masa es `tori.mass_kg` (de 40 a 200 kg con cuerpo). |
 | `enabled` | | Opcional, por defecto `true`. |
 | `friction` | | Opcional, por defecto 0,8. Rozamiento de su tela contra Uke. |
-| `grips` | | Opcional: `{ "left": { "site", "max_force_n"?, "release_s"? }, "right": { ... } }`. `site` es un sitio del humanoide. |
+| `grips` | | Opcional: `{ "left": { "site", "max_force_n"?, "release_s"?, "engage_s"? }, "right": { ... } }`. `site` es un sitio del humanoide. Con `engage_s` la mano no agarra hasta ese instante: antes va suelta por su trayectoria y no tira. |
+| `interp` | | Opcional: `min_jerk` (por defecto) o `linear`. Con una secuencia muestreada cada pocas centésimas conviene `linear`; con mínimo tirón Tori se pararía en cada postura. |
 | `keys[]` | | Obligatorio, al menos una postura, con `t_s` creciente. |
 
 Cada postura de `keys[]`, en coordenadas del MUNDO (Uke empieza en el origen mirando a +X; +Y es su izquierda):
@@ -151,6 +152,28 @@ de las caderas. `scenarios/uke_soft_waist_75_175_tori_body.json` es el mismo esc
   en esa columna.
 - De pie y sin perturbación, Uke con 0,3 sigue en pie 10 s sin inclinarse.
 - No está en la galería, para no pasar del límite de tamaño: se prueba en el editor con «Rigidez de la cintura».
+
+## Secuencias de Tori guionizado con el humanoide simulado
+
+Cuatro escenarios en los que solo está guionizado Tori: pelvis, giro, inclinación, pies y manos muestreados cada 0,05 s
+(`interp: linear`) a partir de una secuencia hecha fuera de este repositorio. El humanoide es el de siempre, simulado, en
+tensión y con `waist_stiffness` 0,5. No hay curvas de fuerza: lo mueven los agarres (400 N de tope por mano) y el choque con
+el cuerpo de Tori.
+
+| Escenario | Qué hace Tori | Agarres | Qué hace el humanoide (medido) |
+|---|---|---|---|
+| `uke_75_175_tori_siega_exterior` | Entra de lado, sube una pierna por fuera y la lleva atrás | manga derecha y nuca (suelta la nuca a 1,36 s) | Cae a 1,88 s hacia su derecha; primer contacto, el brazo izquierdo. Pasa horizontal a la altura de la cadera |
+| `uke_75_175_tori_zancadilla_delante` | Gira hasta dar la espalda con una pierna cruzada delante | manga derecha y esternón (suelta a 1,80 s) | Cae a 1,82 s hacia delante e izquierda, **boca abajo**: no gira en el aire. Pecho contra el suelo con 11 kN |
+| `uke_75_175_tori_siega_interior` | Entra pecho con pecho y engancha una pierna por dentro | manga derecha y esternón (suelta a 1,25 s) | Cae a 1,46 s hacia atrás y a su derecha; primer contacto, el antebrazo izquierdo |
+| `uke_75_175_tori_entrada_piernas` | Baja el nivel, mete el hombro y tira de las dos corvas | las dos corvas, con `engage_s` 1,05 s | Cae a 1,88 s hacia atrás; pecho contra el suelo con 19 kN |
+
+Lo que queda mal (primera pasada, sin ajustar):
+
+- En la zancadilla el humanoide no rueda sobre su eje: cae boca abajo. Subir el tope de las manos a 600 N no lo cambia.
+- El presupuesto da a Tori por inviable en los cuatro. Mide el rozamiento sobre la carga de los pies, y con una pierna en el
+  aire o el cuerpo inclinado esa carga sale casi nula: en estas secuencias el dato no es fiable todavía.
+- Tori no tiene equilibrio ni articulaciones: su rodilla dobla siempre hacia donde mira la pelvis, también con la pierna atrás.
+- El detector avisa de golpes de más de 10 kN contra el suelo y de penetraciones de 2 a 3 cm al caer.
 
 ## Tempos de referencia
 

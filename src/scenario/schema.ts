@@ -282,6 +282,8 @@ export interface ToriGripSpec {
   max_force_n?: number;
   /** Instante en que suelta, en s. Sin él, no suelta. */
   release_s?: number;
+  /** Instante en que agarra, en s. Sin él, agarra desde el principio. Antes, la mano va suelta por su trayectoria. */
+  engage_s?: number;
 }
 
 /**
@@ -296,6 +298,8 @@ export interface ToriBodySpec {
   friction?: number;
   /** Agarres de cada mano sobre Uke. En la grabación son los efectores `tori_left_hand` y `tori_right_hand`. */
   grips?: { left?: ToriGripSpec; right?: ToriGripSpec };
+  /** Paso de una postura a la siguiente: `min_jerk` (por defecto) o `linear`, para secuencias muestreadas. */
+  interp?: "min_jerk" | "linear";
   keys: ToriPoseKeySpec[];
 }
 

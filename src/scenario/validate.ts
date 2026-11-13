@@ -406,13 +406,14 @@ function validateTori(value: unknown, path: string, effectorIds: readonly string
 
 function validateToriBody(value: unknown, path: string, massKg: number, effectorIds: readonly string[]): ToriBodySpec {
   const obj = asObject(value, path);
-  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "grips"]);
+  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "grips", "interp"]);
   const body: ToriBodySpec = { height_m: asPositive(obj.height_m, join(path, "height_m")), keys: [] };
   if ("enabled" in obj) {
     if (typeof obj.enabled !== "boolean") fail(join(path, "enabled"), `debe ser true o false, no ${describe(obj.enabled)}`);
     body.enabled = obj.enabled;
   }
   if ("friction" in obj) body.friction = asNonNegative(obj.friction, join(path, "friction"));
+  if ("interp" in obj) body.interp = asEnum(obj.interp, join(path, "interp"), ["min_jerk", "linear"] as const);
   if ("grips" in obj) {
     const grips = asObject(obj.grips, join(path, "grips"));
     checkKeys(grips, join(path, "grips"), [], ["left", "right"]);
@@ -421,12 +422,13 @@ function validateToriBody(value: unknown, path: string, massKg: number, effector
       if (!(side in grips)) continue;
       const gp = join(path, `grips.${side}`);
       const g = asObject(grips[side], gp);
-      checkKeys(g, gp, ["site"], ["max_force_n", "release_s"]);
+      checkKeys(g, gp, ["site"], ["max_force_n", "release_s", "engage_s"]);
       const site = asString(g.site, join(gp, "site"));
       if (!(site in HUMANOID_SITE_BODY)) fail(join(gp, "site"), `"${site}" no es un sitio del humanoide`);
       const grip: ToriGripSpec = { site };
       if ("max_force_n" in g) grip.max_force_n = asPositive(g.max_force_n, join(gp, "max_force_n"));
       if ("release_s" in g) grip.release_s = asNonNegative(g.release_s, join(gp, "release_s"));
+      if ("engage_s" in g) grip.engage_s = asNonNegative(g.engage_s, join(gp, "engage_s"));
       body.grips[side] = grip;
       const id = `tori_${side}_hand`;
       if (effectorIds.includes(id)) fail(gp, `el id de efector "${id}" está reservado para este agarre`);

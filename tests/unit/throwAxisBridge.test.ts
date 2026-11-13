@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildScenarioModel } from "../../src/scenario/buildModel";
 import { validateScenario } from "../../src/scenario/validate";
+import { runScenario } from "../../src/scenario/run";
 // @ts-expect-error Browser-only public JavaScript is intentionally untyped.
 import { buildThrowPhysicsScenario, physicsScenarioHash } from "../../public/throw-axis-physics.js";
 
@@ -57,6 +58,14 @@ describe("experimento físico aislado de Tai Otoshi / O Soto Gari",()=>{
     expect(control.obstacles).toBeUndefined();
     expect(validateScenario(control).effectors).toHaveLength(2);
   });
+  it.each(["tai","osoto"] as const)("el motor MuJoCo realmente ejecuta el ensayo de apoyo en %s",async technique=>{
+    const scenario=validateScenario(buildThrowPhysicsScenario(frames(technique),{technique,model:"support",support:"leg"}));
+    const recording=await runScenario(scenario,{engineVersion:"experimental-test"});
+    expect(recording.meta.scenario_id).toBe(scenario.id);
+    expect(recording.samples.length).toBeGreaterThan(30);
+    expect(recording.samples.at(-1)!.qpos.every(Number.isFinite)).toBe(true);
+    expect(recording.peaks.obstacles?.tori_contact).toBeDefined();
+  }, 90_000);
   it("no modifica fotogramas de entrada ni grabaciones existentes",()=>{
     const data=frames("tai"),before=JSON.stringify(data);
     const spec=buildThrowPhysicsScenario(data,{technique:"tai",model:"full"});

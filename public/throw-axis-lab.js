@@ -1,3 +1,4 @@
+import { buildThrowPhysicsScenario, physicsScenarioHash } from "./throw-axis-physics.js";
 // Self-contained kinematic diagnostic. No imports from HPL/AnimSpec, no persistence or network requests.
 // World coordinates: X forward for Uke, Y to Uke's left, Z up. GrappleMap: (x,z,-y).
 const $ = id => document.getElementById(id);
@@ -88,3 +89,33 @@ function step(s){state.playing=false;$("play").textContent="▶ Reproducir";stat
 $("step-back").addEventListener("click",()=>step(-1));$("step-forward").addEventListener("click",()=>step(1));
 function tick(ts){if(state.playing){if(state.last!==null)state.time=Math.min(state.frames.at(-1).t,state.time+(ts-state.last)/1000);state.last=ts;if(state.time>=state.frames.at(-1).t){state.playing=false;$("play").textContent="▶ Reproducir";}refresh();}else state.last=null;requestAnimationFrame(tick);}
 rebuildAngle();refresh();requestAnimationFrame(tick);
+/** Run in the EXISTING HPL scenario editor, no parallel physics engine. */
+function openPhysicalTrial(withoutSupport) {
+  const model=$("physical-model").value;
+  const status=$("physical-status");
+  try {
+    const scenario=buildThrowPhysicsScenario(state.frames,{technique:state.tech,model,support:$("support").value==="both"?"leg":$("support").value,withoutSupport});
+    const hash=physicsScenarioHash(scenario);
+    // Main app's scenario editor recognizes #scn and runs the existing MuJoCo simulation.
+    const url=new URL("./",window.location.href);
+    url.hash=hash;
+    const opened=window.open(url.toString(),"_blank","noopener,noreferrer");
+    if(!opened) {
+      status.textContent="La ventana nueva se ha bloqueado. Abre el enlace de ensayo que aparece debajo.";
+    } else {
+      status.textContent="Ensayo físico preparado: "+scenario.id+". Revisa el informe en la pestaña del simulador.";
+    }
+    let link=$("physical-link");
+    if(!link){link=document.createElement("a");link.id="physical-link";link.textContent="Abrir escenario físico";link.rel="noopener noreferrer";link.target="_blank";status.after(link);}
+    link.href=url.toString();
+  }catch(err){status.textContent="No se pudo preparar: "+(err instanceof Error?err.message:String(err));}
+}
+$("physical-run").addEventListener("click",()=>openPhysicalTrial(false));
+$("physical-control").addEventListener("click",()=>openPhysicalTrial(true));
+function physicalButtons(){
+  const full=$("physical-model").value==="full";
+  $("physical-control").disabled=full;
+  $("physical-control").title=full?"Sin cuerpo desaparecen también los agarres; usa el modo de apoyo simplificado.":"Comparación con iguales fuerzas, sin el obstáculo";
+}
+$("physical-model").addEventListener("change",physicalButtons);
+physicalButtons();

@@ -18,7 +18,7 @@ describe("manga derecha aislada: barra diagonal y torque sobre Uke",()=>{
     const s=validateScenario(buildOneSleeveScenario({mode:"brief"}));
     const built=buildScenarioModel(s);
     expect(s.actors[0]!.kind).toBe("humanoid");
-    expect(s.actors[0]!.stance).toBe("neutral");
+    if (s.actors[0]!.kind === "humanoid") expect(s.actors[0]!.stance).toBe("neutral");
     expect(s.effectors).toHaveLength(1);
     expect(s.effectors[0]!.site).toBe("right_sleeve_elbow");
     expect(s.props).toHaveLength(1);

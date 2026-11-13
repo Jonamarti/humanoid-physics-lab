@@ -1,12 +1,12 @@
+/* global document, window, URL, requestAnimationFrame */
 import { buildThrowPhysicsScenario, physicsScenarioHash } from "./throw-axis-physics.js";
 // Self-contained kinematic diagnostic. No imports from HPL/AnimSpec, no persistence or network requests.
 // World coordinates: X forward for Uke, Y to Uke's left, Z up. GrappleMap: (x,z,-y).
 const $ = id => document.getElementById(id);
-const NAMES = ["LeftToe","RightToe","LeftHeel","RightHeel","LeftAnkle","RightAnkle","LeftKnee","RightKnee","LeftHip","RightHip","LeftShoulder","RightShoulder","LeftElbow","RightElbow","LeftWrist","RightWrist","LeftHand","RightHand","LeftFingers","RightFingers","Core","Neck","Head"];
 const BONES = [[0,4],[2,4],[4,6],[6,8],[1,5],[3,5],[5,7],[7,9],[8,20],[9,20],[20,21],[21,22],[21,10],[21,11],[10,12],[12,14],[14,16],[11,13],[13,15],[15,17]];
 const COLORS={uke:"#68c7ef",tori:"#f6bf73",head:"#f178a0",support:"#7ae2b3"};
 const V=(a,b)=>a.map((v,i)=>v+b[i]);const sub=(a,b)=>a.map((v,i)=>v-b[i]);const mul=(a,s)=>a.map(v=>v*s);
-const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);const len=a=>Math.hypot(...a);const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);const len=a=>Math.hypot(...a);
 const mix=(a,b,u)=>a.map((v,i)=>v+(b[i]-v)*u);
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const deg=x=>x*Math.PI/180;
@@ -60,7 +60,7 @@ function proximity(tori,uke){const parts=selectedSupports(supports(tori));const 
 function drawCharacter(ctx,p,color,view,muted){ctx.globalAlpha=muted?.48:1;for(const [a,b] of BONES)line(ctx,project(p[a],view),project(p[b],view),color,a===20||b===20?4:2.7);for(const i of [4,5,6,7,8,9,10,11,20,21])circle(ctx,project(p[i],view),color,3);circle(ctx,project(p[22],view),COLORS.head,10);ctx.globalAlpha=1;}
 function drawSupport(ctx,tori,view){for(const parts of selectedSupports(supports(tori))){for(let i=1;i<parts.length;i++)line(ctx,project(parts[i-1],view),project(parts[i],view),COLORS.support,12);for(const p of parts)circle(ctx,project(p,view),COLORS.support,6);}}
 function drawTrace(ctx,variant,view,frames,now){const points=[];for(let i=0;i<frames.length;i+=Math.max(1,Math.floor(frames.length/80))){const f=frames[i];if(f.t>now)break;const uke=variant?alternative(f.uke,state.angle[i]):f.uke;points.push(project(uke[22],view));}for(let i=1;i<points.length;i++)line(ctx,points[i-1],points[i],COLORS.head,1.6);}
-function paint(canvas,f,uke,variant,end){const ctx=canvas.getContext("2d");if(!ctx)return;const view=$("view").value;ctx.clearRect(0,0,720,660);
+function paint(canvas,f,uke,variant){const ctx=canvas.getContext("2d");if(!ctx)return;const view=$("view").value;ctx.clearRect(0,0,720,660);
 ctx.strokeStyle="#39536a";ctx.lineWidth=1;for(let m=-2;m<=3;m+=.5){line(ctx,project([m,-2,0],view),project([m,2,0],view),"#294056",1);line(ctx,project([-2,m,0],view),project([3,m,0],view),"#294056",1);}
 if($("trace").checked)drawTrace(ctx,variant,view,state.frames,f.t);
 if($("mode").value==="full")drawCharacter(ctx,f.tori,COLORS.tori,view,true);else if($("contacts").checked)drawSupport(ctx,f.tori,view);

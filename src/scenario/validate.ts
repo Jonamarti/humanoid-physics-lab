@@ -196,6 +196,15 @@ function validateActor(value: unknown, path: string): ActorSpec {
 
 function validateProp(value: unknown, path: string): PropSpec {
   const obj = asObject(value, path);
+  if(obj.kind === "fixed_bar") {
+    checkKeys(obj,path,["id","kind","from_m","to_m","radius_m"]);
+    const from=asVec3(obj.from_m,join(path,"from_m"));
+    const to=asVec3(obj.to_m,join(path,"to_m"));
+    const radius=asPositive(obj.radius_m,join(path,"radius_m"));
+    if(Math.hypot(to[0]-from[0],to[1]-from[1],to[2]-from[2])<0.001)fail(join(path,"to_m"),"los extremos deben estar separados al menos 1 mm");
+    if(radius>.25)fail(join(path,"radius_m"),"radio superior a 25 cm");
+    return {id:asId(obj.id,join(path,"id")),kind:"fixed_bar",from_m:from,to_m:to,radius_m:radius};
+  }
   checkKeys(obj, path, ["id", "kind", "size_m", "pos_m"]);
   const id = asId(obj.id, join(path, "id"));
   asEnum(obj.kind, join(path, "kind"), ["fixed_box"]);

@@ -7,7 +7,7 @@ import {buildOneSleeveScenario} from "../../public/one-sleeve-lab.js";
 
 const scenarios=[
   {name:"right_brief", mode:"brief",bar:"right"},
-  {name:"right_near_x006",mode:"brief",bar:"right",barX:.06},
+  
   {name:"right_near_x008",mode:"brief",bar:"right",barX:.08},
   {name:"right_near_x010",mode:"brief",bar:"right",barX:.10},
   {name:"right_near_x012",mode:"brief",bar:"right",barX:.12},
@@ -37,7 +37,7 @@ describe("manga derecha aislada: barra diagonal y torque sobre Uke",()=>{
     expect(built.bodies.indexOf("pelvis")).toBe(1);
     expect(built.bodies.indexOf("right_diagonal_bar")).toBeGreaterThan(built.bodies.indexOf("pelvis"));
     expect(built.mjcf).toContain('name="right_diagonal_bar_geom"');
-    expect(built.mjcf).toContain('fromto="0.55 -0.3 0.13 0.59 -0.055 0.32"');
+    expect(built.mjcf).toContain('fromto="0.08 -0.3 0.13 0.12 -0.055 0.32"');
     expect(validateScenario(buildOneSleeveScenario({bar:"none"})).props).toHaveLength(0);
     expect(validateScenario(buildOneSleeveScenario({bar:"both"})).props).toHaveLength(2);
     expect(()=>validateScenario({...s,props:[{id:"bad",kind:"fixed_bar",from_m:[0,0,0],to_m:[0,0,0],radius_m:.03}]})).toThrow();

@@ -27,6 +27,8 @@ describe("manga derecha aislada: barra diagonal y torque sobre Uke",()=>{
     expect(s.props).toHaveLength(1);
     expect(s.props[0]!.kind).toBe("fixed_bar");
     expect(built.mjcf).toContain('type="capsule"');
+    expect(built.bodies.indexOf("pelvis")).toBe(1);
+    expect(built.bodies.indexOf("right_diagonal_bar")).toBeGreaterThan(built.bodies.indexOf("pelvis"));
     expect(built.mjcf).toContain('name="right_diagonal_bar_geom"');
     expect(built.mjcf).toContain('fromto="0.55 -0.3 0.13 0.59 -0.055 0.32"');
     expect(validateScenario(buildOneSleeveScenario({bar:"none"})).props).toHaveLength(0);

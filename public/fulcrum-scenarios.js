@@ -180,8 +180,10 @@ export function buildCircularKuzushiScenario({
       const dy=blocked==="right"?-.55:.55;
       scenario.obstacles=[{
         id:"foot_stop",shape:"pad",tori_mass_kg:75,
-        start_m:vec(p.x,p.y,p.z),
-        size_m:vec(p.sx,2*p.sy,2*p.sz),
+        // Narrow lateral pad, deliberately moved 6 cm toward the selected leg:
+        // avoid sweeping both feet while keeping Uke free to rotate over it.
+        start_m:vec(p.x,p.y+(blocked==="right"?-.06:.06),p.z),
+        size_m:vec(p.sx,.15,2*p.sz),
         friction:1.2,surface:"cloth",mass_kg:4,
         max_force_n:4500,max_vertical_force_n:4500,
         kp_n_per_m:15000,

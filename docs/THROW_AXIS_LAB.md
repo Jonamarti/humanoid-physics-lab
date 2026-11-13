@@ -1,3 +1,20 @@
+## Prueba adicional: manga derecha única con barra diagonal de contacto (en diagnóstico)
+
+Se incorpora un escenario autónomo en `public/one-sleeve-lab.js` y en `throw-axis-lab.html`:
+
+- Uke articulado `tense`, `neutral`, `strength=1.5`; sin Tori.
+- Único efector `pull` en `right_sleeve_elbow`, en marco inicial: tirón breve +X, prolongado +X, o redirigido +X/+Z → +X → +X/−Z.
+- Barra diagonal real: **nueva geometría opcional** `fixed_bar`, cápsula definida por extremos `from_m` y `to_m`. No cambia las fuerzas ni ecuaciones físicas del solver; conserva el MJCF original para `fixed_box`.
+- La barra principal solo cubre la pierna derecha (lado −Y). Controles sin barra, con ambas piernas y con componente adicional +Y.
+- Medición del signo de orientación del pecho: +Y señala **hacia la izquierda** de Uke; no confundir yaw del tronco con giro de todo el cuerpo ni con ukemi correcto.
+
+**Resultado confirmado de CI #868 (8 ejecuciones reales, todas las nuevas pruebas pasan):** sin barra, tirón breve sobre la manga derecha produce una componente de orientación del pecho hacia +Y de **0,792 a t=1 s** y primera recepción en antebrazo derecho. Esto demuestra que un tirón unilateral puede introducir **rotación hacia la izquierda**, sin imponer ninguna rotación cinemática.
+
+**Fallo importante:** con la primera barra fija diagonal, los cinco ensayos presentaron desplazamiento previo a la fuerza (~0,70–0,80 m de pelvis) y ninguna muestra de contacto fiable posterior. Por tanto **NO están validados como pruebas de pivotaje**, independientemente del gran ángulo de giro observado: el tope ya contamina el asentamiento inicial. A diferencia del control sin barra, se cae antes de comenzar a tirar.
+
+Se ha parametrizado la distancia frontal (`barX`) y añadido una matriz de control sin tirón a 55, 95 y 200 cm para diagnosticar si el problema deriva de colisión durante el asentamiento o de la propia geometría. Hasta tener un ensayo en el que Uke comience estable y el contacto posterior esté registrado, no atribuir el giro al bloqueo. La PR sigue en borrador, sin cambios a grabaciones de AnimSpec.
+
+
 # Diagnóstico aislado del sentido de giro de Uke
 
 **Entrada web:** `/throw-axis-lab.html` (en desarrollo: `http://localhost:5173/throw-axis-lab.html`; en Pages: `https://jonamarti.github.io/humanoid-physics-lab/throw-axis-lab.html`). También hay un enlace desde la página principal.

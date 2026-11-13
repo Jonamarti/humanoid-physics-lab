@@ -88,6 +88,24 @@ function num(x: number): string {
   return String(x);
 }
 
+/** Real oriented capsule, no special solver behaviour: ordinary static MuJoCo contact. */
+function propGeometryXml(prop: Scenario["props"][number], friction:string):string {
+  if(prop.kind==="fixed_bar"){
+    const [ax,ay,az]=prop.from_m,[bx,by,bz]=prop.to_m;
+    return `    <body name="${prop.id}">
+      <geom name="${prop.id}_geom" type="capsule"
+        fromto="${num(ax)} ${num(ay)} ${num(az)} ${num(bx)} ${num(by)} ${num(bz)}"
+        size="${num(prop.radius_m)}" rgba="0.38 0.82 0.64 1"
+        friction="${friction}" ${GEOM_CONTACT}/>
+    </body>`;
+  }
+  const [sx,sy,sz]=prop.size_m,[px,py,pz]=prop.pos_m;
+  return `    <body name="${prop.id}" pos="${num(px)} ${num(py)} ${num(pz)}">
+      <geom name="${prop.id}_geom" type="box" size="${num(sx/2)} ${num(sy/2)} ${num(sz/2)}"
+            rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
+    </body>`;
+}
+
 /**
  * MJCF del escenario. En esta fase solo se admite un actor (`rigid_cylinder`, cuerpo `cylinder`);
  * los props son cajas fijas, cada una un cuerpo estático llamado como su `id`.
@@ -113,12 +131,7 @@ export function buildScenarioModel(scenario: Scenario): ScenarioModel {
 
   const propBlocks = propXml.map(({ id, prop }) => {
     bodies.push(id);
-    const [sx, sy, sz] = prop.size_m;
-    const [px, py, pz] = prop.pos_m;
-    return `    <body name="${id}" pos="${num(px)} ${num(py)} ${num(pz)}">
-      <geom name="${id}_geom" type="box" size="${num(sx / 2)} ${num(sy / 2)} ${num(sz / 2)}"
-            rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
-    </body>`;
+    return propGeometryXml(prop,friction);
   });
 
   bodies.push(actorBody);
@@ -158,25 +171,26 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
       throw new Error(`props[].id "${prop.id}" colisiona con un nombre reservado del modelo`);
     }
     reserved.add(prop.id);
-    const [sx, sy, sz] = prop.size_m;
-    const [px, py, pz] = prop.pos_m;
-    return `    <body name="${prop.id}" pos="${num(px)} ${num(py)} ${num(pz)}">
-      <geom name="${prop.id}_geom" type="box" size="${num(sx / 2)} ${num(sy / 2)} ${num(sz / 2)}"
-            rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
-    </body>`;
+    return propGeometryXml(prop,friction);
   });
-  const mjcf = generateHumanoidMJCF({
+  let mjcf = generateHumanoidMJCF({
     mass_kg: actor.mass_kg,
     height_m: actor.height_m,
     ...(actor.build !== undefined ? { build: actor.build } : {}),
     ...(actor.segment_lengths_m !== undefined ? { segment_lengths_m: actor.segment_lengths_m } : {}),
   }, {
     friction: scenario.ground.friction,
-    extraWorldXml: propBlocks.join("\n"),
+    // Preserve byte-identical order of legacy fixed boxes. New diagonal bars
+    // are appended after Uke so the existing standing controller continues
+    // to see pelvis at body index 1 (it assumes subtree_com[3]).
+    extraWorldXml: propBlocks.filter((_,i)=>scenario.props[i]?.kind==="fixed_box").join("\n"),
     optionAttrs: COLLISION_ATTRS,
     modelName: scenario.id,
     jointDampingByName: attitudeJointDamping(actor.attitude, actor.mass_kg, actor.height_m, actor.strength),
   });
+  for(let i=0;i<scenario.props.length;i++){
+    if(scenario.props[i]?.kind==="fixed_bar") mjcf=appendToWorldbody(mjcf,propBlocks[i]!+"\n");
+  }
   return {
     mjcf,
     bodies: ["world", ...namesInOrder(mjcf, ["body"])],

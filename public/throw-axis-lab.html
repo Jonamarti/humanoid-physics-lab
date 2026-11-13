@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Banco aislado de giro de Uke — HPL</title>
+<style>
+:root{font-family:system-ui,sans-serif;background:#0b1422;color:#e8f3fc;color-scheme:dark}*{box-sizing:border-box}
+body{margin:0}main{max-width:1360px;margin:auto;padding:22px}a{color:#85d9ec}h1{font-size:clamp(1.5rem,3vw,2.3rem);margin:8px 0}h2{font-size:1.1rem;margin:0 0 12px}
+p{line-height:1.5;color:#b9ccdc}small,.hint{color:#b4c5d6}button,select,input{font:inherit;background:#142a40;border:1px solid #52748b;border-radius:7px;color:#fff;padding:9px}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #8ae4ef}
+.grid{display:grid;grid-template-columns:290px minmax(0,1fr);gap:15px}.panel{border:1px solid #2d4a63;border-radius:12px;background:#142437;padding:16px;min-width:0}
+label{display:block;margin:13px 0 5px;font-weight:650;font-size:.9rem}select,input[type=range]{width:100%}input[type=checkbox]{width:auto}input[type=file]{width:100%;font-size:.8rem}
+.canvases{display:grid;grid-template-columns:1fr 1fr;gap:14px}canvas{width:100%;height:360px;background:radial-gradient(ellipse,#1c3248,#0e1b2c);border:1px solid #345069;border-radius:9px;touch-action:none}
+.legend{display:flex;gap:15px;flex-wrap:wrap;font-size:.85rem;color:#c8daeb}.swatch{display:inline-block;width:11px;height:11px;border-radius:10px;margin-right:5px}
+.report{white-space:pre-wrap;font:13px/1.65 ui-monospace,monospace;background:#091a2b;border-radius:7px;padding:12px;min-height:95px;overflow-wrap:anywhere}
+.controls{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:12px 0}.controls input[type=range]{flex:1;min-width:150px}
+.titles{display:flex;justify-content:space-between;align-items:center;gap:9px}
+@media(max-width:950px){.grid,.canvases{grid-template-columns:1fr}canvas{height:330px}}
+</style>
+</head>
+<body><main>
+<a href="./">← Volver a Humanoid Physics Lab</a>
+<h1>Diagnóstico aislado de giro y apoyos</h1>
+<p>Ensayo <strong>cinemático</strong> no destructivo: reproduce el guion original y una variante de rotación, sin ejecutar MuJoCo, modificar el motor, ni sobrescribir grabaciones. Para comparar las trayectorias reales, importa el JSON generado en AnimSpec. Los ejemplos incorporados son <strong>aproximaciones esquemáticas</strong>, no capturas ni modelos privados.</p>
+<div class="grid">
+<aside class="panel">
+<h2>Configuración</h2>
+<label for="tech">Técnica</label><select id="tech"><option value="tai">Tai-otoshi (derechas)</option><option value="osoto">O-soto-gari (derechas)</option></select>
+<label for="file">JSON guionizado de AnimeSpec (opcional)</label><input id="file" type="file" accept=".json,application/json">
+<p class="hint">Formato de <code>scripts/guion_derribo.py</code>: t[], tori[][], uke[][], 23 puntos GrappleMap por fotograma. El archivo se lee <strong>solo en este navegador</strong> y nunca se sube.</p>
+<label for="view">Vista de cámara</label><select id="view"><option value="three">Tres cuartos</option><option value="side">Lateral (eje Y)</option><option value="front">Frontal (eje X)</option><option value="top">Cenital (eje Z)</option></select>
+<label for="mode">Geometría de Tori</label><select id="mode"><option value="full">Tori y Uke completos</option><option value="contact">Uke + apoyos simplificados de Tori</option></select>
+<label for="support">Contacto de Tori que se destaca</label><select id="support"><option value="leg">Pierna derecha (tai-otoshi / siega)</option><option value="back">Espalda y tronco</option><option value="hip">Cadera</option><option value="both">Todos los candidatos</option></select>
+<label for="correction">Cambio de giro horizontal de Uke</label><select id="correction"><option value="reverse">Invertir signo de yaw (hipótesis)</option><option value="none">Sin corrección (control)</option></select>
+<label for="gain">Intensidad de inversión: <span id="gain-label">100 %</span></label><input id="gain" type="range" min="0" max="100" value="100" step="5">
+<label><input id="trace" type="checkbox" checked> Mostrar trayectoria cabeza/pelvis</label>
+<label><input id="contacts" type="checkbox" checked> Mostrar proximidad a apoyos</label>
+<button id="reset" type="button">Volver al ejemplo sintético</button>
+<p id="source" class="hint" role="status">Datos: ejemplo esquemático, pendiente de importar JSON real.</p>
+</aside>
+<section class="panel">
+<div class="canvases">
+<div><div class="titles"><h2>Original · referencia intacta</h2><small>sin modificar</small></div><canvas id="original" width="720" height="660" aria-label="Trayectoria original de Uke y Tori"></canvas></div>
+<div><div class="titles"><h2>Hipótesis · giro alternativo</h2><small>solo Uke</small></div><canvas id="variant" width="720" height="660" aria-label="Trayectoria experimental de Uke y Tori"></canvas></div>
+</div>
+<div class="legend" style="margin-top:12px"><span><i class="swatch" style="background:#68c7ef"></i>Uke</span><span><i class="swatch" style="background:#f6bf73"></i>Tori</span><span><i class="swatch" style="background:#f178a0"></i>Cabeza / dirección</span><span><i class="swatch" style="background:#7ae2b3"></i>Apoyo destacado</span></div>
+<div class="controls"><button id="play" type="button">▶ Reproducir</button><button id="step-back" type="button">◀</button><button id="step-forward" type="button">▶</button><input id="time" type="range" min="0" max="1000" value="0" step="1"><output id="clock">0,00 s</output></div>
+<section style="margin:18px 0;padding:13px;border:1px solid #507388;border-radius:9px;background:#0d2134" aria-label="Simulación MuJoCo">
+<h2>Ensayo físico aislado · MuJoCo</h2>
+<p class="hint">La física es la del simulador HPL ya existente; los movimientos de Tori se aproximan a partir del esqueleto importado. <strong>El giro de Uke NO se impone.</strong> MuJoCo resuelve fuerzas, gravedad y contactos.</p>
+<label for="physical-model">Configuración física</label><select id="physical-model">
+<option value="full">Uke + cuerpo aproximado de Tori y agarres</option>
+<option value="support">Uke + un apoyo simplificado y fuerzas de agarre</option>
+</select>
+<div class="controls"><button type="button" id="physical-run">Abrir simulación física de la técnica</button><button type="button" id="physical-control">Comparar sin apoyo</button></div>
+<p id="physical-status" role="status" class="hint">Abre el ensayo con el editor físico existente; desde allí podrás inspeccionar colisiones y guardar el JSON experimental si te interesa.</p>
+<p class="hint">«Sin apoyo» conserva idénticas fuerzas sobre Uke; solo elimina el obstáculo. En modo «Tori completo» no se ofrece ese control, porque eliminar el cuerpo también elimina los agarres.</p>
+</section>
+<section style="margin:18px 0;padding:13px;border:1px solid #507388;border-radius:9px;background:#0d2134" aria-label="Ensayo de pie de fulcro">
+<h2>Ensayo físico independiente: apoyo unilateral y par angular</h2>
+<p class="hint">Uke parte erguido. Dos fuerzas iguales y paralelas tiran de sus hombros hacia delante (+X). El obstáculo está delante de <strong>una sola pierna</strong>: el pie contrario permanece libre. La física normal calcula vuelco, torsión y elevación de los pies.</p>
+<label for="fulcrum-side">Pierna que recibe el tope</label><select id="fulcrum-side">
+<option value="right">Derecha de Uke (−Y)</option><option value="left">Izquierda de Uke (+Y)</option><option value="none">Sin tope — control simétrico</option>
+</select>
+<label for="fulcrum-height">Altura de la barrera</label><select id="fulcrum-height">
+<option value="ankle">Tobillo / pie (13 cm)</option><option value="shin">Espinilla (33 cm)</option><option value="knee">Rodilla (55 cm)</option><option value="thigh">Muslo (78 cm)</option>
+</select>
+<label for="fulcrum-force">Intensidad de los dos tirones</label><select id="fulcrum-force">
+<option value="low">Suave — 260 N por hombro</option><option value="medium" selected>Media — 650 N por hombro</option><option value="high">Fuerte — 1.200 N por hombro</option>
+</select>
+<label for="fulcrum-site">Dónde aplicamos la fuerza</label><select id="fulcrum-site"><option value="shoulder">Hombros (comparación principal)</option><option value="sleeve">Mangas (antebrazos)</option></select>
+<label for="fulcrum-stance">Posición inicial</label><select id="fulcrum-stance"><option value="neutral">Ambos pies paralelos, Uke vertical</option><option value="staggered_left">Pie izquierdo delante, derecho atrás</option><option value="staggered_right">Pie derecho delante, izquierdo atrás</option></select>
+<div class="controls"><button type="button" id="fulcrum-run">Simular con MuJoCo</button><button type="button" id="fulcrum-control">Misma fuerza, sin tope</button></div>
+<p class="hint" id="fulcrum-prediction" role="status"></p>
+<p class="hint">El tope está hecho con una caja fija que solo puede chocar con esa pierna; <strong>no inmoviliza</strong> el pie con una junta artificial. Si resbala o salta por encima del obstáculo, el modelo debe mostrarlo. La altura cambia la zona de contacto, no la potencia del tirón.</p>
+<p class="hint" id="fulcrum-status" role="status">Abre el escenario en una pestaña del laboratorio original. No cambia las grabaciones ni el solver.</p>
+</section>
+<section style="margin:18px 0;padding:13px;border:1px solid #507388;border-radius:9px;background:#0d2134" aria-label="Kuzushi circular y bloqueo temporal">
+<h2>Ensayo nuevo: kuzushi circular + bloqueo temporal</h2>
+<p class="hint">Diferencia fundamental: las fuerzas duran de 2,30 a 3,08 s, no 0,42 s. El brazo derecho sigue tirando después de que Uke tropieza. <strong>El contacto no es permanente:</strong> la pierna puede girar y separarse; además hay una variante en la que Tori retira activamente el apoyo.</p>
+<label for="arc-side">Pierna de Uke contra la que va el tope</label><select id="arc-side"><option value="right">Derecha (Tai Otoshi)</option><option value="left">Izquierda, control espejo</option><option value="none">Sin tope</option></select>
+<label for="arc-height">Altura del tope</label><select id="arc-height"><option value="ankle">Tobillo (13 cm)</option><option value="shin">Espinilla (33 cm)</option><option value="knee">Rodilla (55 cm)</option></select>
+<label for="arc-force">Fuerza de referencia</label><select id="arc-force"><option value="low">Suave</option><option value="medium" selected>Media</option><option value="high">Fuerte</option></select>
+<label for="arc-mode">Trayectoria del tirón</label><select id="arc-mode"><option value="arc">Circular: adelante+arriba → adelante → adelante+abajo</option><option value="straight">Control: solo adelante, misma duración</option></select>
+<label for="arc-bias">Tracción relativa en el brazo derecho</label><select id="arc-bias"><option value="balanced">Simétrica</option><option value="right" selected>Derecho 1,45× en fase final</option><option value="strong">Derecho 1,85× en fase final</option></select>
+<label for="arc-tempo">Duración</label><select id="arc-tempo"><option value="long">2,30 s</option><option value="extended">3,08 s</option></select>
+<label for="arc-support">Comportamiento del apoyo</label><select id="arc-support"><option value="fixed">Tope fijo (NO validado: puede desestabilizar antes del tirón)</option><option value="withdraw" selected>Tori retira el apoyo después del choque (recomendado)</option></select>
+<label for="arc-grip">Punto de tracción derecha</label><select id="arc-grip"><option value="sleeve">Manga derecha de Uke</option><option value="shoulder">Hombro derecho de Uke</option></select>
+<label for="arc-posture">Tono muscular de Uke</label><select id="arc-posture"><option value="tense">Tenso normal (control actual)</option><option value="firm" selected>Muy firme (fuerza articular 1,5×, máximo HPL)</option></select>
+<label for="arc-begin">Inicio del tirón</label><select id="arc-begin"><option value="0.3">0,30 s (prueba anterior)</option><option value="0.8" selected>0,80 s (observar equilibrio previo)</option><option value="1.2">1,20 s (observación más larga)</option></select>
+<p class="hint">«Muy firme» sigue siendo un humanoide articulado; no es una figura inmóvil. La pausa inicial permite medir si se mueve sin fuerzas externas. Para que sea de verdad rígido habría que cambiar el modelo físico, no solo endurecer las articulaciones.</p>
+<label for="arc-stance">Postura inicial</label><select id="arc-stance"><option value="neutral">Pies paralelos</option><option value="staggered_left">Pierna derecha atrás</option><option value="staggered_right">Pierna izquierda atrás</option></select>
+<div class="controls"><button type="button" id="arc-run">Ejecutar ensayo circular en MuJoCo</button><button type="button" id="arc-control">Control recto con los mismos parámetros</button><button type="button" id="arc-nostop">Control sin tope</button></div>
+<p class="hint" id="arc-status" role="status">El escenario se abre en la aplicación física de HPL. Los agarres se modelan como fuerzas prescritas, no como restricciones geométricas.</p>
+<p class="hint">Hipótesis por comprobar: el apoyo de la pierna derecha cambia el par de giro y el tirón continuo de manga permite la rotación sin contacto final. El modelo no garantiza ni exige caer de espaldas; se revisa el informe de impactos reales.</p>
+</section>
+<section style="margin:18px 0;padding:15px;border:1px solid #5d8f9e;border-radius:9px;background:#0d2134" aria-label="Ensayo barra diagonal y manga derecha">
+<h2>Prueba simplificada: solo manga derecha + barra diagonal</h2>
+<p class="hint">Sin Tori completo. Uke empieza erguido, con tono firme y postura neutral. Una única fuerza actúa sobre su manga derecha. La barra es una cápsula diagonal REAL en 3D, no una caja horizontal. No se prescribe el giro: lo resuelve MuJoCo.</p>
+<label for="single-bar">Qué pierna intercepta la barra</label><select id="single-bar"><option value="right">Solo pierna derecha (principal)</option><option value="none">Sin barra (control)</option><option value="both">Ambas piernas (control extra)</option></select>
+<label for="single-mode">Tipo de tirón de manga</label><select id="single-mode"><option value="brief">Breve y recto: solo hacia delante</option><option value="sustained" selected>Recto y prolongado (giro inicial moderado)</option><option value="redirect">Redirigido: adelante/arriba → adelante → adelante/abajo</option></select>
+<label for="single-force">Intensidad</label><select id="single-force"><option value="soft" selected>Suave (230 N de referencia)</option><option value="medium">Media (420 N)</option><option value="strong">Fuerte (650 N)</option></select>
+<label for="single-posture">Tono de Uke</label><select id="single-posture"><option value="firm" selected>Firme (controlador tenso, fuerza muscular 1,5×)</option><option value="tense">Tenso normal (1×)</option></select>
+<label for="single-gap">Separación de la barra respecto a la espinilla derecha inicial</label><select id="single-gap">
+<option value="0.08" selected>Muy cerca (~1,7 cm de holgura entre superficies)</option>
+<option value="0.10">Cerca (~3,7 cm de holgura)</option>
+<option value="0.12">Algo más separada (~5,7 cm)</option>
+<option value="0.15">Separación de control (~8,7 cm)</option>
+</select>
+<p class="hint">Distancias geométricas aproximadas en la postura neutral inicial, no distancias a partir del centro de la pierna. Barra siempre a la altura inicial de la espinilla; el pie conserva libertad de pivotar y superar el apoyo.</p>
+<label for="single-angle">Geometría de la barra</label><select id="single-angle"><option value="diagonal">Diagonal ascendente (en Y y Z)</option><option value="straight">Horizontal (control geométrico)</option></select>
+<label for="single-lean">Componente lateral adicional</label><select id="single-lean"><option value="none" selected>Ninguna (solo componente hacia delante)</option><option value="left">Hacia la izquierda de Uke (+Y, 22 %)</option></select>
+<div class="controls"><button type="button" id="single-run">Simular manga derecha + barra</button><button type="button" id="single-nobar">Comparar SIN barra</button><button type="button" id="single-noforce">Control SIN tirón</button></div>
+<p id="single-status" role="status" class="hint">Compara orientación de pecho, giro de pelvis, contacto real con barra, elevación del pie derecho y primera zona que toca el suelo. El perfil breve permite comprobar cuánto giro aparece sin redirigir la fuerza.</p>
+<p class="hint">La barra fija debe empezar sin penetrar a Uke; las pruebas comprueban su posición inicial. El contacto puede durar solo unos instantes. No considerar un giro correcto hasta revisar el hombro de recepción y la orientación de Uke.</p>
+</section>
+<div id="report" class="report" role="status" aria-live="polite"></div>
+<p class="hint">Las distancias son entre <strong>segmentos del esqueleto</strong>, no penetraciones de malla; no acreditan contacto físico ni fuerzas. La hipótesis invierte el yaw alrededor de la pelvis y conserva el resto de las articulaciones relativas; puede cambiar agarres y contactos. Revisar fotograma a fotograma antes de llevar una corrección a AnimeSpec.</p>
+</section></div>
+</main><script type="module" src="./throw-axis-lab.js"></script></body></html>

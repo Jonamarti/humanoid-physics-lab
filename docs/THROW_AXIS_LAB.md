@@ -1,0 +1,189 @@
+### Verificación física de la caída con barra PEGADA (CI #896, 13/11/2026)
+
+Se ejecutó MuJoCo real con la barra diagonal en X=0,08–0,12 m; holgura inicial aproximada 1,7 cm frente a la espinilla derecha, `right_sleeve_elbow` con tirón **breve** de referencia 420 N desde t=0,65 s. Modelo articulado erguido `tense`, `neutral`, `strength=1.5`. La CI ha terminado en verde (91 archivos de pruebas, 6 omitidos, build y lint).
+
+| Métrica | Barra junto a espinilla (X=0,08 m) | Control sin barra, mismo tirón |
+|---|---|---|
+| Movimiento de pelvis antes de la fuerza | < 1 mm | < 1 mm |
+| Primer contacto con barra | **0,848 s, espinilla derecha** | ninguno |
+| Orientación del pecho a 1 s (yaw aprox.) | **+37° hacia izquierda** | **+52,33°** |
+| Inicio de caída registrada | **1,744 s** | **1,520 s** |
+| Primera parte que toca el suelo | **antebrazo derecho** | **antebrazo derecho** |
+| Dirección frontal del pecho después de caer (componente Z; ~t=1,76 s) | **−0,50, mira hacia abajo** | **+0,92, mira hacia arriba** |
+| Contacto posterior con barra | se vuelve a registrar hasta t=3,4 s; también termina implicando otros segmentos, incluido pie izquierdo | no aplica |
+
+**Conclusión:** esta configuración de barra pegada cumple el primer contacto con espinilla y no altera la postura inicial. Sin embargo, **NO completa un Tai Otoshi correcto**: el obstáculo restringe el giro, y Uke acaba orientando el pecho hacia el suelo mientras que en el control sin barra termina orientándolo hacia arriba. El contacto no queda limitado a un fulcro breve, pues se registra otra vez durante el aterrizaje. La siguiente fase requiere cambiar la geometría/retiro temporal de la barra y la dirección del tirón **después** del primer contacto, con validación de recepción dorsal y sin otros contactos no deseados. No transferir el movimiento actual a AnimeSpec como corrección.
+
+Se creó localmente un vídeo MP4 a x0,28 con vistas lateral/cenital y control A/B. Los puntos del esqueleto, dirección frontal del pecho y fuerza real de manga vienen de registros MuJoCo; el vídeo interpola muestras cada 0,08 s y redondea coordenadas para visualización. **El vídeo no se añade al repositorio** ni modifica grabaciones originales.
+
+### Ajuste del obstáculo a la posición inicial de la espinilla (13/11/2026)
+
+Según la observación del usuario, la barra situada a X=0,55 m estaba demasiado lejos: Uke ya había girado mucho antes de tocarla. Se modifica el experimento aislado `public/one-sleeve-lab.js` para que la barra diagonal se sitúe por defecto en X=0,08 m respecto al plano inicial de espinilla X≈0 (frente al Uke erguido y neutro), ocupando aproximadamente X=0,08–0,12 m; va de Y=−0,30 a −0,055 m, Z=0,13–0,32 m, radio 0,04 m. El radio de la espinilla física es ~0,053 m. La distancia mínima estimada entre superficies de cápsulas es ~1,7 cm al inicio, sin intención de penetrar el muñeco. Es una **estimación geométrica**, no una medición de contacto dinámico. La separación se puede cambiar en el visor a X=0,10 / 0,12 / 0,15 m. Se añaden controles MuJoCo sin fuerza en X=0,06, 0,08, 0,10 y 0,12 m y tirones en las variantes cercanas. **No se ha confirmado todavía en la última ejecución CI el tiempo de contacto y la estabilidad de la nueva posición**; los vídeos anteriores con barra a 0,55 m NO representan el experimento corregido.
+
+## Manga derecha única + barra diagonal real: corrección y resultados validados (CI #879)
+
+**Error identificado y corregido:** al añadir el `fixed_bar` *antes* del humanoide en el MJCF, el pelvis de Uke dejaba de ser el primer cuerpo y el controlador original seguía leyendo `subtree_com[3]` como si correspondiese a Uke. Por eso el muñeco retrocedía o caía incluso **sin ningún tirón** y aun con la barra a dos metros. La solución mantiene el controlador y las físicas intactas: las nuevas barras se añaden **después** del humanoide; las cajas originales conservan exactamente el mismo MJCF, incluidas las posiciones de texto.
+
+La variante definitiva crea una sola barra diagonal orientada en Y/Z frente a la pierna derecha (-Y), y un único efector `pull` aplicado en `right_sleeve_elbow`. Uke parte erguido, `tense`, `neutral`, fuerza articular 1,5×. No hay cuerpo de Tori ni ninguna curva de rotación prescrita.
+
+**La batería de GitHub Actions #879 ha pasado:** 90 archivos de test superados, 6 omitidos, más compilación y lint. Las barras no provocan desplazamiento previo (métrica redondeada: 0 m); los controles sin fuerzas con la barra entre 55 cm y 2 m de distancia no se caen y apenas derivan < 1 mm. Las colisiones posteriores con espinilla y pie derechos son fuerzas reales del solver.
+
+| Un solo tirón de la manga derecha | Giro del pecho hacia la izquierda a ~1 s | Primer contacto barra | Primer suelo |
+|---|---:|---|---|
+| Breve, fuerza media 420 N, **sin barra** | 52,3° | ninguno | antebrazo derecho |
+| Breve, fuerza media 420 N, **barra diagonal solo derecha** | 52,2° | espinilla derecha a 1,352 s | antebrazo derecho |
+| Breve, fuerza suave 230 N, barra derecha | 25,3° | espinilla derecha a 1,728 s | pecho |
+| Prolongado, fuerza suave 230 N, barra derecha | **13,1°** | espinilla derecha a 1,656 s | antebrazo derecho |
+| Prolongado, fuerza media 420 N, barra derecha | 30,4° | espinilla derecha a 1,416 s | antebrazo derecho |
+| Redirigido, fuerza media 420 N, barra derecha | 31,7° | espinilla derecha a 1,416 s | antebrazo derecho |
+
+**Respuesta física:** una fuerza hacia +X aplicada únicamente a la manga del lado derecho (Y negativo) genera por sí sola un par de yaw positivo, es decir, gira el pecho hacia **+Y, la izquierda** de Uke. En el caso medio breve, a ~0,96 s el pecho está girado 52° sin tocar aún la barra; al comenzar la caída (~1,54 s) ha girado ~98°. La tracción unilateral explica el **giro inicial**; no se puede atribuir ese giro al tope, ya que sin barra ocurre casi igual. El tope cambia el recorrido de la espinilla y del pie tras entrar en contacto.
+
+**Limitaciones:** en el perfil breve medio, la tracción termina aproximadamente a t=1,20 s y el choque ocurre a 1,35 s, por lo que el choque no es un ejemplo válido de tirón *continuado* sobre el fulcro. En el perfil prolongado medio sí hay contacto durante la fuerza, con inicio a 1,416 s y separación a 1,68 s. La caída no está validada como Tai Otoshi: no se ha confirmado ukemi dorsal ni ausencia de contacto peligroso de cabeza en toda la trayectoria. La variante redirigida llega también a rozar el pie izquierdo; no es un bloqueo estrictamente unilateral perfecto. La fuerza máxima final puede estar recortada por el limitador de potencia del `pull`.
+
+**Estado:** escenarios y pruebas aislados en PR #104, en borrador. No se han sobrescrito grabaciones, guiones de AnimSpec ni algoritmo de física. Recomendación para visualizar primero: barra derecha, tirón prolongado suave (13° iniciales), y después tirón prolongado medio, con vista cenital y lateral.
+
+## Objetivo y aislamiento
+
+Comparar visualmente la trayectoria original de una técnica guionizada con una hipótesis de inversión del giro horizontal de Uke, manteniendo exactamente iguales las articulaciones de Tori. No cambia `src/scenario/`, `src/uke/`, `src/effectors/`, ni las grabaciones o el motor de MuJoCo. Es un ensayo **cinemático** en navegador, no una simulación dinámica; no modifica ningún fichero fuente tras importar.
+
+El repositorio HPL es público y AnimSpec contiene material privado: **no subir aquí JSON reales, FBX, BLEND ni vídeos de AnimSpec**. Los presets integrados son aproximaciones esquemáticas declaradas, inspiradas solo en duraciones y posiciones generales; no son renders ni reproducciones exactas de los rigs. Los modelos visualizados son esqueletos de 23 puntos y no las mallas Mixamo.
+
+## Comparar con Uke y Tori EXACTAMENTE como están en AnimSpec
+
+En el checkout local de AnimSpec que contiene la PR #99:
+
+```sh
+python scripts/guion_derribo.py tai_otoshi /tmp/tai-original.json
+python scripts/guion_derribo.py o_soto_gari /tmp/osoto-original.json
+```
+
+En Windows, cambiar las rutas `/tmp/...` por rutas locales válidas.
+
+Abrir HPL `/throw-axis-lab.html`, elegir la técnica y seleccionar el JSON local. El formato esperado es `{t: number[], tori: [fotograma][23][3], uke: [fotograma][23][3]}`, en coordenadas GrappleMap (X, Y-arriba, Z). La página lo convierte a X-delante, Y-izquierda, Z-arriba con `(x,-z,y)`. El usuario elige uno de dos modos:
+
+1. **Tori y Uke completos:** dibuja ambos esqueletos a partir de las 23 articulaciones originales; Tori es idéntico en ambas ventanas.
+2. **Uke + apoyos de Tori:** sustituye el esqueleto de Tori por segmentos de rodilla/tobillo derechos, pelvis/cuello o caderas. La distancia mostrada es entre líneas ideales del esqueleto, no distancia entre mallas, ni penetración, presión o contacto físico. La pierna de tai-otoshi es una barrera; la pierna de o-soto-gari siega y no es un pivote rígido.
+
+Modos frontal, lateral, cenital y tres cuartos; pausa, avance por fotograma, velocidad real, trazas y parámetros de inversión.
+
+## Hipótesis A/B
+
+La copia alternativa aplica una rotación alrededor del eje Z del mundo sobre **cada punto de Uke**, respecto a su centro de pelvis. Estima el yaw a partir de la línea de hombros de cada fotograma, lo desenvuelve y aplica `deltaYaw = -2 * yaw * intensidad`. Un valor 100 % invierte el yaw estimado (respecto a su orientación inicial), conservando todas las distancias internas y el pitch/roll relativos. Con intensidad cero o «Sin corrección» ambos paneles deben coincidir exactamente.
+
+**No se considera una solución definitiva**: al rotar todo Uke (también manos y pies), cambia sus puntos de contacto y agarres con Tori. Además, la estimación de yaw por hombros puede mezclar giro axial y ladeo; cuando hay rolido intenso, debe contrastarse con las curvas originales `uke_giro` del guion. Es un diagnóstico reversible, no un cambio de las curvas ni del algoritmo.
+
+## Segunda fase: simulaciones dinámicas con MuJoCo
+
+La misma entrada ofrece «Ensayo físico aislado · MuJoCo». El adaptador puro `public/throw-axis-physics.js` transforma los
+fotogramas de Tori del JSON importado en escenarios `hpl.scenario.v1`. Abre otra pestaña de la web principal con
+`#scn=...`: **es el editor habitual de HPL el que valida, ejecuta y reproduce el resultado con `runScenario` y MuJoCo
+WASM** (paso físico de 2 ms). Ningún resultado se persiste ni se añade a la galería.
+
+- **Cuerpo aproximado completo:** 14 segmentos de Tori, posturas de pelvis/torso/pies/manos derivadas del guion y dos
+  agarres limitados a 300 N. El motor resuelve el giro de Uke como consecuencia de colisiones y agarres; el ángulo original
+  de Uke **no** se utiliza como consigna.
+- **Apoyo simplificado:** solo Uke y una barra (espinilla derecha), almohadilla dorsal o almohadilla de cadera. El
+  obstáculo sigue una secuencia aproximada de posiciones de Tori con fuerza limitada; dos tirones declarados se aplican
+  a manga y esternón. La barra es transversal (eje Y), **no** sigue la orientación angular exacta de una espinilla oblicua.
+- **Control sin apoyo:** conserva exactamente los mismos dos tirones y los parámetros de Uke, pero elimina la geometría
+  del apoyo. Así permite identificar el efecto del contacto. El control solo está disponible en el modo simplificado,
+  porque sin el cuerpo de Tori también desaparecen sus agarres.
+
+Las fuerzas de los tirones son **hipótesis aproximadas**, no mediciones ni fuerzas extraídas de AnimeSpec, que es
+cinemático; la transformación de muñecas y tobillos de AnimSpec al cuerpo paramétrico de HPL también es aproximada.
+Por tanto el ensayo físico **no reproduce exactamente** el derribo guionizado, aunque puede ayudar a depurar la dirección,
+los puntos de contacto y el sentido de los pares. Se debe comparar desde la cámara cenital y frontal, mirar el informe de
+contactos y no interpretar una coincidencia como validación biomecánica.
+
+## Ensayo de fulcro unilateral (Uke vertical, tirón simétrico)
+
+Entrada en la misma página. Se construye un escenario aislado con el **modelo humanoide normal de 75 kg y 1,75 m**, `attitude: tense`, `waist_stiffness: 1`, dos fuerzas prescritas iguales (+X, en hombro o manga) desde 0,30 s durante 0,42 s con medio seno y un obstáculo `fixed_box` frente a un solo pie/pierna. Cambia la zona de contacto sin hacer crecer una columna desde el suelo: 13, 33, 55 o 78 cm. Tres intensidades predefinidas (260, 650 y 1200 N **por hombro**), ambos lados de bloqueo, y control sin obstáculo. Se abren como escenarios `#scn` del motor HPL ya existente; **no** se modifica `runScenario` ni se obliga a que Uke gire de un modo concreto. La primera versión sigue usando una barrera geométrica, no una articulación que inmovilice el pie: un pie puede resbalar, saltar o esquivar el tope.
+
+En un modelo ideal sin desplazamiento del punto de apoyo, el momento sobre Z de fuerzas simétricas +X, con un único apoyo a Y=-0,105 m, se aproxima por `τz = -0,21 · F_hombro` N·m (y se invierte con apoyo izquierdo). **Es una predicción externa, no un par aplicado por el motor**. Cuando no hay contacto, no se puede atribuir una rotación a ese tope.
+
+### Batería MuJoCo de GitHub Actions, 13 noviembre 2026
+
+Pruebas de integración en `tests/unit/fulcrumExperiments.test.ts`; cada prueba ejecuta `runScenario` con paso físico 2 ms y registro cada 20 ms. Resultados del job CI 809 (conclusión *success*); valores son de este modelo aproximado y estas fuerzas, no datos biomecánicos de una persona ni la secuencia real de AnimSpec.
+
+| Modelo (siempre tracción hacia delante) | ¿Contacto con tope? | Primera zona de tope registrada | Primer impacto de caída | Altura máxima de pie I/D sobre inicial |
+|---|---|---|---|---|
+| Sin tope, 650 N | No | — | Cabeza | 146 / 146 cm |
+| Tobillo derecho 13 cm, 260 N | **No** | — | Antebrazo izquierdo | 18 / 14 cm |
+| Tobillo derecho 13 cm, 650 N | **Sí, 1,16 s** | Pie y espinilla derechos | Antebrazo derecho | 32 / 16 cm |
+| Tobillo izquierdo 13 cm, 650 N | **Sí, 1,16 s** | Pie y espinilla izquierdos | Antebrazo izquierdo | 16 / 32 cm |
+| Tobillo derecho 13 cm, 1200 N | **No** | — | Cabeza | 163 / 154 cm |
+| Espinilla derecha 33 cm, 650 N | **Sí, 0,72 s** | Espinilla derecha | Brazo derecho | 107 / 97 cm |
+| Rodilla derecha 55 cm, 650 N | **Sí, 0,72 s** | **Muslo** derecho (no rodilla aislada) | Cabeza | 137 / 138 cm |
+| Muslo derecho 78 cm, 650 N | **Sí, 0,74 s** | Muslo derecho, pelvis y muslo izquierdo | Cabeza | 130 / 139 cm |
+
+En el caso medio 13 cm, la dirección de caída medida fue +6,52° (tope derecho) y −6,52° (tope izquierdo); la simetría es una comprobación fuerte de que el lado del apoyo afecta a la salida. **Pero el contacto llega después de un segundo**, por lo que todavía no demuestra que el tobillo sea el fulcro durante toda la caída. Tampoco cumple aún el comportamiento gradual solicitado: con fuerzas suaves no se alcanza el tope; con las mayores el humanoide lo evita y en la caída golpea con la cabeza. En la postura `staggered_left` (pie derecho trasero), el tope ajustado tampoco llegó a contactar en la primera batería.
+
+**Decisión técnica:** la hipótesis de par lateral está respaldada por la simulación de bloqueo medio y su reflexión, pero **no está validado** el modelo de derribo ni la sujeción de un pie trasero. No fusionar automáticamente ni aplicar estos parámetros al juego. El siguiente experimento debe ajustar el tope unilateral para que contacte en la fase de kuzushi, medir deslizamiento del pie bloqueado, comprobar que el tronco evita colisión con Tori, y evitar impactos con la cabeza antes de considerar válidas las curvas.
+
+## Ensayo de kuzushi circular prolongado con fulcro transitorio — 13/11/2026
+
+Añadido a `/throw-axis-lab.html` y a `public/fulcrum-scenarios.js` como **escenarios alternativos**, sin alterar el solver `runScenario` ni los ensayos anteriores:
+
+- Fuerza `pull` continua por puntos de control, entre t=0,30 y 2,60 s (2,30 s), o entre 0,30 y 3,38 s (3,08 s). Primero +X/+Z (kuzushi), luego +X, luego +X/-Z (continuación del giro); la fuerza termina suavemente. No es animación posicional de Uke.
+- Tracción en manga derecha, ajustable: simétrica / 1,45× / 1,85× durante la fase final, con ensayo control de tracción recta de igual duración; se puede tirar del hombro en vez de la manga.
+- Tope unilateral **sin unión rígida** (fixed_box). Variante temporal con `obstacle: pad` con 4 kg y servo limitado, que se retira lateralmente por una curva a partir de ~t=1,46 s; el contacto puede cesar *antes* de la retirada si Uke lo sobrepasa.
+- Brazo izquierdo y derecho tienen curvas temporales medibles. HPL calcula por su cuenta contacto, fuerzas, inclinación, giro y posiciones; si Uke no toca el tope, nunca se afirma que haya pivotado sobre él.
+
+Batería real MuJoCo WASM, CI #819 en verde, y repetición con almohadilla móvil más estrecha (CI #822 en verde). Los valores son **resultados de simulación** y no una técnica ya validada.
+
+| Ensayo | Contacto con tope | Primer contacto suelo | Cabeza en suelo | Cara frontal del pecho al tocar suelo* |
+|---|---|---|---|---|
+| Recto prolongado, tope espinilla derecha, 1,45× manga | 1,208–1,232 s, espinilla derecha | antebrazo derecho | sí, 2,45 m/s | −0,936 |
+| Circular prolongado, mismo tope, 1,45× manga | 1,040–1,056 s, espinilla derecha | antebrazo derecho | sí, 4,55 m/s | −0,918 |
+| Circular, manga derecha 1,85×, tope espinilla | 1,040–1,056 s, espinilla derecha | antebrazo derecho | sí, 2,99 m/s | −0,886 |
+| Circular, tope móvil estrecho que se retira | 0,624–0,976 s, pie/espinilla derechos | antebrazo derecho; después pecho y pelvis | **no registrado** | −0,623 |
+| Circular, tope tobillo derecho estacionario | ninguno | brazo izquierdo | sí, 4,02 m/s | no se utiliza el fulcro |
+
+*La componente vertical de la dirección frontal del pecho en el primer contacto de pecho, medida con `xmat[6]` para el cuerpo `chest`. **Negativa significa que el pecho mira hacia abajo, por lo que no constituye caída dorsal** (aproximación con rig físico HPL). El tope móvil elimina el contacto con la otra pierna en la nueva configuración, pero la recepción sigue siendo **prona/no dorsal** y el impacto del pecho fue ~5,94 m/s: **NO APTO** para dar por corregido Tai Otoshi.
+
+**Hallazgo biomecánico esencial:** la separación ocurre de forma espontánea; un fulcro no necesita contacto continuo. El obstáculo fijo de espinilla solo hizo contacto ~16 ms antes de separarse. La fuerza circular cambia drásticamente la trayectoria, pero con esta parametrización el giro no pasa a una recepción sobre espalda. Hacen falta pruebas de los pares de rotación, control de orientación dorsal y ajuste de dirección y temporización del tirón, comparando siempre el escenario sin obstáculo. No deducir que una fuerza mayor o más prolongada asegura ukemi.
+
+**Vídeo diagnóstico:** la conversación acompaña un MP4 con comparación recto/circular reconstruida de las posiciones del motor a 125 Hz, submuestreadas para visualización. El modelo de trazo son cuerpos/centros de segmento, no la malla definitiva; la interpolación entre frames no recalcula física.
+
+## Corrección del retroceso inicial y visor a cámara lenta
+
+**Diagnóstico reproducido en MuJoCo (GitHub Actions #835):** se ejecutaron escenarios sin fuerzas, con postura `neutral`, `attitude: tense`, `waist_stiffness: 1`, y resistencia articular estándar o reforzada `strength: 1.5` (máximo permitido por HPL).
+
+| Escenario antes del tirón | Desplazamiento máximo de pelvis | Estado |
+|---|---:|---|
+| Tono reforzado, sin obstáculo ni fuerza | 0 m (a resolución de 1 mm) | Erguido |
+| Tono reforzado, con apoyo móvil y sin tirón | 0 m | Erguido |
+| Tono estándar, apoyo móvil, tirón retrasado a t=0,8 s | 0 m antes de t=0,8 s | Erguido hasta el tirón |
+| Tono reforzado, apoyo móvil, tirón retrasado a t=0,8 s | 0 m antes de t=0,8 s | Erguido hasta el tirón |
+| **Tono reforzado, tope fijo original y SIN fuerza** | **1,089 m** | Cae espontáneamente; asentamiento inicial desplaza pelvis ~12,7 cm atrás |
+
+Por tanto el movimiento hacia atrás en los vídeos anteriores de **tope fijo** se debe a una interacción espuria del obstáculo en el asentamiento, no a una petición de tracción ni a que Uke esté en modo relajado. **No atribuir esa caída al kuzushi ni usarla como resultado de la técnica.** La variante de tope móvil estrecho empieza equilibrada y resulta la opción predeterminada del laboratorio. Se repitió además con un tope fijo más alejado (CI #841, verde): **siguió fallando** el control sin fuerzas; comenzó con la pelvis ~22,6 cm atrás y registró ~1,089 m de desplazamiento y caída espontánea. Por tanto, la geometría fija está marcada expresamente como **NO VALIDADA** en el selector. La opción predeterminada es únicamente el apoyo móvil, que sí empieza con Uke erguido y sin desplazamiento previo.
+
+Para comparar el tono sin tocar el solver, el generador de escenarios incorpora `posture:"tense"|"firm"` (ambos `attitude:"tense"` y cintura 1; `firm` cambia `strength` de 1 a 1,5) y `begin:0.3...1.5` para observar el equilibrio sin fuerzas. **`firm` no bloquea bisagras, y no se presenta como humanoide rígido perfecto.**
+
+Vídeo a 1/4 de velocidad exportado localmente desde las posiciones físicas de la CI y los vectores aplicados de `recording.samples.effectors`, con el mismo número de píxeles por metro en los ejes X/Z. La compresión visual cuantiza las posiciones y fuerzas (aprox. 4 cm para X, 2 cm para Y y 1,2 cm para Z, ~12 N por canal); los valores de módulo inferiores a la resolución se muestran como 0. La cámara sigue al cuerpo solo después de comenzar el movimiento. **Es un vídeo del modelo articulado HPL, no una medición ni reproducción de la malla Blender.**
+
+## Qué revisar en cada técnica
+
+- **Tai-otoshi:** a partir de 1,57 s, dirección de la cabeza respecto a pelvis, trayectoria de hombros, sobrepaso de la barrera de la pierna derecha de Tori y lado de caída. Comparar la vista cenital y la frontal; comprobar la mano que retiene la manga.
+- **O-soto-gari:** entre 1,03 y 1,75 s, trayectoria de pelvis y cabeza sobre el lado segado, apoyo de pierna derecha de Uke, giro hacia atrás y espacio con la pierna segadora de Tori. Una distancia pequeña no demuestra que haya siega efectiva.
+
+## Criterios de revisión antes de tocar AnimSpec
+
+- El control sin corrección coincide exactamente en ambos lados.
+- Se reproduce el fallo original con JSON real y se identifica el primer fotograma divergente.
+- La hipótesis mejora el sentido de giro **sin empeorar claramente** agarres, distancia al apoyo o trayectoria del cráneo.
+- Después, una corrección en AnimSpec debe evaluarse por separado con render Blender, pruebas nuevas de sentido de rotación y contacto, y las referencias visuales de cada técnica. Hasta entonces las grabaciones son inmutables.
+- La simulación dinámica real con fuerzas, pares, balance, fricción y contacto MuJoCo es una **fase posterior**, no atribuible a esta prueba visual.
+
+## Comprobaciones manuales rápidas
+
+1. Abrir la entrada con el navegador y cambiar entre dos técnicas.
+2. Seleccionar «Sin corrección» y verificar igualdad geométrica de las vistas.
+3. Activar inversión completa, poner vista cenital, avanzar durante la caída y comprobar el giro lateral.
+4. Cambiar a modo de apoyos, probar pierna y espalda; comparar las distancias durante el mismo fotograma.
+5. Importar ambos JSON originales (solo locales), repetir 2–4 y anotar el primer fotograma en que el lado mejora o empeora.
+6. Confirmar que ninguna grabación de `public/recordings/` ni escenario de `scenarios/` ha sido modificada en el diff.
+
+**Comprobación:** se han añadido tests de validación del modelo y de ejecución MuJoCo para Tai-otoshi y O-soto-gari. La comprobación definitiva con los JSON de AnimeSpec y una inspección desde el navegador sigue pendiente. El experimento no autoriza modificar ni regenerar las grabaciones originales.

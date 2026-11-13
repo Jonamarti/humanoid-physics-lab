@@ -139,7 +139,16 @@ export interface FixedBoxProp {
   pos_m: Vec3;
 }
 
-export type PropSpec = FixedBoxProp;
+/** Barra estática orientable mediante extremos en coordenadas del mundo.
+ *  Aditiva: no modifica colisiones, solver ni físicas de escenarios existentes. */
+export interface FixedBarProp {
+  id: string;
+  kind: "fixed_bar";
+  from_m: Vec3;
+  to_m: Vec3;
+  radius_m: number;
+}
+export type PropSpec = FixedBoxProp | FixedBarProp;
 
 export interface PrescribedForceEffector {
   id: string;

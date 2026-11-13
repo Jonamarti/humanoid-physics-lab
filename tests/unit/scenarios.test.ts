@@ -68,7 +68,7 @@ describe("escenarios de scenarios/*.json (MuJoCo WASM real)", () => {
         it("informa (sin afirmar) la predicción de pivote ideal frente a la simulación", async () => {
           const obstacle = scenario.props[0];
           const trial = {
-            obstacleHeightM: obstacle ? obstacle.pos_m[2] + obstacle.size_m[2] / 2 : 0,
+            obstacleHeightM: obstacle?.kind === "fixed_box" ? obstacle.pos_m[2] + obstacle.size_m[2] / 2 : 0,
             horizontalForceN: pull.force_n[0],
             upwardRatio: pull.force_n[2] / pull.force_n[0],
             durationS: pull.duration_s,

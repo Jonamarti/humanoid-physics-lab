@@ -105,12 +105,12 @@ const ARC_KNOTS=[
 ];
 const lerpClamp=(v,a,b)=>Math.min(1,Math.max(0,(v-a)/(b-a)));
 const smoothStep=u=>u*u*(3-2*u);
-function arcKeys(level,tempo,mode,bias,side) {
+function arcKeys(level,tempo,mode,bias,side,begin=.30) {
   const base=410*CIRCULAR_SCALE[level];
   const durationScale=CIRCULAR_TEMPOS[tempo];
   const holdLeft=bias!=="balanced";
   return ARC_KNOTS.map(([offset,x,z])=>{
-    const t=.30+offset*durationScale;
+    const t=begin+offset*durationScale;
     const lateralRamp=smoothStep(lerpClamp(offset,.72,1.60));
     let scale=1;
     if(side==="right"&&bias!=="balanced")scale+=((CIRCULAR_BIASES[bias]-1)*lateralRamp);
@@ -138,7 +138,7 @@ function stationaryStop(blocked,height,stance) {
 export function buildCircularKuzushiScenario({
   level="medium",height="ankle",blocked="right",stance="neutral",
   tempo="long",bias="right",mode="arc",support="fixed",
-  rightSite="sleeve",
+  rightSite="sleeve",posture="tense",begin=.30,
 }={}) {
   if(!Object.hasOwn(CIRCULAR_SCALE,level))throw new Error("Intensidad desconocida.");
   if(!Object.hasOwn(BLOCK_LEVELS,height))throw new Error("Altura desconocida.");
@@ -149,22 +149,24 @@ export function buildCircularKuzushiScenario({
   if(!CIRCULAR_MODES.includes(mode))throw new Error("Dirección de tracción desconocida.");
   if(!CIRCULAR_SUPPORTS.includes(support))throw new Error("Apoyo desconocido.");
   if(!["sleeve","shoulder"].includes(rightSite))throw new Error("Sitio de manga desconocido.");
-  const tEnd=R(.30+2.30*CIRCULAR_TEMPOS[tempo]);
+  if(!["tense","firm"].includes(posture))throw new Error("Tono desconocido.");
+  if(!Number.isFinite(begin)||begin<.3||begin>1.5)throw new Error("Inicio fuera de 0,30-1,50 s.");
+  const tEnd=R(begin+2.30*CIRCULAR_TEMPOS[tempo]);
   const scenario={
     schema:"hpl.scenario.v1",
-    id:`arc_${blocked}_${height}_${level}_${tempo}_${bias}_${mode}_${support}_${rightSite}_${stance}`,
+    id:`arc_${blocked}_${height}_${level}_${tempo}_${bias}_${mode}_${support}_${rightSite}_${stance}_${posture}_${String(R(begin)).replace(".","p")}`,
     duration_s:R(Math.max(3.8,tEnd+1.0)),
     record_hz:125,
     ground:{friction:1.1},
     actors:[{id:"uke",kind:"humanoid",mass_kg:75,height_m:1.75,
-      strength:1,waist_stiffness:1,attitude:"tense",stance}],
+      strength:posture==="firm"?1.5:1,waist_stiffness:1,attitude:"tense",stance}],
     props:[],effectors:[
       {id:"kuzushi_left",kind:"pull",actor:"uke",site:"left_shoulder_impact",
-        frame:"actor_initial",keys:arcKeys(level,tempo,mode,bias,"left"),
+        frame:"actor_initial",keys:arcKeys(level,tempo,mode,bias,"left",begin),
         max_force_n:1800,max_power_w:1600},
       {id:"kuzushi_right",kind:"pull",actor:"uke",
         site:rightSite==="sleeve"?"right_sleeve_elbow":"right_shoulder_impact",
-        frame:"actor_initial",keys:arcKeys(level,tempo,mode,bias,"right"),
+        frame:"actor_initial",keys:arcKeys(level,tempo,mode,bias,"right",begin),
         max_force_n:1800,max_power_w:1600},
     ],
   };
@@ -176,7 +178,7 @@ export function buildCircularKuzushiScenario({
     }else{
       // Spring-controlled pad: mimics Tori withdrawing the blocking leg.
       // Disengagement is deliberately time-keyed and NOT contingent on contact.
-      const start=.30+1.16*CIRCULAR_TEMPOS[tempo];
+      const start=begin+1.16*CIRCULAR_TEMPOS[tempo];
       const dy=blocked==="right"?-.55:.55;
       scenario.obstacles=[{
         id:"foot_stop",shape:"pad",tori_mass_kg:75,

@@ -35,6 +35,36 @@ const runUntilIntent=(v:XY,dt=.02)=>{
   return {seq,intent};
 };
 describe("Reactive capture-point recovery step planner",()=>{
+  it("changes decision latency without changing the target prediction horizon",()=>{
+    const nominal=new ReactiveStepCoordinator();
+    const early=new ReactiveStepCoordinator({planningDelayS:.04});
+    let nominalIntent=null,earlyIntent=null;
+    for(let i=0;i<10;i++){
+      nominalIntent??=nominal.observe(sample(i*.02));
+      earlyIntent??=early.observe(sample(i*.02));
+    }
+    expect(earlyIntent?.timeS).toBe(.04);
+    expect(nominalIntent!.timeS).toBeGreaterThanOrEqual(.12);
+    expect(earlyIntent!.deltaXY).toEqual(nominalIntent!.deltaXY);
+  });
+  it("keeps actual capture evidence separate from an opt-in linear forecast",()=>{
+    const nominal=new ReactiveStepCoordinator();
+    const forecast=new ReactiveStepCoordinator({captureLookaheadS:.2});
+    let intent=null;
+    for(let i=0;i<12;i++){
+      expect(nominal.observe(sample(i*.02,[.45,0]))).toBeNull();
+      intent??=forecast.observe(sample(i*.02,[.45,0]));
+    }
+    expect(intent).not.toBeNull();
+    expect(intent!.capturePointXY[0]).toBeCloseTo(.45*Math.sqrt(.99/9.81));
+    expect(nominal.snapshot().attempts).toBe(0);
+  });
+  it("rejects invalid research settings before any step is requested",()=>{
+    for(const options of [{planningDelayS:NaN},{planningDelayS:-.01},
+      {captureLookaheadS:.5},{emergencyLateralShiftM:.2},
+      {emergencyShiftRampS:0},{transferHipRollRad:.4},{transferAnkleDampingScale:2}])
+      expect(()=>new ReactiveStepCoordinator(options)).toThrow(RangeError);
+  });
   it("does not move a foot during standing or short-lived capture-point noise",()=>{
     const c=new ReactiveStepCoordinator();
     for(let i=0;i<70;i++)expect(c.observe(sample(i*.02,[0,0]))).toBeNull();

@@ -1,0 +1,184 @@
+HUMANOID PHYSICS LAB — CONTINUIDAD DE LA SESIÓN
+Fecha: 11 de noviembre de 2026. Leer este archivo antes de cambiar el controlador.
+
+UBICACIÓN Y ALCANCE
+Repositorio local: C:\Users\Marty\Documents\Work\Programs\humanoid-physics-lab
+Repositorio GitHub: Jonamarti/humanoid-physics-lab
+Una sola rama de trabajo: experiment/70-load-aware-recovery
+Una sola PR: https://github.com/Jonamarti/humanoid-physics-lab/pull/71
+Estado de la PR: abierta, DRAFT, etiqueta no-merge. Mantener sin fusionar.
+Base: main, 90727886d51e117fc0ca47716878ac0ecbee376d (PR #69).
+Issue abierta: https://github.com/Jonamarti/humanoid-physics-lab/issues/70
+No crear una rama por variante: las variantes son carpetas de resultados.
+La instalación anterior en Documents\Codex se trasladó y quedó vacía.
+Dependencias y cachés están en Programs; las evidencias entregables están en outputs.
+
+ESTADO REAL DEL OBJETIVO
+108 ensayos: baseline y ocho variantes; cada campaña incluye los mismos 12 casos.
+Cada campaña: 8 casos estables sin solicitud de paso y 4 caídas.
+Cero transferencias válidas de 80 ms, cero LIFT/SWING legítimos, cero aterrizajes,
+cero COMPLETE. No se alcanzan los hitos A, B ni C. No confundir un pie elevado
+durante la caída con un despegue. No usar CI verde como prueba biomecánica.
+No se han seleccionado fuerzas exitosas para B ni ejecutado sus +/-10 %.
+No se ha definido una batería viable ni un denominador de robustez para C.
+No se han reclasificado las caídas como físicamente irrecuperables.
+
+DIAGNÓSTICO MEDIDO
+Lateral +Y 300 N baseline:
+- Primera WARNING: 1,28 s; izquierdo 700,05 N, derecho 35,49 N.
+- Derecho descargado a partir de 1,30 s; NO_SAFE_STEP desde 1,40 s.
+- Solicitud en 1,50 s durante un contacto transitorio: apoyo derecho 1580,13 N,
+  swing izquierdo 919,79 N. El contacto instantáneo no acredita apoyo sostenido.
+- A 1,52/1,54 s el apoyo derecho vuelve a 0 N; izquierdo 603,41 N en 1,54 s.
+- FALL a 2,54 s, sin LIFT. -Y reproduce el patrón simétrico.
+El planificador YA penaliza levantar el pie más cargado. No afirmar que ignora
+las fuerzas: usa carga instantánea, bilateralidad y una huella futura alcanzable
+sin cruce, pero no verifica viabilidad dinámica de la transferencia posterior.
+
+Anticipación 200 ms + latencia 40 ms:
+- Solicitud lateral en 1,16 s, apoyo derecho 162,89 N (22,4 %), izquierdo 565,10 N.
+- Velocidad lateral del COM 0,388 m/s. Adelanta la solicitud 340 ms, pero sigue
+  sin cargar de forma sostenida el apoyo elegido.
+- La referencia lateral va al lado correcto (Y negativo para apoyo derecho),
+  mientras el COM continúa hacia Y positivo.
+- Aparecen saturaciones de tobillo de 160 N·m incluso en el pie descargado.
+Hipótesis, NO conclusión probada: el reparto bilateral de momentos y el PD del
+tobillo descargado pueden contribuir al fallo. Reducir solo su amortiguación
+activa tampoco resuelve la transferencia. No se ha probado falta de fuerza
+muscular ni imposibilidad física de recuperar esos empujones.
+La compensación de hombros durante SHIFT_WEIGHT ya fracasó antes de esta sesión;
+no repetirla como hipótesis nueva.
+
+CAMBIOS Y PROTECCIONES
+- Opciones opt-in en ReactiveStepCoordinator: planningDelayS,
+  captureLookaheadS, emergencyLateralShiftM, emergencyShiftRampS,
+  transferHipRollRad, transferAnkleDampingScale. Los defaults quedan intactos.
+- Separación entre latencia de decisión y horizonte predictivo del planificador.
+- Configuración preservada al reset; telemetría de referencia, articulaciones,
+  pares y raíz; benchmark de 12 casos; pruebas de determinismo y grabador.
+- src/main.ts: corregido el refresco del editor al preparar v3. Los campos se
+  redibujaban deshabilitados durante la carga y no se reactivaban al terminar.
+- No se cambiaron XML, masa, timestep, colisiones, límites de par ni umbrales.
+- Mantener 72/28 %, total >250 N, COM sobre apoyo elegido, velocidad <1,2 m/s,
+  pelvis >0,82 m, inclinación <25°, 80 ms continuos. La FSM conserva además
+  el mínimo temporal de 250 ms en SHIFT_WEIGHT.
+- La puerta actual de COM usa el polígono cargado combinado; el benchmark
+  comprueba por separado el criterio más estricto sobre el pie elegido.
+- 40 ms de vuelo y deriva <=2 cm se exigen en la clasificación del benchmark;
+  no relajar las puertas internas para producir resultados positivos.
+- No fuerzas artificiales ni restricciones en raíz, pies cinemáticos o contactos
+  falsificados. 32.400 muestras con qfrc de raíz y wrench externo de pelvis nulos.
+- La deriva del marcador de suela es un proxy conservador; no llamarla medición
+  exacta del deslizamiento material. Sin aterrizaje, su deriva es N/A.
+
+MATRIZ Y VARIANTES (TODAS CON 6 S, 75 KG, DT 0,002 S)
+Fuerza en esternón: medio seno entre t=1,00 y 1,16 s, medición de cargas a 50 Hz.
+Frontal: 120/160/200 N; posterior: 100/130/160 N; izquierda/derecha: 160/220/300 N.
+Baseline: defaults.
+latency-40ms: planningDelayS=.04, frente a baseline.
+lookahead-200ms: captureLookaheadS=.2, frente a baseline.
+forecast200-latency40: .2 + .04, frente a lookahead-200ms (solo cambia latencia).
+forecast200-latency40-ramp80: anterior + emergencyShiftRampS=.08.
+forecast200-latency40-hip012: combinación .2/.04 + transferHipRollRad=.12.
+forecast200-latency40-hip024: misma combinación con cadera .24, frente a .12.
+forecast200-latency40-hipMinus012: misma combinación con cadera -.12, frente a .12.
+forecast200-latency40-ankleDamping01: combinación .2/.04 + damping .1, sin cadera.
+Se cambia un parámetro por comparación. Ninguna variante se recomienda para
+activar por defecto y ninguna demuestra todavía recuperación física.
+
+EVIDENCIAS Y REGRESIONES
+En el repo: docs/experiments/issue70/informe.html, campaign.json, comparacion.csv,
+comparacion-lateral.png, default-state-equivalence.json y validation.json.
+Datos completos, qpos, cargas, puertas y vídeos:
+C:\Users\Marty\Documents\Codex\2026-11-11\files-pasted-by-the-user-continuar\outputs
+Los JSON completos están en physics/<campaña>/<caso>.json y summary.json.
+Cada ensayo registra emisión y 0/20/40/80/120 ms, fases, cargas, COM/captura,
+velocidades, rodillas, referencia y pares. El CSV reúne las 108 filas.
+Ocho vídeos frontal/lateral: lateral 300 baseline y temprano, frontal 200 FALL,
+frontal 120 estable sin paso. Gráficos sincronizados con la física.
+Verificación local: npm ci, typecheck, lint, build pasan; 176 pruebas pasan,
+10 omitidas y 3 todo; 3 suites manuales y 5 pruebas manuales pasan.
+V3 nominal 10 s: pelvis mínima 0,9896 m; inclinación máxima 0,0494°;
+apoyo bilateral 10 s, carga final 735,75 N.
+V2 frontal voluntario 12 cm: COMPLETE con ambos pies en fricción 1,0.
+Slip aterrizaje 1,22/1,21 cm; apoyo 0,59 cm; error 4,96/4,98 cm.
+Persisten fallos conocidos con fricción 0,9/1,1; no son robustez nueva.
+Las 12 trazas de qpos por defecto coinciden exactamente con el baseline previo
+a los cambios, también tras el último cambio de código. Reset experimental:
+estado y status repetidos exactamente. Repetir una caída no satisface el hito A.
+Editor: editar y ejecutar fuerzas 3D, 8 eventos de arrastre de flecha y elección
+de punto de cuerpo físico con error de reconstrucción cero. Sin errores de página.
+
+ENTORNO Y COMANDOS PARA RETOMAR (POWERSHELL)
+Set-Location 'C:\Users\Marty\Documents\Work\Programs\humanoid-physics-lab'
+npm.cmd ci --cache ../humanoid-physics-lab-npm-cache
+npm.cmd run typecheck
+npm.cmd run lint
+npm.cmd test -- --configLoader runner --maxWorkers=2
+npm.cmd run build -- --configLoader runner
+
+Esbuild no puede recorrer C:\Users\Marty en este sandbox. --configLoader runner
+evita ese bloqueo. Para dev se desactivó únicamente el optimizador local:
+work/vite-local.config.mjs importa ../vite.config.ts y exporta el mismo config
+con optimizeDeps:{noDiscovery:true,include:[]} y server:{host:'127.0.0.1',port:4173}.
+No cambiar la configuración de producción para este problema del entorno.
+
+Benchmark nuevo:
+$env:HPL_RUN_LOAD_AWARE='1'
+$env:HPL_RESULTS_DIR='<carpeta absoluta de resultados NUEVOS>'
+npm.cmd exec -- vitest run tests/manual/loadAwareRecoveryBench.test.ts --configLoader runner --maxWorkers=1 --no-file-parallelism
+Limpiar entre campañas las variables HPL_PLANNING_DELAY, HPL_CAPTURE_LOOKAHEAD,
+HPL_SHIFT_M, HPL_SHIFT_RAMP, HPL_TRANSFER_HIP y HPL_ANKLE_DAMPING (vacío = default).
+Mapeo: .04; .2; lateral en metros; rampa en segundos; cadera rad; damping factor.
+No sobrescribir las carpetas de evidencias de esta sesión al probar otra variante.
+
+Benchmarks existentes:
+$env:HPL_RUN_V3_BENCH='1'
+$env:HPL_RUN_DIRECTIONAL_PUSHES='1'
+$env:HPL_RUN_REACTIVE_BENCH='1'
+npm.cmd exec -- vitest run tests/manual/articulatedForefootV3Bench.test.ts tests/manual/directionalStepRecoveryBench.test.ts tests/manual/reactiveStepBench.test.ts --configLoader runner --maxWorkers=1 --no-file-parallelism
+Restablecer esas variables antes de ejecutar la suite habitual.
+
+Captura: playwright@1.56.1 está instalado sin guardar dependencia en package.json.
+npm ci lo elimina; reinstalar con npm.cmd install --no-save --package-lock=false
+--cache ../humanoid-physics-lab-npm-cache playwright@1.56.1 si se necesita.
+PLAYWRIGHT_BROWSERS_PATH=...\Programs\humanoid-physics-lab-browser-cache
+CHROME_EXECUTABLE=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+HPL_CAPTURE_OUT=<salida absoluta>; HPL_BASE_URL=http://127.0.0.1:4173/humanoid-physics-lab/
+node scripts/capture-load-transfer.mjs
+No modificar src mientras se graba: HMR destruye el contexto de la grabación.
+El binario ffmpeg de Playwright ya está en la caché de Programs.
+
+Informe: scripts/report-load-transfer.py usa matplotlib (uv --with matplotlib).
+Usar MPLCONFIGDIR y --cache-dir bajo Programs para evitar escrituras en home.
+uv run --cache-dir ../humanoid-physics-lab-uv-cache --with matplotlib python scripts/report-load-transfer.py <raíz física> <salida> --repo-evidence docs/experiments/issue70
+
+GITHUB Y CONTINUIDAD DE LA RAMA
+Git local y gh tienen credenciales no válidas; no solicitar ni leer tokens.
+La conexión GitHub de Codex funciona para publicar archivos, commits y PR.
+Commit local original: d8f2e647304784b0764891ab91a05cde9fb57010.
+Commit publicado por el conector: febfc480f965c5fae2960b7b987abd31cba0f1f7.
+Ambos tienen exactamente el mismo árbol eed5849a06e7e88e6a18fabb5fd64e5a2e6c593d;
+cambian metadatos de autor/fecha/mensaje. No son dos variantes ni dos ramas.
+El fetch del sandbox también denegó escribir .git/FETCH_HEAD. La referencia
+remota autoritativa debe consultarse con el conector; conservar la misma rama.
+Este archivo y la nota final de publicación se añaden después de esos commits.
+La PR debe permanecer DRAFT y no-merge, porque ninguna estrategia mejora la física.
+No desplegar estas variantes. Main y GitHub Pages no se han actualizado.
+La PR #62 sigue abierta, DRAFT, con no-merge y sin fusionar. Mantenerla así.
+
+SIGUIENTE EXPERIMENTO PRIORITARIO
+No empezar locomoción múltiple, derribos o nuevos barridos ciegos de ganancias.
+Instrumentar a 500 Hz la ventana alrededor de la solicitud: normales, COP,
+ángulos/velocidades y saturaciones de tobillo. Evaluar viabilidad de apoyo a 120 ms
+con contactos, límites de par y movimiento del COM. Comparar UN cambio de reparto
+de momentos según las cargas reales frente a forecast200-latency40, con la misma
+matriz. Exigir los umbrales intactos y datos antes de declarar progreso.
+Si no hay apoyo y destino compatibles, NO_SAFE_STEP es una salida honesta, pero
+suprimir un paso no equivale a completar una recuperación física.
+
+PRIMER MENSAJE SUGERIDO PARA LA PRÓXIMA SESIÓN
+Continúa Humanoid Physics Lab desde NEXT_SESSION.txt en el repositorio de Programs.
+Reutiliza experiment/70-load-aware-recovery y su única PR. Lee la documentación
+y los resultados antes de cambiar el controlador. Prioriza una transferencia
+unilateral medida y no repitas las variantes negativas ya registradas.

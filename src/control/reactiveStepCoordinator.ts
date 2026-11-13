@@ -42,11 +42,39 @@ const PLANNING_DELAY_S = 0.12;
 const MAX_REACH_M = 0.34;
 const MIN_EFFECTIVE_FORCE_FRACTION = 0.60;
 
+export interface ReactiveStepOptions {
+  /** Opt-in research parameter; all physical release/completion gates stay fixed. */
+  readonly planningDelayS?: number;
+  /** Linear COM forecast used only to anticipate a step request. */
+  readonly captureLookaheadS?: number;
+  readonly emergencyLateralShiftM?: number;
+  readonly emergencyShiftRampS?: number;
+  readonly transferHipRollRad?: number;
+  readonly transferAnkleDampingScale?: number;
+}
+
 /** One automatic attempt per trial. Never retry indefinitely after a
  * failed lift or fall; manual reset required before another trial.
  * Hysteresis avoids responding to one noisy contact/capture sample.
  */
 export class ReactiveStepCoordinator {
+  constructor(readonly options:ReactiveStepOptions = {}) {
+    const delay=options.planningDelayS??PLANNING_DELAY_S;
+    if(!Number.isFinite(delay) || delay<0 || delay>0.12)
+      throw new RangeError("Latencia experimental fuera de 0..120 ms");
+    const lookahead=options.captureLookaheadS??0;
+    if(!Number.isFinite(lookahead) || lookahead<0 || lookahead>0.4)
+      throw new RangeError("Anticipación experimental fuera de 0..400 ms");
+    const shift=options.emergencyLateralShiftM??0.115;
+    const ramp=options.emergencyShiftRampS??0.35;
+    const hip=options.transferHipRollRad??0;
+    const damping=options.transferAnkleDampingScale??1;
+    if(!Number.isFinite(shift) || shift<0.05 || shift>0.15 ||
+       !Number.isFinite(ramp) || ramp<0.04 || ramp>0.5 ||
+       !Number.isFinite(hip) || Math.abs(hip)>0.3 ||
+       !Number.isFinite(damping) || damping<0 || damping>1)
+      throw new RangeError("Referencia experimental de transferencia fuera de límites");
+  }
   private phase:ReactiveRecoveryPhase="MONITORING";
   private reason="Equilibrio con corrección articular; sin paso solicitado";
   private lastSampleS=-Infinity;
@@ -91,8 +119,11 @@ export class ReactiveStepCoordinator {
     }
     if(this.attempts>0 || this.phase==="FALL") return null;
 
+    const lookahead=this.options.captureLookaheadS??0;
+    const planningCom:XY=[comXY[0]+vel[0]*lookahead,comXY[1]+vel[1]*lookahead];
+    const predictedCapture:XY=[capture[0]+vel[0]*lookahead,capture[1]+vel[1]*lookahead];
     const movingOutward=speed>=MIN_SPEED_MPS &&
-      !insideConvexHullXY(capture,ground.loadedSupportPolygonXY,0.004);
+      !insideConvexHullXY(predictedCapture,ground.loadedSupportPolygonXY,0.004);
     const supportAvailable=ground.totalVerticalLoadN>=
       mass*9.81*MIN_EFFECTIVE_FORCE_FRACTION;
     if(!movingOutward || !supportAvailable){
@@ -106,7 +137,7 @@ export class ReactiveStepCoordinator {
     if(!Number.isFinite(dt) || dt>0.06) this.warningSinceS=undefined;
     this.warningSinceS??=timeS;
     this.unstableDurationS=timeS-this.warningSinceS;
-    if(this.unstableDurationS<PLANNING_DELAY_S){
+    if(this.unstableDurationS<(this.options.planningDelayS??PLANNING_DELAY_S)){
       this.phase="WARNING";
       this.reason="Desequilibrio persistente: mantener corrección corporal antes de pisar";
       return null;
@@ -114,10 +145,11 @@ export class ReactiveStepCoordinator {
     // The existing reachability planner uses solved loaded foot polygons,
     // prevents crossing the legs and tests the future capture region.
     const plan=planRecovery({
-      comXY,comVelocityXY:velocityXY,comHeightM:com[2],
+      comXY:planningCom,comVelocityXY:velocityXY,comHeightM:com[2],
       ground,excessiveTrunkTilt:tilt>35,
       unstableDurationS:this.unstableDurationS,
       maxStepReachM:MAX_REACH_M,stepReactionDelayS:0.12,
+      planningLatencyS:this.options.planningDelayS??PLANNING_DELAY_S,
       captureMarginM:0.002,
     });
     if((plan.decision!=="STEP" && plan.decision!=="SHIFT_WEIGHT") ||

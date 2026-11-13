@@ -11,7 +11,6 @@ const BODY_NAMES=[
   "left_upperarm","left_forearm","right_upperarm","right_forearm",
   "left_thigh","left_shin","left_foot","right_thigh","right_shin","right_foot",
 ] as const;
-interface Point { x:number;y:number;z:number }
 type Snapshot={t:number;poses:[number,number,number][]; yaw_deg:number};
 const r=(x:number)=>Number(x.toFixed(3));
 
@@ -32,7 +31,6 @@ async function runOne(opts:Record<string,unknown>,emitFrames=false){
     },
   });
   const original=snaps[0]!;
-  const minZ=(name:"left_foot"|"right_foot")=>Math.min(...snaps.map(s=>s.poses[BODY_NAMES.indexOf(name)]![2]));
   const maxZ=(name:"left_foot"|"right_foot")=>Math.max(...snaps.map(s=>s.poses[BODY_NAMES.indexOf(name)]![2]));
   const footXY=(name:"left_foot"|"right_foot")=>{
     const k=BODY_NAMES.indexOf(name);

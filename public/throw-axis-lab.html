@@ -74,6 +74,22 @@ label{display:block;margin:13px 0 5px;font-weight:650;font-size:.9rem}select,inp
 <p class="hint">El tope está hecho con una caja fija que solo puede chocar con esa pierna; <strong>no inmoviliza</strong> el pie con una junta artificial. Si resbala o salta por encima del obstáculo, el modelo debe mostrarlo. La altura cambia la zona de contacto, no la potencia del tirón.</p>
 <p class="hint" id="fulcrum-status" role="status">Abre el escenario en una pestaña del laboratorio original. No cambia las grabaciones ni el solver.</p>
 </section>
+<section style="margin:18px 0;padding:13px;border:1px solid #507388;border-radius:9px;background:#0d2134" aria-label="Kuzushi circular y bloqueo temporal">
+<h2>Ensayo nuevo: kuzushi circular + bloqueo temporal</h2>
+<p class="hint">Diferencia fundamental: las fuerzas duran de 2,30 a 3,08 s, no 0,42 s. El brazo derecho sigue tirando después de que Uke tropieza. <strong>El contacto no es permanente:</strong> la pierna puede girar y separarse; además hay una variante en la que Tori retira activamente el apoyo.</p>
+<label for="arc-side">Pierna de Uke contra la que va el tope</label><select id="arc-side"><option value="right">Derecha (Tai Otoshi)</option><option value="left">Izquierda, control espejo</option><option value="none">Sin tope</option></select>
+<label for="arc-height">Altura del tope</label><select id="arc-height"><option value="ankle">Tobillo (13 cm)</option><option value="shin">Espinilla (33 cm)</option><option value="knee">Rodilla (55 cm)</option></select>
+<label for="arc-force">Fuerza de referencia</label><select id="arc-force"><option value="low">Suave</option><option value="medium" selected>Media</option><option value="high">Fuerte</option></select>
+<label for="arc-mode">Trayectoria del tirón</label><select id="arc-mode"><option value="arc">Circular: adelante+arriba → adelante → adelante+abajo</option><option value="straight">Control: solo adelante, misma duración</option></select>
+<label for="arc-bias">Tracción relativa en el brazo derecho</label><select id="arc-bias"><option value="balanced">Simétrica</option><option value="right" selected>Derecho 1,45× en fase final</option><option value="strong">Derecho 1,85× en fase final</option></select>
+<label for="arc-tempo">Duración</label><select id="arc-tempo"><option value="long">2,30 s</option><option value="extended">3,08 s</option></select>
+<label for="arc-support">Comportamiento del apoyo</label><select id="arc-support"><option value="fixed">Tope estacionario, contacto libre</option><option value="withdraw">Tori retira el apoyo después del choque (aproximación temporal)</option></select>
+<label for="arc-grip">Punto de tracción derecha</label><select id="arc-grip"><option value="sleeve">Manga derecha de Uke</option><option value="shoulder">Hombro derecho de Uke</option></select>
+<label for="arc-stance">Postura inicial</label><select id="arc-stance"><option value="neutral">Pies paralelos</option><option value="staggered_left">Pierna derecha atrás</option><option value="staggered_right">Pierna izquierda atrás</option></select>
+<div class="controls"><button type="button" id="arc-run">Ejecutar ensayo circular en MuJoCo</button><button type="button" id="arc-control">Control recto con los mismos parámetros</button><button type="button" id="arc-nostop">Control sin tope</button></div>
+<p class="hint" id="arc-status" role="status">El escenario se abre en la aplicación física de HPL. Los agarres se modelan como fuerzas prescritas, no como restricciones geométricas.</p>
+<p class="hint">Hipótesis por comprobar: el apoyo de la pierna derecha cambia el par de giro y el tirón continuo de manga permite la rotación sin contacto final. El modelo no garantiza ni exige caer de espaldas; se revisa el informe de impactos reales.</p>
+</section>
 <div id="report" class="report" role="status" aria-live="polite"></div>
 <p class="hint">Las distancias son entre <strong>segmentos del esqueleto</strong>, no penetraciones de malla; no acreditan contacto físico ni fuerzas. La hipótesis invierte el yaw alrededor de la pelvis y conserva el resto de las articulaciones relativas; puede cambiar agarres y contactos. Revisar fotograma a fotograma antes de llevar una corrección a AnimeSpec.</p>
 </section></div>

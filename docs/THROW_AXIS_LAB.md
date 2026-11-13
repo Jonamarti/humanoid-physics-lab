@@ -1,3 +1,21 @@
+### Verificación física de la caída con barra PEGADA (CI #896, 13/11/2026)
+
+Se ejecutó MuJoCo real con la barra diagonal en X=0,08–0,12 m; holgura inicial aproximada 1,7 cm frente a la espinilla derecha, `right_sleeve_elbow` con tirón **breve** de referencia 420 N desde t=0,65 s. Modelo articulado erguido `tense`, `neutral`, `strength=1.5`. La CI ha terminado en verde (91 archivos de pruebas, 6 omitidos, build y lint).
+
+| Métrica | Barra junto a espinilla (X=0,08 m) | Control sin barra, mismo tirón |
+|---|---|---|
+| Movimiento de pelvis antes de la fuerza | < 1 mm | < 1 mm |
+| Primer contacto con barra | **0,848 s, espinilla derecha** | ninguno |
+| Orientación del pecho a 1 s (yaw aprox.) | **+37° hacia izquierda** | **+52,33°** |
+| Inicio de caída registrada | **1,744 s** | **1,520 s** |
+| Primera parte que toca el suelo | **antebrazo derecho** | **antebrazo derecho** |
+| Dirección frontal del pecho después de caer (componente Z; ~t=1,76 s) | **−0,50, mira hacia abajo** | **+0,92, mira hacia arriba** |
+| Contacto posterior con barra | se vuelve a registrar hasta t=3,4 s; también termina implicando otros segmentos, incluido pie izquierdo | no aplica |
+
+**Conclusión:** esta configuración de barra pegada cumple el primer contacto con espinilla y no altera la postura inicial. Sin embargo, **NO completa un Tai Otoshi correcto**: el obstáculo restringe el giro, y Uke acaba orientando el pecho hacia el suelo mientras que en el control sin barra termina orientándolo hacia arriba. El contacto no queda limitado a un fulcro breve, pues se registra otra vez durante el aterrizaje. La siguiente fase requiere cambiar la geometría/retiro temporal de la barra y la dirección del tirón **después** del primer contacto, con validación de recepción dorsal y sin otros contactos no deseados. No transferir el movimiento actual a AnimeSpec como corrección.
+
+Se creó localmente un vídeo MP4 a x0,28 con vistas lateral/cenital y control A/B. Los puntos del esqueleto, dirección frontal del pecho y fuerza real de manga vienen de registros MuJoCo; el vídeo interpola muestras cada 0,08 s y redondea coordenadas para visualización. **El vídeo no se añade al repositorio** ni modifica grabaciones originales.
+
 ### Ajuste del obstáculo a la posición inicial de la espinilla (13/11/2026)
 
 Según la observación del usuario, la barra situada a X=0,55 m estaba demasiado lejos: Uke ya había girado mucho antes de tocarla. Se modifica el experimento aislado `public/one-sleeve-lab.js` para que la barra diagonal se sitúe por defecto en X=0,08 m respecto al plano inicial de espinilla X≈0 (frente al Uke erguido y neutro), ocupando aproximadamente X=0,08–0,12 m; va de Y=−0,30 a −0,055 m, Z=0,13–0,32 m, radio 0,04 m. El radio de la espinilla física es ~0,053 m. La distancia mínima estimada entre superficies de cápsulas es ~1,7 cm al inicio, sin intención de penetrar el muñeco. Es una **estimación geométrica**, no una medición de contacto dinámico. La separación se puede cambiar en el visor a X=0,10 / 0,12 / 0,15 m. Se añaden controles MuJoCo sin fuerza en X=0,06, 0,08, 0,10 y 0,12 m y tirones en las variantes cercanas. **No se ha confirmado todavía en la última ejecución CI el tiempo de contacto y la estabilidad de la nueva posición**; los vídeos anteriores con barra a 0,55 m NO representan el experimento corregido.

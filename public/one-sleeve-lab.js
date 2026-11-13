@@ -15,7 +15,7 @@ const PHASES={
   redirect:[[0,0,0],[.18,.65,.4],[.48,1,.38],[.85,1,0],[1.15,.94,-.35],[1.5,.85,-.75],[1.85,.5,-.88],[2.2,0,0]],
 };
 export const ONE_SLEEVE_VARIANTS=Object.keys(PHASES);
-export function buildOneSleeveScenario({mode="brief",bar="right",force="medium",posture="firm",begin=.65,lean="none",angle="diagonal",barX=.55}={}) {
+export function buildOneSleeveScenario({mode="brief",bar="right",force="medium",posture="firm",begin=.65,lean="none",angle="diagonal",barX=.08}={}) {
   if(!(mode in PHASES))throw Error("Perfil desconocido.");
   if(!["right","both","none"].includes(bar))throw Error("Barra desconocida.");
   if(!(force in INTENSITY))throw Error("Fuerza desconocida.");
@@ -31,6 +31,7 @@ export function buildOneSleeveScenario({mode="brief",bar="right",force="medium",
   // The bar's two ends are 3D points, so this is a TRUE diagonal capsule,
   // not an axis-aligned box drawn obliquely. The right foot can rise/pivot
   // over it; contact is naturally lost when it clears the bar.
+  // Approx. 1.7 cm surface clearance from right shin in neutral pose at barX=.08.
   // +X anterior to shin: no initial interpenetration. Compare to no-bar
   // and no-force controls to catch a bad settling contact.
   const barAt=side=>{

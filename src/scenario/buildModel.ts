@@ -173,18 +173,24 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
     reserved.add(prop.id);
     return propGeometryXml(prop,friction);
   });
-  const mjcf = generateHumanoidMJCF({
+  let mjcf = generateHumanoidMJCF({
     mass_kg: actor.mass_kg,
     height_m: actor.height_m,
     ...(actor.build !== undefined ? { build: actor.build } : {}),
     ...(actor.segment_lengths_m !== undefined ? { segment_lengths_m: actor.segment_lengths_m } : {}),
   }, {
     friction: scenario.ground.friction,
-    extraWorldXml: propBlocks.join("\n"),
+    // Preserve byte-identical order of legacy fixed boxes. New diagonal bars
+    // are appended after Uke so the existing standing controller continues
+    // to see pelvis at body index 1 (it assumes subtree_com[3]).
+    extraWorldXml: propBlocks.filter((_,i)=>scenario.props[i]?.kind==="fixed_box").join("\n"),
     optionAttrs: COLLISION_ATTRS,
     modelName: scenario.id,
     jointDampingByName: attitudeJointDamping(actor.attitude, actor.mass_kg, actor.height_m, actor.strength),
   });
+  for(let i=0;i<scenario.props.length;i++){
+    if(scenario.props[i]?.kind==="fixed_bar") mjcf=appendToWorldbody(mjcf,propBlocks[i]!+"\n");
+  }
   return {
     mjcf,
     bodies: ["world", ...namesInOrder(mjcf, ["body"])],

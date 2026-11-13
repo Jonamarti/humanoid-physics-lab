@@ -1,3 +1,4 @@
+import {buildOneSleeveScenario,oneSleeveHash} from "./one-sleeve-lab.js";
 import {buildFulcrumScenario,buildCircularKuzushiScenario,fulcrumScenarioHash,expectedYawMoment,FULCRUM_LEVELS} from "./fulcrum-scenarios.js";
 /* global document, window, URL, requestAnimationFrame */
 import { buildThrowPhysicsScenario, physicsScenarioHash } from "./throw-axis-physics.js";
@@ -193,3 +194,34 @@ function launchArc(overrides={}) {
 $("arc-run").addEventListener("click",()=>launchArc());
 $("arc-control").addEventListener("click",()=>launchArc({mode:"straight"}));
 $("arc-nostop").addEventListener("click",()=>launchArc({blocked:"none"}));
+
+function singleConfig(overrides={}) {
+  return {
+    bar:$("single-bar").value,mode:$("single-mode").value,
+    force:$("single-force").value,posture:$("single-posture").value,
+    angle:$("single-angle").value,lean:$("single-lean").value,
+    ...overrides,
+  };
+}
+function launchSingle(overrides={}){
+  const status=$("single-status");
+  try{
+    const cfg=singleConfig(overrides);
+    const scenario=buildOneSleeveScenario(cfg);
+    if(overrides.noForce)scenario.effectors=[];
+    const url=new URL("./",window.location.href);
+    url.hash=oneSleeveHash(scenario);
+    const popup=window.open(url.toString(),"_blank","noopener,noreferrer");
+    status.textContent=(popup?"Escenario abierto: ":"Ventana bloqueada: usa el enlace siguiente. ")+scenario.id;
+    let link=$("single-link");
+    if(!link){
+      link=document.createElement("a");link.id="single-link";
+      link.textContent="Abrir ensayo individual de manga derecha";
+      link.rel="noopener noreferrer";link.target="_blank";status.after(link);
+    }
+    link.href=url.toString();
+  }catch(err){status.textContent=err instanceof Error?err.message:String(err);}
+}
+$("single-run").addEventListener("click",()=>launchSingle());
+$("single-nobar").addEventListener("click",()=>launchSingle({bar:"none"}));
+$("single-noforce").addEventListener("click",()=>launchSingle({noForce:true}));

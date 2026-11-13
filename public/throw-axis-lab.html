@@ -100,6 +100,13 @@ label{display:block;margin:13px 0 5px;font-weight:650;font-size:.9rem}select,inp
 <label for="single-mode">Tipo de tirón de manga</label><select id="single-mode"><option value="brief">Breve y recto: solo hacia delante</option><option value="sustained" selected>Recto y prolongado (giro inicial moderado)</option><option value="redirect">Redirigido: adelante/arriba → adelante → adelante/abajo</option></select>
 <label for="single-force">Intensidad</label><select id="single-force"><option value="soft" selected>Suave (230 N de referencia)</option><option value="medium">Media (420 N)</option><option value="strong">Fuerte (650 N)</option></select>
 <label for="single-posture">Tono de Uke</label><select id="single-posture"><option value="firm" selected>Firme (controlador tenso, fuerza muscular 1,5×)</option><option value="tense">Tenso normal (1×)</option></select>
+<label for="single-gap">Separación de la barra respecto a la espinilla derecha inicial</label><select id="single-gap">
+<option value="0.08" selected>Muy cerca (~1,7 cm de holgura entre superficies)</option>
+<option value="0.10">Cerca (~3,7 cm de holgura)</option>
+<option value="0.12">Algo más separada (~5,7 cm)</option>
+<option value="0.15">Separación de control (~8,7 cm)</option>
+</select>
+<p class="hint">Distancias geométricas aproximadas en la postura neutral inicial, no distancias a partir del centro de la pierna. Barra siempre a la altura inicial de la espinilla; el pie conserva libertad de pivotar y superar el apoyo.</p>
 <label for="single-angle">Geometría de la barra</label><select id="single-angle"><option value="diagonal">Diagonal ascendente (en Y y Z)</option><option value="straight">Horizontal (control geométrico)</option></select>
 <label for="single-lean">Componente lateral adicional</label><select id="single-lean"><option value="none" selected>Ninguna (solo componente hacia delante)</option><option value="left">Hacia la izquierda de Uke (+Y, 22 %)</option></select>
 <div class="controls"><button type="button" id="single-run">Simular manga derecha + barra</button><button type="button" id="single-nobar">Comparar SIN barra</button><button type="button" id="single-noforce">Control SIN tirón</button></div>

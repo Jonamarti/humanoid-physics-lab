@@ -1,3 +1,4 @@
+/* global TextEncoder, btoa */
 /**
  * Read-only bridge from AnimSpec's 23-point trajectories to EXISTING HPL MuJoCo scenarios.
  * Does not change Uke's recorded qpos or force any angular motion. The HPL solver computes it.
@@ -14,7 +15,6 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 const unit = (a, fallback) => { const d = Math.hypot(...a); return d > 1e-7 ? mul(a, 1 / d) : fallback; };
 const avg = (a, b) => mul(add(a, b), .5);
 const vround = a => a.map(x => round(x));
-const clamp = (a, lo, hi) => Math.max(lo, Math.min(hi, a));
 
 function inputFrames(frames) {
   if (!Array.isArray(frames) || frames.length < 2) throw new Error("Se necesitan dos o más fotogramas.");

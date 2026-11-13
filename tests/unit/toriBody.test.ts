@@ -232,4 +232,46 @@ describe("cuerpo de Tori en el escenario (MuJoCo WASM real)", () => {
     expect(Object.keys(recording.peaks.effectors)).toEqual([]);
     expect(recording.summary.outcome).toBe("standing");
   }, 60_000);
+
+  it("con `interp: linear` Tori no se para en cada postura; por defecto sigue siendo mínimo tirón", () => {
+    const keys = defaultToriKeys(1.75);
+    const a = keys[1]!, b = keys[2]!;
+    const quarter = a.t_s + (b.t_s - a.t_s) * 0.25;
+    const linear = toriPoseAt(keys, quarter, "linear").pelvis_m;
+    const smooth = toriPoseAt(keys, quarter).pelvis_m;
+    for (let k = 0; k < 3; k++) expect(linear[k]).toBeCloseTo(a.pelvis_m[k]! + (b.pelvis_m[k]! - a.pelvis_m[k]!) * 0.25, 9);
+    expect(dist(linear, a.pelvis_m)).toBeGreaterThan(dist(smooth, a.pelvis_m));
+    expect(resolveToriBodyParams({ mass_kg: 75, height_m: 1.75, keys }).interp).toBe("min_jerk");
+    const json = load();
+    ((json.tori as Record<string, unknown>).body as Record<string, unknown>).interp = "cubic";
+    expect(() => validateScenario(json)).toThrow(ScenarioValidationError);
+  });
+
+  it("un agarre con `engage_s` no tira hasta ese instante", async () => {
+    const json = load();
+    const grips = ((json.tori as Record<string, unknown>).body as Record<string, unknown>).grips as Record<string, Record<string, unknown>>;
+    grips.left!.engage_s = 0.9;
+    delete json.expect;
+    const recording = await runScenario(validateScenario(json), { engineVersion: "test" });
+    const force = (s: (typeof recording.samples)[number]): number =>
+      Math.hypot(...(s.effectors.find((e) => e.id === "tori_left_hand")!.force_n as [number, number, number]));
+    expect(Math.max(...recording.samples.filter((s) => s.t < 0.88).map(force))).toBe(0);
+    expect(Math.max(...recording.samples.filter((s) => s.t >= 0.9).map(force))).toBeGreaterThan(50);
+  }, 60_000);
+});
+
+describe("Tori guionizado con el humanoide simulado: las cuatro secuencias de la galería", () => {
+  const ids = ["siega_exterior", "zancadilla_delante", "siega_interior", "entrada_piernas"].map((n) => `uke_75_175_tori_${n}`);
+  for (const id of ids) {
+    it(`${id}: el humanoide acaba en el suelo y las manos no pasan de su tope`, async () => {
+      const json = JSON.parse(readFileSync(new URL(`../../scenarios/${id}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+      const recording = await runScenario(validateScenario(json), { engineVersion: "test" });
+      expect(recording.summary.outcome).toBe("fall");
+      for (const hand of ["tori_left_hand", "tori_right_hand"]) {
+        const peak = recording.peaks.effectors[hand]!;
+        expect(peak.max_force_n).toBeGreaterThan(50);
+        expect(peak.max_force_n).toBeLessThanOrEqual(400);
+      }
+    }, 60_000);
+  }
 });

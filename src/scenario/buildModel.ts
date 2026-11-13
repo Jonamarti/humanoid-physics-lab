@@ -48,6 +48,7 @@ export function scenarioToriBody(scenario: Scenario): ToriBodyParams | undefined
   return resolveToriBodyParams({
     mass_kg: scenario.tori!.mass_kg, height_m: body.height_m, keys: body.keys,
     ...(body.friction !== undefined ? { friction: body.friction } : {}),
+    ...(body.interp !== undefined ? { interp: body.interp } : {}),
   });
 }
 

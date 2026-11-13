@@ -167,6 +167,8 @@ function selectedArcConfig(overrides={}) {
     support:$("arc-support").value,
     rightSite:$("arc-grip").value,
     stance:$("arc-stance").value,
+    posture:$("arc-posture").value,
+    begin:Number($("arc-begin").value),
     ...overrides,
   };
 }

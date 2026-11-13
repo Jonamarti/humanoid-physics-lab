@@ -34,7 +34,7 @@ export function buildFulcrumScenario({
   // must not also block the foot just because it occupies the whole column below.
   // X positions leave a clearance at t=0 for the 1.75m neutral Uke geometry.
   const barrier={ankle:{x:.242,depth:.065,band:.12},shin:{x:.14,depth:.07,band:.12},
-    knee:{x:.15,depth:.07,band:.12},thigh:{x:.16,depth:.09,band:.12}}[height];
+    knee:{x:.31,depth:.07,band:.12},thigh:{x:.16,depth:.09,band:.12}}[height];
   const shift=stance==="staggered_left"&&blocked==="right" ? -.13 :
     stance==="staggered_right"&&blocked==="left" ? -.13 : 0;
   const block=blocked==="none"?[]:[{
@@ -125,9 +125,9 @@ function stationaryStop(blocked,height,stance) {
   const sign=blocked==="left"?1:-1;
   const h=BLOCK_LEVELS[height];
   const barrier={ankle:{x:.242,depth:.065,band:.12},
-    shin:{x:.14,depth:.07,band:.12},
+    shin:{x:.32,depth:.07,band:.12},
     knee:{x:.15,depth:.07,band:.12},
-    thigh:{x:.16,depth:.09,band:.12}}[height];
+    thigh:{x:.33,depth:.09,band:.12}}[height];
   const shift=stance==="staggered_left"&&blocked==="right"?-.13:
     stance==="staggered_right"&&blocked==="left"?-.13:0;
   return {
@@ -137,7 +137,7 @@ function stationaryStop(blocked,height,stance) {
 }
 export function buildCircularKuzushiScenario({
   level="medium",height="ankle",blocked="right",stance="neutral",
-  tempo="long",bias="right",mode="arc",support="fixed",
+  tempo="long",bias="right",mode="arc",support="withdraw",
   rightSite="sleeve",posture="tense",begin=.30,
 }={}) {
   if(!Object.hasOwn(CIRCULAR_SCALE,level))throw new Error("Intensidad desconocida.");

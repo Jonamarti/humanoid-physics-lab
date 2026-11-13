@@ -23,7 +23,7 @@ export function buildOneSleeveScenario({mode="brief",bar="right",force="medium",
   if(!["none","left"].includes(lean))throw Error("Sesgo lateral desconocido.");
   if(!["diagonal","straight"].includes(angle))throw Error("Orientación de barra desconocida.");
   if(!Number.isFinite(begin)||begin<.4||begin>1.3)throw Error("Inicio fuera de intervalo.");
-  if(!Number.isFinite(barX)||barX<.3||barX>3)throw Error("Posición anterior de barra fuera de 30-300 cm.");
+  if(!Number.isFinite(barX)||barX<.04||barX>3)throw Error("Posición anterior de barra fuera de 4-300 cm.");
   const f=INTENSITY[force];
   const keys=PHASES[mode].map(([t,x,z])=>({
     t_s:rounded(begin+t),force_n:v(f*x,lean==="left"?f*x*.22:0,f*z),

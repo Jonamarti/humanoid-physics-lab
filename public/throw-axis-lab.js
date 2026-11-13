@@ -62,9 +62,9 @@ function drawTrace(ctx,variant,view,frames,now){const points=[];for(let i=0;i<fr
 function paint(canvas,f,uke,variant,end){const ctx=canvas.getContext("2d");if(!ctx)return;const view=$("view").value;ctx.clearRect(0,0,720,660);
 ctx.strokeStyle="#39536a";ctx.lineWidth=1;for(let m=-2;m<=3;m+=.5){line(ctx,project([m,-2,0],view),project([m,2,0],view),"#294056",1);line(ctx,project([-2,m,0],view),project([3,m,0],view),"#294056",1);}
 if($("trace").checked)drawTrace(ctx,variant,view,state.frames,f.t);
-if($("mode").value==="full")drawCharacter(ctx,f.tori,COLORS.tori,view,true);else drawSupport(ctx,f.tori,view);
+if($("mode").value==="full")drawCharacter(ctx,f.tori,COLORS.tori,view,true);else if($("contacts").checked)drawSupport(ctx,f.tori,view);
 drawCharacter(ctx,uke,COLORS.uke,view,false);circle(ctx,project(pelvis(uke),view),"#fff",5);
-const d=proximity(f.tori,uke);ctx.font="18px ui-monospace,monospace";ctx.fillStyle="#e5f2fc";ctx.fillText("t="+f.t.toFixed(2)+" s",20,30);ctx.fillText("Distancia esqueleto: "+Math.round(d*100)+" cm",20,56);
+const d=proximity(f.tori,uke);ctx.font="18px ui-monospace,monospace";ctx.fillStyle="#e5f2fc";ctx.fillText("t="+f.t.toFixed(2)+" s",20,30);if($("contacts").checked)ctx.fillText("Distancia esqueleto: "+Math.round(d*100)+" cm",20,56);
 const h=project(uke[22],view),p=project(pelvis(uke),view);line(ctx,p,h,COLORS.head,1);ctx.font="15px system-ui";ctx.fillStyle="#b8cada";ctx.fillText(variant?"Hipótesis: yaw invertido":"Grabación / entrada intacta",20,635);}
 function refresh(){const {f,angle,end}=current();const newUke=alternative(f.uke,angle);paint($("original"),f,f.uke,false,end);paint($("variant"),f,newUke,true,end);
 const da=proximity(f.tori,f.uke),db=proximity(f.tori,newUke),a=pelvis(f.uke),h=f.uke[22],bh=newUke[22];const hand= len(sub(f.tori[16],newUke[17]));const fmt=n=>n.toFixed(2).replace(".",",");

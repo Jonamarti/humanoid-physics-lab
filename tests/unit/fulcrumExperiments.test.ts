@@ -207,6 +207,7 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
 describe("equilibrio previo, Uke firme y fuerzas reales",()=>{
   const series=[
     {name:"sin_fuerza",posture:"firm",begin:1.2,noForce:true},
+    {name:"sin_fuerza_con_tope",posture:"firm",begin:1.2,noForce:true},
     {name:"tense_08",posture:"tense",begin:.8,noForce:false},
     {name:"firm_08",posture:"firm",begin:.8,noForce:false},
     {name:"firm_12",posture:"firm",begin:1.2,noForce:false},
@@ -219,9 +220,11 @@ describe("equilibrio previo, Uke firme y fuerzas reales",()=>{
     if(noForce){
       scenario.effectors=[];
       scenario.duration_s=1.24;
-      scenario.id="arc_no_force_firm";
-      scenario.obstacles=[];
-      scenario.props=[];
+      scenario.id="arc_no_force_firm_"+name;
+      if(name==="sin_fuerza"){
+        scenario.obstacles=[];
+        scenario.props=[];
+      }
     }
     const spec=validateScenario(scenario);
     const built=buildScenarioModel(spec);
@@ -252,7 +255,8 @@ describe("equilibrio previo, Uke firme y fuerzas reales",()=>{
         .map(e=>({id:e.id,point:e.point_m.map(r),force:e.force_n.map(r)}));
     });
     const firstApplied=rec.samples.find(q=>q.effectors.some(e=>Math.hypot(...e.force_n)>1))?.t??null;
-    const metrics={name,posture,begin,stance:"neutral",
+    const earlyStopContact=rec.samples.some(q=>q.t<begin&&q.contacts.some(c=>c.body_a==="foot_stop"||c.body_b==="foot_stop"));
+    const metrics={name,posture,begin,stance:"neutral",early_stop_contact:earlyStopContact,
       pre_force_pelvis_drift_m:r(maxDrift),initial_pelvis:origin,
       initial_head_height_m:head[2],
       feet_center_z_m:r((feet[0][2]+feet[1][2])/2),

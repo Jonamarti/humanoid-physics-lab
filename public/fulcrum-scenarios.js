@@ -70,3 +70,124 @@ export function expectedYawMoment(forcePerShoulderN,side="right",halfShoulderWid
   // sum of (r_y * -F_x) of two parallel symmetric pulls, in N*m.
   return -((halfShoulderWidthM-yp)+(-halfShoulderWidthM-yp))*forcePerShoulderN;
 }
+
+
+/**
+ * Segunda generación: kuzushi por fases + contacto unilateral TEMPORAL.
+ *
+ * El apoyo NO es una junta fija del pie. Es una superficie de colisión: Uke
+ * puede deslizarse, despegar, pasar por encima o dejar de tocarla en cualquier
+ * instante. En 'withdraw' la superficie (pierna idealizada de Tori) se retira
+ * siguiendo una trayectoria temporal; no espera a detectar el impacto.
+ *
+ * El tirón es una fuerza real sobre dos puntos del muñeco, no una animación
+ * prescrita de Uke. La geometría inicial queda sin alterar.
+ */
+export const CIRCULAR_TEMPOS=Object.freeze({long:1,extended:1.34});
+export const CIRCULAR_BIASES=Object.freeze({balanced:1,right:1.45,strong:1.85});
+export const CIRCULAR_MODES=Object.freeze(["arc","straight"]);
+export const CIRCULAR_SUPPORTS=Object.freeze(["fixed","withdraw"]);
+const CIRCULAR_SCALE=Object.freeze({low:.65,medium:1,high:1.4});
+const ARC_KNOTS=[
+  // [tiempo desde 0.30 s, delante X, vertical Z] relativos a Fbase;
+  // up -> forward -> forward/down -> down/deceleration.
+  [0,0,0],
+  [.14,.34,.46],
+  [.34,.72,.70],
+  [.52,.92,.52],
+  [.72,1.02,.25],
+  [.95,1.04,0],
+  [1.25,1.10,-.35],
+  [1.52,1.08,-.65],
+  [1.80,.85,-.95],
+  [2.04,.51,-.72],
+  [2.30,0,0],
+];
+const lerpClamp=(v,a,b)=>Math.min(1,Math.max(0,(v-a)/(b-a)));
+const smoothStep=u=>u*u*(3-2*u);
+function arcKeys(level,tempo,mode,bias,side) {
+  const base=410*CIRCULAR_SCALE[level];
+  const durationScale=CIRCULAR_TEMPOS[tempo];
+  const holdLeft=bias!=="balanced";
+  return ARC_KNOTS.map(([offset,x,z])=>{
+    const t=.30+offset*durationScale;
+    const lateralRamp=smoothStep(lerpClamp(offset,.72,1.60));
+    let scale=1;
+    if(side==="right"&&bias!=="balanced")scale+=((CIRCULAR_BIASES[bias]-1)*lateralRamp);
+    if(side==="left"&&holdLeft)scale*=1-(bias==="strong"?.65:.38)*lateralRamp;
+    // Straight control uses exactly the same duration and Fx progression
+    // as arc, but zero vertical component (controls force direction).
+    return {t_s:R(t),force_n:vec(base*x*scale,0,
+      mode==="arc"?base*z*scale:0)};
+  });
+}
+function stationaryStop(blocked,height,stance) {
+  const sign=blocked==="left"?1:-1;
+  const h=BLOCK_LEVELS[height];
+  const barrier={ankle:{x:.242,depth:.065,band:.12},
+    shin:{x:.14,depth:.07,band:.12},
+    knee:{x:.15,depth:.07,band:.12},
+    thigh:{x:.16,depth:.09,band:.12}}[height];
+  const shift=stance==="staggered_left"&&blocked==="right"?-.13:
+    stance==="staggered_right"&&blocked==="left"?-.13:0;
+  return {
+    x:R(barrier.x+shift),y:R(sign*.105),z:R(h),
+    sx:R(barrier.depth),sy:.13,sz:R(barrier.band),
+  };
+}
+export function buildCircularKuzushiScenario({
+  level="medium",height="ankle",blocked="right",stance="neutral",
+  tempo="long",bias="right",mode="arc",support="fixed",
+  rightSite="sleeve",
+}={}) {
+  if(!Object.hasOwn(CIRCULAR_SCALE,level))throw new Error("Intensidad desconocida.");
+  if(!Object.hasOwn(BLOCK_LEVELS,height))throw new Error("Altura desconocida.");
+  if(!FULCRUM_SIDES.includes(blocked))throw new Error("Pierna desconocida.");
+  if(!["neutral","staggered_left","staggered_right"].includes(stance))throw new Error("Postura desconocida.");
+  if(!Object.hasOwn(CIRCULAR_TEMPOS,tempo))throw new Error("Duración desconocida.");
+  if(!Object.hasOwn(CIRCULAR_BIASES,bias))throw new Error("Sesgo de manga desconocido.");
+  if(!CIRCULAR_MODES.includes(mode))throw new Error("Dirección de tracción desconocida.");
+  if(!CIRCULAR_SUPPORTS.includes(support))throw new Error("Apoyo desconocido.");
+  if(!["sleeve","shoulder"].includes(rightSite))throw new Error("Sitio de manga desconocido.");
+  const tEnd=R(.30+2.30*CIRCULAR_TEMPOS[tempo]);
+  const scenario={
+    schema:"hpl.scenario.v1",
+    id:`arc_${blocked}_${height}_${level}_${tempo}_${bias}_${mode}_${support}_${rightSite}_${stance}`,
+    duration_s:R(Math.max(3.8,tEnd+1.0)),
+    record_hz:125,
+    ground:{friction:1.1},
+    actors:[{id:"uke",kind:"humanoid",mass_kg:75,height_m:1.75,
+      strength:1,waist_stiffness:1,attitude:"tense",stance}],
+    props:[],effectors:[
+      {id:"kuzushi_left",kind:"pull",actor:"uke",site:"left_shoulder_impact",
+        frame:"actor_initial",keys:arcKeys(level,tempo,mode,bias,"left"),
+        max_force_n:1800,max_power_w:1600},
+      {id:"kuzushi_right",kind:"pull",actor:"uke",
+        site:rightSite==="sleeve"?"right_sleeve_elbow":"right_shoulder_impact",
+        frame:"actor_initial",keys:arcKeys(level,tempo,mode,bias,"right"),
+        max_force_n:1800,max_power_w:1600},
+    ],
+  };
+  if(blocked!=="none"){
+    const p=stationaryStop(blocked,height,stance);
+    if(support==="fixed"){
+      scenario.props=[{id:"foot_stop",kind:"fixed_box",
+        size_m:vec(p.sx,2*p.sy,2*p.sz),pos_m:vec(p.x,p.y,p.z)}];
+    }else{
+      // Spring-controlled pad: mimics Tori withdrawing the blocking leg.
+      // Disengagement is deliberately time-keyed and NOT contingent on contact.
+      const start=.30+1.16*CIRCULAR_TEMPOS[tempo];
+      const dy=blocked==="right"?-.55:.55;
+      scenario.obstacles=[{
+        id:"foot_stop",shape:"pad",tori_mass_kg:75,
+        start_m:vec(p.x,p.y,p.z),
+        size_m:vec(p.sx,2*p.sy,2*p.sz),
+        friction:1.2,surface:"cloth",mass_kg:4,
+        max_force_n:4500,max_vertical_force_n:4500,
+        kp_n_per_m:15000,
+        phases:[{start_s:R(start),duration_s:.5,offset_m:vec(0,dy,0)}],
+      }];
+    }
+  }
+  return scenario;
+}

@@ -37,6 +37,10 @@ async function runOne(opts:Record<string,unknown>,emitFrames=false){
     return r(Math.hypot(...([0,1].map(i=>snaps.at(-1)!.poses[k]![i]-original.poses[k]![i]) as [number,number])));
   };
   const peakYaw=r(Math.max(...snaps.map(s=>Math.abs(s.yaw_deg))));
+  const stopContacts=rec.samples.flatMap(s=>s.contacts.filter(c=>c.body_a==="foot_stop"||c.body_b==="foot_stop")
+    .map(c=>({t:r(s.t),part:c.body_a==="foot_stop"?c.body_b:c.body_a,force:r(Math.hypot(...c.force_n))})));
+  const stopParts=Array.from(new Set(stopContacts.map(c=>c.part)));
+
   const summary={
     id:sc.id,outcome:rec.summary.outcome,dir:rec.summary.direction_deg,
     max_tilt:r(rec.summary.max_tilt_deg),fall:rec.summary.uke?.fall?.t_s??null,
@@ -46,7 +50,8 @@ async function runOne(opts:Record<string,unknown>,emitFrames=false){
     foot_right_lift:r(maxZ("right_foot")-original.poses[BODY_NAMES.indexOf("right_foot")]![2]),
     foot_left_move:footXY("left_foot"),foot_right_move:footXY("right_foot"),
     head_xy:snaps.at(-1)!.poses[BODY_NAMES.indexOf("head")]!.slice(0,2),
-    right_contact:rec.samples.some(s=>s.contacts.some(c=>c.body_a==="foot_stop"||c.body_b==="foot_stop")),
+    right_contact:stopContacts.length>0, stop_first_t:stopContacts[0]?.t??null,
+    stop_parts:stopParts, stop_peak_n:r(Math.max(0,...stopContacts.map(c=>c.force))),
     frame_count:snaps.length,
   };
   expect(rec.samples.length).toBeGreaterThan(100);

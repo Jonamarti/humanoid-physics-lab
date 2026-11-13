@@ -148,10 +148,13 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
     const built=buildScenarioModel(sc);
     const ids=BODY_NAMES.map(x=>built.bodies.indexOf(x));
     const snap:Snapshot[]=[];
+    const chestFacing:Array<{t:number,frontUp:number}>=[];
     const rec=await runScenario(sc,{engineVersion:"circular-kuzushi-test",onSample:(_m,raw,index)=>{
       if(index%10!==0)return;
       const d=raw as {xpos:Float64Array;xmat:Float64Array};
       const pelvisId=ids[0]!;
+      const chestId=ids[2]!;
+      chestFacing.push({t:r(index/sc.record_hz),frontUp:r(d.xmat[9*chestId+6]!) });
       snap.push({t:r(index/sc.record_hz),
         poses:ids.map(id=>[r(d.xpos[3*id]!),r(d.xpos[3*id+1]!),r(d.xpos[3*id+2]!)]),
         yaw_deg:r(Math.atan2(d.xmat[9*pelvisId+3]!,d.xmat[9*pelvisId]!)*180/Math.PI)});
@@ -160,6 +163,9 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
       .map(c=>({t:r(q.t),body:c.body_a==="foot_stop"?c.body_b:c.body_a,
         fn:r(Math.hypot(...c.force_n))})));
     const contactFirst=contact[0]?.t??null, contactLast=contact.at(-1)?.t??null;
+    const chestTime=rec.summary.uke?.fall?.contact_order?.find(c=>c.body==="chest")?.t_s;
+    const chestFacingAtImpact=chestTime===undefined?null:chestFacing.reduce((p,c)=>
+      Math.abs(c.t-chestTime)<Math.abs(p.t-chestTime)?c:p,chestFacing[0]!).frontUp;
     const minZ=(p:string)=>Math.min(...snap.map(x=>x.poses[BODY_NAMES.indexOf(p as typeof BODY_NAMES[number])]![2]));
     const maxZ=(p:string)=>Math.max(...snap.map(x=>x.poses[BODY_NAMES.indexOf(p as typeof BODY_NAMES[number])]![2]));
     const summary={
@@ -172,6 +178,7 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
       separated_before_end:contactLast!==null&&contactLast<sc.duration_s-.2,
       contact_before_fall:contactFirst!==null&&(rec.summary.uke?.fall?.t_s??Infinity)>contactFirst,
       torso_impact_mps:rec.summary.uke?.fall?.impact.chest?.speed_mps??null,
+      chest_front_up_z_at_impact:chestFacingAtImpact,
       contact_order:rec.summary.uke?.fall?.contact_order?.slice(0,8)??[],
       peak_contact_n:r(Math.max(0,...contact.map(x=>x.fn))),
       left_foot_lift_m:r(maxZ("left_foot")-snap[0]!.poses[10]![2]),
@@ -185,7 +192,7 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
     expect(rec.samples.at(-1)!.qpos.every(Number.isFinite)).toBe(true);
     if(name==="circular_tobillo_derecho_retirada")expect(built.bodies).toContain("foot_stop");
     console.log("ARC_METRICS|"+JSON.stringify(summary));
-    if(["recto_sin_tope","circular_sin_tope","circular_tobillo_derecho","circular_tobillo_derecho_retirada","circular_tobillo_derecho_fuerte","circular_espinilla_derecha","circular_espinilla_derecha_mas_fuerte","recto_espinilla_derecha"].includes(name)){
+    if(["recto_sin_tope","circular_sin_tope","circular_tobillo_derecho","circular_tobillo_derecho_retirada","circular_tobillo_derecho_fuerte","circular_espinilla_derecha","circular_espinilla_derecha_mas_fuerte","recto_espinilla_derecha","circular_espinilla_retirada"].includes(name)){
       console.log("ARC_FRAMES|"+name+"|"+Buffer.from(JSON.stringify({summary,snaps:snap})).toString("base64"));
     }
   },90_000);

@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { buildScenarioModel } from "../../src/scenario/buildModel";
 import { runScenario } from "../../src/scenario/run";
@@ -196,4 +197,76 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
       console.log("ARC_FRAMES|"+name+"|"+Buffer.from(JSON.stringify({summary,snaps:snap})).toString("base64"));
     }
   },90_000);
+});
+
+/**
+ * Readable slow-motion viewer source: actual MuJoCo body positions and ACTUAL
+ * applied force vectors (recording.samples.effectors), never scripted arrows.
+ * The diagnostic gzip is emitted only to test logs; not checked into recordings.
+ */
+describe("equilibrio previo, Uke firme y fuerzas reales",()=>{
+  const series=[
+    {name:"sin_fuerza",posture:"firm",begin:1.2,noForce:true},
+    {name:"tense_08",posture:"tense",begin:.8,noForce:false},
+    {name:"firm_08",posture:"firm",begin:.8,noForce:false},
+    {name:"firm_12",posture:"firm",begin:1.2,noForce:false},
+  ] as const;
+  it.each(series)("mide retroceso sin traccion: $name",async ({name,posture,begin,noForce})=>{
+    const scenario=buildCircularKuzushiScenario({
+      blocked:"right",height:"shin",support:"withdraw",bias:"right",
+      posture,begin,
+    });
+    if(noForce){
+      scenario.effectors=[];
+      scenario.duration_s=1.24;
+      scenario.id="arc_no_force_firm";
+      scenario.obstacles=[];
+      scenario.props=[];
+    }
+    const spec=validateScenario(scenario);
+    const built=buildScenarioModel(spec);
+    const ids=BODY_NAMES.map(x=>built.bodies.indexOf(x));
+    const samples:Snapshot[]=[];
+    const rate=spec.record_hz;
+    const rec=await runScenario(spec,{engineVersion:"slow-motion-diagnostics",onSample:(_m,raw,index)=>{
+      if(index%10!==0 && index!==0)return;
+      const d=raw as {xpos:Float64Array;xmat:Float64Array};
+      const pelvisId=ids[0]!;
+      samples.push({t:r(index/rate),
+        poses:ids.map(id=>[r(d.xpos[3*id]!),r(d.xpos[3*id+1]!),r(d.xpos[3*id+2]!)]),
+        yaw_deg:r(Math.atan2(d.xmat[9*pelvisId+3]!,d.xmat[9*pelvisId]!)*180/Math.PI),
+      });
+    }});
+    // Compare same time before the first nonzero force, and record the
+    // unforced control trajectory to separate spontaneous motion.
+    const pelvis=(s:Snapshot)=>s.poses[0]!;
+    const origin=pelvis(samples[0]!);
+    const pre=samples.filter(q=>q.t<Math.min(begin,1.15));
+    const maxDrift=Math.max(...pre.map(q=>Math.hypot(
+      pelvis(q)[0]-origin[0],pelvis(q)[1]-origin[1])));
+    const postureAt0=samples[0]!.poses;
+    const head=postureAt0[3]!, feet=[postureAt0[10]!,postureAt0[13]!];
+    const forceData=samples.map(s=>{
+      const closest=rec.samples.reduce((a,b)=>Math.abs(b.t-s.t)<Math.abs(a.t-s.t)?b:a,rec.samples[0]!);
+      return closest.effectors.filter(e=>["kuzushi_left","kuzushi_right"].includes(e.id))
+        .map(e=>({id:e.id,point:e.point_m.map(r),force:e.force_n.map(r)}));
+    });
+    const firstApplied=rec.samples.find(q=>q.effectors.some(e=>Math.hypot(...e.force_n)>1))?.t??null;
+    const metrics={name,posture,begin,stance:"neutral",
+      pre_force_pelvis_drift_m:r(maxDrift),initial_pelvis:origin,
+      initial_head_height_m:head[2],
+      feet_center_z_m:r((feet[0][2]+feet[1][2])/2),
+      first_applied_force_s:firstApplied,
+      outcome:rec.summary.outcome,
+      first_ground_part:rec.summary.uke?.fall?.first_part??null,
+      torso_tilt_deg:r(rec.summary.max_tilt_deg),
+    };
+    expect(rec.samples.at(-1)!.qpos.every(Number.isFinite)).toBe(true);
+    expect(forceData.length).toBe(samples.length);
+    if(noForce)expect(firstApplied).toBe(null);
+    else expect(firstApplied).not.toBe(null);
+    console.log("SLOW_METRICS|"+JSON.stringify(metrics));
+    const bundle={metrics,samples,forceData};
+    console.log("SLOW_MUJOCO|"+name+"|"+gzipSync(Buffer.from(JSON.stringify(bundle))).toString("base64"));
+  },120_000);
 });

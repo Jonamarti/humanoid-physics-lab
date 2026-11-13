@@ -273,5 +273,21 @@ describe("equilibrio previo, Uke firme y fuerzas reales",()=>{
     console.log("SLOW_METRICS|"+JSON.stringify(metrics));
     const bundle={metrics,samples,forceData};
     console.log("SLOW_MUJOCO|"+name+"|"+gzipSync(Buffer.from(JSON.stringify(bundle))).toString("base64"));
+    // Compact independent rendering stream: 0.16 s frames, world positions
+    // in signed centimetres, actual applied forces in signed 5-N units.
+    if(name==="firm_08"||name==="tense_08"||name==="sin_fuerza_tope_fijo") {
+      const packed:number[]=[];
+      const put=(v:number)=>{const n=Math.round(v);packed.push(n&255,(n>>8)&255);};
+      for(let i=0;i<samples.length;i+=2){
+        for(const p of samples[i]!.poses)for(const c of p)put(c*100);
+        for(const effectorId of ["kuzushi_left","kuzushi_right"]){
+          const eff=forceData[i]!.find(e=>e.id===effectorId);
+          for(const val of (eff?.point??[0,0,0]))put(val*100);
+          for(const val of (eff?.force??[0,0,0]))put(val/5);
+        }
+      }
+      console.log("SLOW_PACK|"+name+"|"+samples.length+"|"+
+        Buffer.from(packed).toString("base64"));
+    }
   },120_000);
 });

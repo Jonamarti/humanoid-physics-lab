@@ -55,6 +55,31 @@ Por tanto el ensayo físico **no reproduce exactamente** el derribo guionizado, 
 los puntos de contacto y el sentido de los pares. Se debe comparar desde la cámara cenital y frontal, mirar el informe de
 contactos y no interpretar una coincidencia como validación biomecánica.
 
+## Ensayo de fulcro unilateral (Uke vertical, tirón simétrico)
+
+Entrada en la misma página. Se construye un escenario aislado con el **modelo humanoide normal de 75 kg y 1,75 m**, `attitude: tense`, `waist_stiffness: 1`, dos fuerzas prescritas iguales (+X, en hombro o manga) desde 0,30 s durante 0,42 s con medio seno y un obstáculo `fixed_box` frente a un solo pie/pierna. Cambia la zona de contacto sin hacer crecer una columna desde el suelo: 13, 33, 55 o 78 cm. Tres intensidades predefinidas (260, 650 y 1200 N **por hombro**), ambos lados de bloqueo, y control sin obstáculo. Se abren como escenarios `#scn` del motor HPL ya existente; **no** se modifica `runScenario` ni se obliga a que Uke gire de un modo concreto. La primera versión sigue usando una barrera geométrica, no una articulación que inmovilice el pie: un pie puede resbalar, saltar o esquivar el tope.
+
+En un modelo ideal sin desplazamiento del punto de apoyo, el momento sobre Z de fuerzas simétricas +X, con un único apoyo a Y=-0,105 m, se aproxima por `τz = -0,21 · F_hombro` N·m (y se invierte con apoyo izquierdo). **Es una predicción externa, no un par aplicado por el motor**. Cuando no hay contacto, no se puede atribuir una rotación a ese tope.
+
+### Batería MuJoCo de GitHub Actions, 13 noviembre 2026
+
+Pruebas de integración en `tests/unit/fulcrumExperiments.test.ts`; cada prueba ejecuta `runScenario` con paso físico 2 ms y registro cada 20 ms. Resultados del job CI 809 (conclusión *success*); valores son de este modelo aproximado y estas fuerzas, no datos biomecánicos de una persona ni la secuencia real de AnimSpec.
+
+| Modelo (siempre tracción hacia delante) | ¿Contacto con tope? | Primera zona de tope registrada | Primer impacto de caída | Altura máxima de pie I/D sobre inicial |
+|---|---|---|---|---|
+| Sin tope, 650 N | No | — | Cabeza | 146 / 146 cm |
+| Tobillo derecho 13 cm, 260 N | **No** | — | Antebrazo izquierdo | 18 / 14 cm |
+| Tobillo derecho 13 cm, 650 N | **Sí, 1,16 s** | Pie y espinilla derechos | Antebrazo derecho | 32 / 16 cm |
+| Tobillo izquierdo 13 cm, 650 N | **Sí, 1,16 s** | Pie y espinilla izquierdos | Antebrazo izquierdo | 16 / 32 cm |
+| Tobillo derecho 13 cm, 1200 N | **No** | — | Cabeza | 163 / 154 cm |
+| Espinilla derecha 33 cm, 650 N | **Sí, 0,72 s** | Espinilla derecha | Brazo derecho | 107 / 97 cm |
+| Rodilla derecha 55 cm, 650 N | **Sí, 0,72 s** | **Muslo** derecho (no rodilla aislada) | Cabeza | 137 / 138 cm |
+| Muslo derecho 78 cm, 650 N | **Sí, 0,74 s** | Muslo derecho, pelvis y muslo izquierdo | Cabeza | 130 / 139 cm |
+
+En el caso medio 13 cm, la dirección de caída medida fue +6,52° (tope derecho) y −6,52° (tope izquierdo); la simetría es una comprobación fuerte de que el lado del apoyo afecta a la salida. **Pero el contacto llega después de un segundo**, por lo que todavía no demuestra que el tobillo sea el fulcro durante toda la caída. Tampoco cumple aún el comportamiento gradual solicitado: con fuerzas suaves no se alcanza el tope; con las mayores el humanoide lo evita y en la caída golpea con la cabeza. En la postura `staggered_left` (pie derecho trasero), el tope ajustado tampoco llegó a contactar en la primera batería.
+
+**Decisión técnica:** la hipótesis de par lateral está respaldada por la simulación de bloqueo medio y su reflexión, pero **no está validado** el modelo de derribo ni la sujeción de un pie trasero. No fusionar automáticamente ni aplicar estos parámetros al juego. El siguiente experimento debe ajustar el tope unilateral para que contacte en la fase de kuzushi, medir deslizamiento del pie bloqueado, comprobar que el tronco evita colisión con Tori, y evitar impactos con la cabeza antes de considerar válidas las curvas.
+
 ## Qué revisar en cada técnica
 
 - **Tai-otoshi:** a partir de 1,57 s, dirección de la cabeza respecto a pelvis, trayectoria de hombros, sobrepaso de la barrera de la pierna derecha de Tori y lado de caída. Comparar la vista cenital y la frontal; comprobar la mano que retiene la manga.

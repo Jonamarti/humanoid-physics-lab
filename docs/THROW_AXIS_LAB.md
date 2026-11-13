@@ -105,6 +105,24 @@ Batería real MuJoCo WASM, CI #819 en verde, y repetición con almohadilla móvi
 
 **Vídeo diagnóstico:** la conversación acompaña un MP4 con comparación recto/circular reconstruida de las posiciones del motor a 125 Hz, submuestreadas para visualización. El modelo de trazo son cuerpos/centros de segmento, no la malla definitiva; la interpolación entre frames no recalcula física.
 
+## Corrección del retroceso inicial y visor a cámara lenta
+
+**Diagnóstico reproducido en MuJoCo (GitHub Actions #835):** se ejecutaron escenarios sin fuerzas, con postura `neutral`, `attitude: tense`, `waist_stiffness: 1`, y resistencia articular estándar o reforzada `strength: 1.5` (máximo permitido por HPL).
+
+| Escenario antes del tirón | Desplazamiento máximo de pelvis | Estado |
+|---|---:|---|
+| Tono reforzado, sin obstáculo ni fuerza | 0 m (a resolución de 1 mm) | Erguido |
+| Tono reforzado, con apoyo móvil y sin tirón | 0 m | Erguido |
+| Tono estándar, apoyo móvil, tirón retrasado a t=0,8 s | 0 m antes de t=0,8 s | Erguido hasta el tirón |
+| Tono reforzado, apoyo móvil, tirón retrasado a t=0,8 s | 0 m antes de t=0,8 s | Erguido hasta el tirón |
+| **Tono reforzado, tope fijo original y SIN fuerza** | **1,089 m** | Cae espontáneamente; asentamiento inicial desplaza pelvis ~12,7 cm atrás |
+
+Por tanto el movimiento hacia atrás en los vídeos anteriores de **tope fijo** se debe a una interacción espuria del obstáculo en el asentamiento, no a una petición de tracción ni a que Uke esté en modo relajado. **No atribuir esa caída al kuzushi ni usarla como resultado de la técnica.** La variante de tope móvil estrecho empieza equilibrada y resulta la opción predeterminada del laboratorio. También se ha separado más la superficie fija de las piernas para probarla sin penetración inicial; la validez de esa nueva distancia depende de los resultados posteriores.
+
+Para comparar el tono sin tocar el solver, el generador de escenarios incorpora `posture:"tense"|"firm"` (ambos `attitude:"tense"` y cintura 1; `firm` cambia `strength` de 1 a 1,5) y `begin:0.3...1.5` para observar el equilibrio sin fuerzas. **`firm` no bloquea bisagras, y no se presenta como humanoide rígido perfecto.**
+
+Vídeo a 1/4 de velocidad exportado localmente desde las posiciones físicas de la CI y los vectores aplicados de `recording.samples.effectors`, con el mismo número de píxeles por metro en los ejes X/Z. La compresión visual cuantiza las posiciones y fuerzas (aprox. 4 cm para X, 2 cm para Y y 1,2 cm para Z, ~12 N por canal); los valores de módulo inferiores a la resolución se muestran como 0. La cámara sigue al cuerpo solo después de comenzar el movimiento. **Es un vídeo del modelo articulado HPL, no una medición ni reproducción de la malla Blender.**
+
 ## Qué revisar en cada técnica
 
 - **Tai-otoshi:** a partir de 1,57 s, dirección de la cabeza respecto a pelvis, trayectoria de hombros, sobrepaso de la barrera de la pierna derecha de Tori y lado de caída. Comparar la vista cenital y la frontal; comprobar la mano que retiene la manga.

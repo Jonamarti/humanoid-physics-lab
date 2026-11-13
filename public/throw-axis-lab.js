@@ -198,7 +198,7 @@ $("arc-nostop").addEventListener("click",()=>launchArc({blocked:"none"}));
 function singleConfig(overrides={}) {
   return {
     bar:$("single-bar").value,mode:$("single-mode").value,
-    force:$("single-force").value,posture:$("single-posture").value,
+    force:$("single-force").value,posture:$("single-posture").value,barX:Number($("single-gap").value),
     angle:$("single-angle").value,lean:$("single-lean").value,
     ...overrides,
   };

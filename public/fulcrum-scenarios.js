@@ -1,3 +1,4 @@
+/* global TextEncoder, btoa */
 /**
  * A/B foot-fulcrum physical trial. The existing HPL runScenario() remains untouched.
  * Symmetric forward shoulder/sleeve pulls, optional unilateral front stop.

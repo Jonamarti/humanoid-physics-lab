@@ -55,6 +55,30 @@ describe("visualizacion reproducible manga unica",()=>{
    };
    // Float arrays JSON -> gzip -> base64 in CI logs; no binary upload is required.
    console.log("VIDEO_SINGLE_RIGHT|"+tag+"|"+gzipSync(Buffer.from(JSON.stringify({metadata,frames}))).toString("base64"));
+   // A second lossily quantized 8-bit stream to reconstruct a readable video
+   // without depending on massive CI log attachments. Each frame contains
+   // the 14 body centres, actual sleeve point and actual 3D force vector.
+   const quantizedFrames=frames.filter((_,i)=>i%2===0);
+   const min=[-1.0,-2.0,-.5], span=[5.0,4.0,3.0];
+   const bytes:number[]=[];
+   for(const row of quantizedFrames){
+     for(let j=0;j<45;j++){
+       const coord=j%3;
+       bytes.push(Math.max(0,Math.min(255,Math.round((row[j]!-min[coord]!)/span[coord]!*255))));
+     }
+     for(let j=45;j<48;j++){
+       const coord=(j-45)%3;
+       bytes.push(Math.max(0,Math.min(255,Math.round((row[j]!-min[coord]!)/span[coord]!*255))));
+     }
+     // One force is on the manga, actual force from MuJoCo; max display +-1000 N.
+     for(let j=48;j<51;j++)bytes.push(Math.max(0,Math.min(255,Math.round((row[j]!+1000)/2000*255))));
+     bytes.push(Math.max(0,Math.min(255,Math.round(row[51]!/20))));
+   }
+   console.log("VIDEO_COMPACT|"+tag+"|"+JSON.stringify({
+     metadata:{...metadata,dt:.08,frameCount:quantizedFrames.length},
+     data:Buffer.from(bytes).toString("base64"),
+   }));
+
    expect(frames.length).toBeGreaterThan(70);
    expect(frames.every(f=>f.every(Number.isFinite))).toBe(true);
    expect(built.bodies.indexOf("pelvis")).toBe(1);

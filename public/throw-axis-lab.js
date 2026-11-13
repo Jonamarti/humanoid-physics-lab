@@ -1,4 +1,4 @@
-import {buildFulcrumScenario,fulcrumScenarioHash,expectedYawMoment,FULCRUM_LEVELS} from "./fulcrum-scenarios.js";
+import {buildFulcrumScenario,buildCircularKuzushiScenario,fulcrumScenarioHash,expectedYawMoment,FULCRUM_LEVELS} from "./fulcrum-scenarios.js";
 /* global document, window, URL, requestAnimationFrame */
 import { buildThrowPhysicsScenario, physicsScenarioHash } from "./throw-axis-physics.js";
 // Self-contained kinematic diagnostic. No imports from HPL/AnimSpec, no persistence or network requests.
@@ -155,3 +155,39 @@ for(const id of ["fulcrum-side","fulcrum-force","fulcrum-height","fulcrum-site",
 $("fulcrum-run").addEventListener("click",()=>openFulcrumTrial(false));
 $("fulcrum-control").addEventListener("click",()=>openFulcrumTrial(true));
 updateFulcrumPrediction();
+
+function selectedArcConfig(overrides={}) {
+  return {
+    blocked:$("arc-side").value,
+    height:$("arc-height").value,
+    level:$("arc-force").value,
+    mode:$("arc-mode").value,
+    bias:$("arc-bias").value,
+    tempo:$("arc-tempo").value,
+    support:$("arc-support").value,
+    rightSite:$("arc-grip").value,
+    stance:$("arc-stance").value,
+    ...overrides,
+  };
+}
+function launchArc(overrides={}) {
+  const status=$("arc-status");
+  try {
+    const scenario=buildCircularKuzushiScenario(selectedArcConfig(overrides));
+    const url=new URL("./",window.location.href);
+    url.hash=fulcrumScenarioHash(scenario);
+    const opened=window.open(url.toString(),"_blank","noopener,noreferrer");
+    status.textContent=(opened?"Ensayo lanzado en el simulador: ":"La ventana nueva se bloqueó; abre este enlace: ")+scenario.id;
+    let link=$("arc-link");
+    if(!link) {
+      link=document.createElement("a");link.id="arc-link";
+      link.target="_blank";link.rel="noopener noreferrer";
+      link.textContent="Abrir simulación de kuzushi circular";
+      status.after(link);
+    }
+    link.href=url.toString();
+  }catch(err){status.textContent=err instanceof Error?err.message:String(err);}
+}
+$("arc-run").addEventListener("click",()=>launchArc());
+$("arc-control").addEventListener("click",()=>launchArc({mode:"straight"}));
+$("arc-nostop").addEventListener("click",()=>launchArc({blocked:"none"}));

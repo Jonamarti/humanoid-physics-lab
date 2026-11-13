@@ -44,6 +44,17 @@ label{display:block;margin:13px 0 5px;font-weight:650;font-size:.9rem}select,inp
 </div>
 <div class="legend" style="margin-top:12px"><span><i class="swatch" style="background:#68c7ef"></i>Uke</span><span><i class="swatch" style="background:#f6bf73"></i>Tori</span><span><i class="swatch" style="background:#f178a0"></i>Cabeza / dirección</span><span><i class="swatch" style="background:#7ae2b3"></i>Apoyo destacado</span></div>
 <div class="controls"><button id="play" type="button">▶ Reproducir</button><button id="step-back" type="button">◀</button><button id="step-forward" type="button">▶</button><input id="time" type="range" min="0" max="1000" value="0" step="1"><output id="clock">0,00 s</output></div>
+<section style="margin:18px 0;padding:13px;border:1px solid #507388;border-radius:9px;background:#0d2134" aria-label="Simulación MuJoCo">
+<h2>Ensayo físico aislado · MuJoCo</h2>
+<p class="hint">La física es la del simulador HPL ya existente; los movimientos de Tori se aproximan a partir del esqueleto importado. <strong>El giro de Uke NO se impone.</strong> MuJoCo resuelve fuerzas, gravedad y contactos.</p>
+<label for="physical-model">Configuración física</label><select id="physical-model">
+<option value="full">Uke + cuerpo aproximado de Tori y agarres</option>
+<option value="support">Uke + un apoyo simplificado y fuerzas de agarre</option>
+</select>
+<div class="controls"><button type="button" id="physical-run">Abrir simulación física de la técnica</button><button type="button" id="physical-control">Comparar sin apoyo</button></div>
+<p id="physical-status" role="status" class="hint">Abre el ensayo con el editor físico existente; desde allí podrás inspeccionar colisiones y guardar el JSON experimental si te interesa.</p>
+<p class="hint">«Sin apoyo» conserva idénticas fuerzas sobre Uke; solo elimina el obstáculo. En modo «Tori completo» no se ofrece ese control, porque eliminar el cuerpo también elimina los agarres.</p>
+</section>
 <div id="report" class="report" role="status" aria-live="polite"></div>
 <p class="hint">Las distancias son entre <strong>segmentos del esqueleto</strong>, no penetraciones de malla; no acreditan contacto físico ni fuerzas. La hipótesis invierte el yaw alrededor de la pelvis y conserva el resto de las articulaciones relativas; puede cambiar agarres y contactos. Revisar fotograma a fotograma antes de llevar una corrección a AnimeSpec.</p>
 </section></div>

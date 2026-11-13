@@ -100,7 +100,7 @@ describe("manga derecha aislada: barra diagonal y torque sobre Uke",()=>{
     }});
     const drift=Math.max(...dx.map(q=>Math.abs(q-dx[0]!)));
     console.log("BAR_STABILITY|"+JSON.stringify({barX,initial:dx[0],drift,
-      contacts:rec.samples.flatMap(s=>s.contacts.filter(c=>c.body_a==="right_diagonal_bar"||c.body_b==="right_diagonal_bar").map(c=>s.t)),
+      contacts:rec.samples.flatMap(s=>s.contacts.filter(c=>c.body_a==="right_diagonal_bar"||c.body_b==="right_diagonal_bar").map(()=>s.t)),
       outcome:rec.summary.outcome,ncon:nc.slice(0,4)}));
     expect(rec.samples.at(-1)!.qpos.every(Number.isFinite)).toBe(true);
   },90000);

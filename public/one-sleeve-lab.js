@@ -41,7 +41,7 @@ export function buildOneSleeveScenario({mode="brief",bar="right",force="medium",
   };
   return {
     schema:"hpl.scenario.v1",
-    id:`one_sleeve_${mode}_${bar}_${force}_${posture}_${lean}_${angle}_${String(begin).replace(".","p")}_x${String(barX).replace(".","p")}`}`,
+    id:`one_sleeve_${mode}_${bar}_${force}_${posture}_${lean}_${angle}_${String(begin).replace(".","p")}_x${String(barX).replace(".","p")}`,
     duration_s:rounded(Math.max(3.4,keys.at(-1).t_s+1)),
     record_hz:125,ground:{friction:1.0},
     actors:[{id:"uke",kind:"humanoid",mass_kg:75,height_m:1.75,

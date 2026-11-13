@@ -7,6 +7,11 @@ import {buildOneSleeveScenario} from "../../public/one-sleeve-lab.js";
 
 const scenarios=[
   {name:"right_brief", mode:"brief",bar:"right"},
+  {name:"right_near_x006",mode:"brief",bar:"right",barX:.06},
+  {name:"right_near_x008",mode:"brief",bar:"right",barX:.08},
+  {name:"right_near_x010",mode:"brief",bar:"right",barX:.10},
+  {name:"right_near_x012",mode:"brief",bar:"right",barX:.12},
+  {name:"right_near_sustained_x008",mode:"sustained",bar:"right",barX:.08,force:"soft"},
   {name:"right_brief_soft",mode:"brief",bar:"right",force:"soft"},
   {name:"right_sustained_soft",mode:"sustained",bar:"right",force:"soft"},
   {name:"right_brief_x038",mode:"brief",bar:"right",barX:.38},
@@ -95,7 +100,7 @@ describe("manga derecha aislada: barra diagonal y torque sobre Uke",()=>{
     console.log("SINGLE_SLEEVE_METRICS|"+JSON.stringify(out));
     console.log("SINGLE_SLEEVE_FRAMES|"+o.name+"|"+Buffer.from(JSON.stringify({out,motion})).toString("base64"));
   },90000);
-  it.each([.55,.95,2.0])("sin tirón, la barra fija a x=%s no debe provocar caída espontánea",async barX=>{
+  it.each([.06,.08,.10,.12,.55,.95,2.0])("sin tirón, la barra fija a x=%s no debe provocar caída espontánea",async barX=>{
     const s=buildOneSleeveScenario({bar:"right",barX});
     s.effectors=[];
     s.duration_s=1.5;

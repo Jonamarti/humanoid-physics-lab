@@ -102,7 +102,7 @@ function propGeometryXml(prop: Scenario["props"][number], friction:string):strin
   const [sx,sy,sz]=prop.size_m,[px,py,pz]=prop.pos_m;
   return `    <body name="${prop.id}" pos="${num(px)} ${num(py)} ${num(pz)}">
       <geom name="${prop.id}_geom" type="box" size="${num(sx/2)} ${num(sy/2)} ${num(sz/2)}"
-        rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
+            rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
     </body>`;
 }
 

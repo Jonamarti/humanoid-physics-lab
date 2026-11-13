@@ -138,6 +138,24 @@ export class ReplayView {
     }
   }
 
+  /**
+   * Pide un clic sobre un cuerpo de la grabación abierta (la reproducción se pausa) y devuelve su nombre y el punto en sus
+   * ejes locales. Devuelve `false` si no hay grabación abierta.
+   */
+  pickBodyPoint(onPicked: (body: string, local: [number, number, number]) => void): boolean {
+    const { kin, recording, player } = this;
+    const viewer = this.options.viewer;
+    if (!kin || !recording || !player || !viewer) return false;
+    player.pause();
+    this.refresh();
+    viewer.pickArticulatedOnce((geomId, point) => {
+      if (this.kin !== kin) return;
+      const hit = kin.locatePoint(geomId, point);
+      onPicked(recording.model.bodies[hit.bodyId] ?? "", hit.local);
+    });
+    return true;
+  }
+
   exit(): void {
     if (!this.player) return;
     this.release();
@@ -177,6 +195,7 @@ export class ReplayView {
     if (this.frameHandle !== undefined) window.cancelAnimationFrame(this.frameHandle);
     this.frameHandle = undefined;
     this.options.viewer?.clearMultiForces();
+    this.options.viewer?.pickArticulatedOnce(undefined);
     this.kin?.dispose();
     this.kin = undefined;
     this.player = undefined;

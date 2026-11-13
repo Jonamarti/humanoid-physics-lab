@@ -705,6 +705,7 @@ if (replayHost && viewport) {
   // Editor de escenarios (src/renderer/scenarioEditor.ts): edita y simula en el navegador el escenario de la grabación abierta.
   const editor = new ScenarioEditor({
     mount: (node) => replay.insertAfterPanel(node), show: (recording) => replay.show(recording), baseUrl: import.meta.env.BASE_URL,
+    pick: (onPicked) => replay.pickBodyPoint(onPicked),
   });
   // Grabaciones de ejemplo (src/renderer/galleryView.ts): selector junto a «Cargar grabación» y enlace `?rec=<id>`.
   const gallery = new GalleryView({

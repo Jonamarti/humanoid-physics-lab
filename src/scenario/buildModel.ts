@@ -4,6 +4,7 @@
  * No depende de `src/physics/`.
  */
 import { appendToWorldbody, buildObstacleMjcf, resolveObstacleParams, type ObstacleParams } from "../effectors/obstacle";
+import { buildToriBodyMjcf, resolveToriBodyParams, toriBodyNames, type ToriBodyParams } from "../effectors/toriBody";
 import { generateHumanoidMJCF } from "../uke/generate";
 import { attitudeJointDamping } from "../uke/damping";
 import { ACTOR_BODIES, type HumanoidActor, type Scenario } from "./schema";
@@ -36,6 +37,18 @@ export interface ScenarioModel {
   humanoid?: HumanoidActor;
   /** Obstáculos del escenario, resueltos, en el orden de `scenario.obstacles`. Sus cuerpos van al final del modelo. */
   obstacles: ObstacleParams[];
+  /** Cuerpo de Tori (si el escenario lo trae y está activo). Sus cuerpos van al final del modelo, tras los obstáculos. */
+  toriBody?: ToriBodyParams;
+}
+
+/** Parámetros del cuerpo de Tori del escenario, o `undefined` si no hay o está desactivado. */
+export function scenarioToriBody(scenario: Scenario): ToriBodyParams | undefined {
+  const body = scenario.tori?.body;
+  if (!body || body.enabled === false) return undefined;
+  return resolveToriBodyParams({
+    mass_kg: scenario.tori!.mass_kg, height_m: body.height_m, keys: body.keys,
+    ...(body.friction !== undefined ? { friction: body.friction } : {}),
+  });
 }
 
 /**
@@ -53,12 +66,21 @@ function withObstacles(scenario: Scenario, model: Omit<ScenarioModel, "obstacles
     taken.add(o.name);
     mjcf = appendToWorldbody(mjcf, buildObstacleMjcf(o));
   }
+  const toriBody = scenarioToriBody(scenario);
+  const toriNames = toriBody ? toriBodyNames(toriBody) : { bodies: [], joints: [] };
+  if (toriBody) {
+    for (const name of toriNames.bodies) {
+      if (taken.has(name)) throw new Error(`"${name}" está reservado para el cuerpo de Tori`);
+    }
+    mjcf = appendToWorldbody(mjcf, buildToriBodyMjcf(toriBody));
+  }
   return {
     ...model,
     mjcf,
-    bodies: [...model.bodies, ...obstacles.map((o) => o.name)],
-    joints: [...model.joints, ...obstacles.flatMap((o) => [`${o.name}_x`, `${o.name}_y`, `${o.name}_z`])],
+    bodies: [...model.bodies, ...obstacles.map((o) => o.name), ...toriNames.bodies],
+    joints: [...model.joints, ...obstacles.flatMap((o) => [`${o.name}_x`, `${o.name}_y`, `${o.name}_z`]), ...toriNames.joints],
     obstacles,
+    ...(toriBody ? { toriBody } : {}),
   };
 }
 

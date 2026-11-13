@@ -244,6 +244,53 @@ export interface ToriSpec {
   total_pull_max_n?: number;
   /** Tope de la potencia total de las manos, en W (por defecto 1500). */
   total_power_max_w?: number;
+  /** Opcional: cuerpo de Tori que ejecuta una secuencia de posturas y hace de obstáculo (`docs/TORI_BODY.md`). */
+  body?: ToriBodySpec;
+}
+
+/** Postura de Tori en un instante (`src/effectors/toriBody.ts`). Coordenadas en el MUNDO; ángulos en grados. */
+export interface ToriPoseKeySpec {
+  t_s: number;
+  /** Punto medio entre las caderas. */
+  pelvis_m: Vec3;
+  /** Hacia dónde mira la pelvis (0 = +X, 90 = +Y); no se reduce a ±180. */
+  yaw_deg: number;
+  /** Inclinación del tronco hacia delante. */
+  lean_deg?: number;
+  side_lean_deg?: number;
+  /** Giro de los hombros respecto a la pelvis. */
+  twist_deg?: number;
+  /** Apoyo de cada pie; z = altura de la planta. */
+  left_foot_m: Vec3;
+  right_foot_m: Vec3;
+  /** Dónde pone cada mano, en el marco del pecho: `[delante, izquierda, arriba]` desde el punto medio entre los hombros. */
+  left_hand_m?: Vec3;
+  right_hand_m?: Vec3;
+}
+
+/** Agarre de una mano de Tori sobre un sitio de Uke: cuerda con muelle y tope de fuerza entre la mano y el sitio. */
+export interface ToriGripSpec {
+  /** Sitio con nombre del humanoide (ver `HUMANOID_SITE_BODY`). */
+  site: string;
+  /** Tope de fuerza en N (por defecto 500). */
+  max_force_n?: number;
+  /** Instante en que suelta, en s. Sin él, no suelta. */
+  release_s?: number;
+}
+
+/**
+ * Cuerpo de Tori: segmentos sueltos con fuerza limitada que siguen `keys` y chocan con Uke. Su masa es `tori.mass_kg`.
+ * Con `enabled: false` el escenario se simula sin él (sirve para comparar con y sin cuerpo sin borrar las posturas).
+ */
+export interface ToriBodySpec {
+  height_m: number;
+  /** Por defecto `true`. */
+  enabled?: boolean;
+  /** Rozamiento de su tela contra Uke (por defecto 0,8). */
+  friction?: number;
+  /** Agarres de cada mano sobre Uke. En la grabación son los efectores `tori_left_hand` y `tori_right_hand`. */
+  grips?: { left?: ToriGripSpec; right?: ToriGripSpec };
+  keys: ToriPoseKeySpec[];
 }
 
 /** Formas y superficies del obstáculo (`src/effectors/obstacle.ts`). */

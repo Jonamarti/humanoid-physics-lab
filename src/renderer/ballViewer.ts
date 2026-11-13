@@ -28,6 +28,7 @@ export class BallViewer {
   private readonly glyphState = new Map<string, string>();
   private selectedForceId: string | undefined;
   private pickBodyForForceId: string | undefined;
+  private oncePick: ((geomId: number, point: ForceVector) => void) | undefined;
   private forceInteraction?: {
     onPicked(id: string, geomId: number, point: ForceVector): void;
     onDragged(id: string, direction: ForceVector): void;
@@ -407,6 +408,15 @@ export class BallViewer {
     }
   }
 
+  /**
+   * Espera un clic sobre una geometría articulada y devuelve su id y el punto (coordenadas de MuJoCo). Un solo uso:
+   * `undefined` lo cancela. Lo usa el editor de escenarios para elegir dónde se aplica una fuerza.
+   */
+  pickArticulatedOnce(onPicked: ((geomId: number, point: ForceVector) => void) | undefined): void {
+    this.oncePick = onPicked;
+    this.renderer.domElement.style.cursor = onPicked ? "crosshair" : "";
+  }
+
   armForcePointPick(id: string): void {
     if (!this.forceInteraction) return;
     this.selectedForceId = id;
@@ -424,6 +434,18 @@ export class BallViewer {
   }
 
   private readonly handleForcePointerDown = (event: PointerEvent): void => {
+    if (this.oncePick && event.button === 0) {
+      this.updateForceRay(event);
+      const hit = this.raycaster.intersectObjects(Array.from(this.articulated.values()), false)[0];
+      const geomId = hit ? Number(hit.object.name.replace("mujoco_geom_", "")) : NaN;
+      if (!hit || !Number.isSafeInteger(geomId)) return;
+      const done = this.oncePick;
+      this.pickArticulatedOnce(undefined);
+      done(geomId, [hit.point.x, -hit.point.z, hit.point.y]);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
     if (!this.forceInteraction || event.button !== 0) return;
     this.updateForceRay(event);
     if (this.pickBodyForForceId) {

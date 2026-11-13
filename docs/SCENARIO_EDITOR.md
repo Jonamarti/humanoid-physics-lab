@@ -24,11 +24,12 @@ La física es la misma de `npm run sim` (`runScenario`): mismo modelo, mismo pas
 |---|---|---|
 | General | Duración, rozamiento del suelo | El rozamiento del suelo es el de los pies de Uke |
 | Uke | Masa, altura, fuerza muscular, actitud | `en tensión` mantiene la postura; `relajado` no tiene objetivos |
-| Tori (presupuesto) | Masa, rozamiento de sus pies | Tori no tiene cuerpo todavía: solo se juzga si podría hacer esas fuerzas |
+| Tori | Activar o quitar a Tori; masa y rozamiento de sus pies; casilla del cuerpo; altura, rozamiento con Uke, qué agarra cada mano (con tope y suelta) y tablas de posturas, pies y manos | Ver [TORI_BODY.md](TORI_BODY.md). Sin Tori solo actúan las fuerzas directas y los obstáculos |
+| Fuerzas directas sobre Uke | «+ Impacto» y «+ Fuerza constante»; en cada una: punto, tipo, ejes, componentes X/Y/Z, inicio, duración | El punto se elige de una lista o tocando a Uke en el visor 3D |
+| Añadir obstáculo | «+ Barra», «+ Poste», «+ Almohadilla» | Cada obstáculo, tirón, mano y fuerza tiene su botón «Quitar» |
 | Obstáculo | Rozamiento con Uke, distancia, altura, radio, topes de fuerza, tramos de movimiento | Es la cadera, la pierna o el pie de Tori |
 | Tirón (`pull`) | Topes de fuerza y de potencia, y una tabla con la fuerza en cada instante | Ver abajo |
 | Mano (`hand`) | Tope de fuerza, cierre, suelta, tramos del objetivo | Mano con muelle: se guía la posición |
-| Fuerza (`prescribed_force`) | Componentes, inicio, duración | Empujón o golpe simple |
 
 Un campo en gris muestra el valor por defecto que se usará si se deja vacío.
 
@@ -94,10 +95,23 @@ Sobre `uke_tense_75_175_hip_roll` (volteo con tirón en arco):
 - **¿Y con menos fuerza?** Baja la columna «Fuerza (N)» de todas las filas.
 - **¿Y con un Uke más pesado?** Sube la masa de Uke a 100 kg sin tocar nada más.
 
+Sobre `uke_tense_75_175_tori_body` (Tori con cuerpo y agarres):
+
+- **¿Qué hace el cuerpo?** Desmarca «Cuerpo de Tori» y simula: sin cuerpo no hay agarres y Uke se queda de pie.
+- **¿Y si no suelta la solapa?** Borra «Suelta a (s)» de la mano derecha.
+- **¿Y si agarra la muñeca en vez de la manga?** Cambia «Mano izquierda agarra» a «muñeca derecha».
+- **¿Y si entra más bajo?** Baja «Pelvis Z» de la cuarta postura.
+
+Sin Tori (pulsa «Quitar a Tori» y quita los tirones, o abre `uke_tense_75_175_side_impact_post`):
+
+- **Un golpe donde quieras.** «+ Impacto», «Elegir el punto en el visor 3D», toca a Uke y simula.
+- **Un empuje sostenido contra algo.** «+ Fuerza constante» y «+ Poste»; mueve el poste con X e Y.
+
 ## Límites
 
-- **Tori no tiene cuerpo.** Son dos manos y un obstáculo. La espalda de Tori, sus brazos y sus piernas no existen, así que
-  no hay contacto de Uke con la espalda ni se ve a Tori. Está previsto como siguiente bloque.
+- **El cuerpo de Tori es una marioneta** de segmentos sueltos con fuerza limitada, sin equilibrio propio; sus límites están
+  en [TORI_BODY.md](TORI_BODY.md). Con él, la proyección de espaldas todavía no sale bien.
+- Elegir el punto en el visor pausa la reproducción y usa la postura de ese instante. El punto queda fijo en el cuerpo tocado.
 - La simulación bloquea la pestaña mientras calcula (medio segundo en un portátil; más en un móvil).
 - El visor web dibuja el cuerpo, el obstáculo y las flechas de las manos. No dibuja las fuerzas de contacto ni el centro de
   masas (eso solo sale en el vídeo de `scripts/render_recording.py`).

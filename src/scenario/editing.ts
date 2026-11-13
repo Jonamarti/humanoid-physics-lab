@@ -129,6 +129,19 @@ export function describeTrial(recording: Recording): string[] {
     );
   }
 
+  const body = recording.peaks.tori_body;
+  if (body) {
+    const loaded = Object.entries(body.segments).filter(([, x]) => x.contact_time_s >= 0.02)
+      .sort((x, y) => y[1].max_contact_force_on_actor_n - x[1].max_contact_force_on_actor_n);
+    lines.push(
+      "Cuerpo de Tori: " + (loaded.length === 0 ? "no llega a cargar a Uke" :
+        "cargan " + loaded.map(([name, x]) => `${name} ${sec(x.contact_time_s)} (${x.max_contact_force_on_actor_n.toFixed(0)} N)`).join(", ")) +
+        `; contacto total máximo ${body.max_contact_force_on_actor_n.toFixed(0)} N`,
+    );
+    const yielded = Object.entries(body.segments).filter(([, x]) => x.max_deviation_m >= 0.05);
+    if (yielded.length > 0) lines.push("  Ceden: " + yielded.map(([name, x]) => `${name} ${(x.max_deviation_m * 100).toFixed(0)} cm`).join(", "));
+  }
+
   for (const [id, e] of Object.entries(recording.peaks.effectors)) {
     let extra = "";
     if (e.hand) extra = `; en el tope ${sec(e.hand.time_at_cap_s)}; ${e.hand.events.map((x) => `${x.kind} a ${sec(x.t_s)}`).join(", ")}`;

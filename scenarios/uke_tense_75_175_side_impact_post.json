@@ -1,0 +1,54 @@
+{
+ "schema": "hpl.scenario.v1",
+ "id": "uke_tense_75_175_side_impact_post",
+ "duration_s": 3,
+ "record_hz": 50,
+ "ground": {
+  "friction": 1
+ },
+ "actors": [
+  {
+   "id": "uke",
+   "kind": "humanoid",
+   "mass_kg": 75,
+   "height_m": 1.75,
+   "strength": 1,
+   "attitude": "tense",
+   "stance": "neutral"
+  }
+ ],
+ "props": [],
+ "effectors": [
+  {
+   "id": "impacto",
+   "kind": "prescribed_force",
+   "actor": "uke",
+   "site": "left_shoulder_impact",
+   "frame": "actor_initial",
+   "force_n": [
+    0,
+    -1500,
+    0
+   ],
+   "start_s": 0.3,
+   "duration_s": 0.12,
+   "waveform": "half_sine"
+  }
+ ],
+ "obstacles": [
+  {
+   "id": "poste",
+   "shape": "post",
+   "tori_mass_kg": 75,
+   "start_m": [
+    0,
+    -0.3,
+    0.3
+   ],
+   "phases": []
+  }
+ ],
+ "expect": {
+  "outcome": "fall"
+ }
+}

@@ -112,6 +112,12 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
     {name:"circular_tobillo_izquierdo",mode:"arc",blocked:"left",bias:"right"},
     {name:"circular_tobillo_derecho_retirada",mode:"arc",blocked:"right",bias:"right",support:"withdraw"},
     {name:"circular_espinilla_derecha",mode:"arc",blocked:"right",bias:"right",height:"shin"},
+    {name:"circular_espinilla_simetrico",mode:"arc",blocked:"right",bias:"balanced",height:"shin"},
+    {name:"circular_espinilla_derecha_mas_fuerte",mode:"arc",blocked:"right",bias:"strong",height:"shin"},
+    {name:"circular_espinilla_derecha_prolongada",mode:"arc",blocked:"right",bias:"right",height:"shin",tempo:"extended"},
+    {name:"recto_espinilla_derecha",mode:"straight",blocked:"right",bias:"right",height:"shin"},
+    {name:"circular_espinilla_hombro_derecho",mode:"arc",blocked:"right",bias:"right",height:"shin",rightSite:"shoulder"},
+    {name:"circular_espinilla_retirada",mode:"arc",blocked:"right",bias:"right",height:"shin",support:"withdraw"},
     {name:"circular_tobillo_derecho_largo",mode:"arc",blocked:"right",bias:"right",tempo:"extended"},
     {name:"recto_tobillo_derecho",mode:"straight",blocked:"right",bias:"right"},
     {name:"circular_tobillo_suave",mode:"arc",blocked:"right",bias:"right",level:"low"},
@@ -164,6 +170,9 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
       body_contact_parts:Array.from(new Set(contact.map(x=>x.body))),
       first_contact_s:contactFirst,last_contact_s:contactLast,
       separated_before_end:contactLast!==null&&contactLast<sc.duration_s-.2,
+      contact_before_fall:contactFirst!==null&&(rec.summary.uke?.fall?.t_s??Infinity)>contactFirst,
+      torso_impact_mps:rec.summary.uke?.fall?.impact.chest?.speed_mps??null,
+      contact_order:rec.summary.uke?.fall?.contact_order?.slice(0,8)??[],
       peak_contact_n:r(Math.max(0,...contact.map(x=>x.fn))),
       left_foot_lift_m:r(maxZ("left_foot")-snap[0]!.poses[10]![2]),
       right_foot_lift_m:r(maxZ("right_foot")-snap[0]!.poses[13]![2]),
@@ -176,7 +185,7 @@ describe("kuzushi por fases, manga derecha y contacto transitorio (MuJoCo real)"
     expect(rec.samples.at(-1)!.qpos.every(Number.isFinite)).toBe(true);
     if(name==="circular_tobillo_derecho_retirada")expect(built.bodies).toContain("foot_stop");
     console.log("ARC_METRICS|"+JSON.stringify(summary));
-    if(["recto_sin_tope","circular_sin_tope","circular_tobillo_derecho","circular_tobillo_derecho_retirada","circular_tobillo_derecho_fuerte"].includes(name)){
+    if(["recto_sin_tope","circular_sin_tope","circular_tobillo_derecho","circular_tobillo_derecho_retirada","circular_tobillo_derecho_fuerte","circular_espinilla_derecha","circular_espinilla_derecha_mas_fuerte","recto_espinilla_derecha"].includes(name)){
       console.log("ARC_FRAMES|"+name+"|"+Buffer.from(JSON.stringify({summary,snaps:snap})).toString("base64"));
     }
   },90_000);

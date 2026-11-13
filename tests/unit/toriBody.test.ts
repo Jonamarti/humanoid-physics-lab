@@ -191,6 +191,38 @@ describe("cuerpo de Tori en el escenario (MuJoCo WASM real)", () => {
     expect(late.every((e) => Math.hypot(...e.force_n) === 0)).toBe(true);
   }, 60_000);
 
+  it("con la cintura flexible Uke se dobla más, gira menos y sigue sin golpear con la cabeza", async () => {
+    const bend = async (waist: number | undefined): Promise<{ maxDeg: number; tilt: number; report: string }> => {
+      const json = load();
+      if (waist !== undefined) (json.actors as Array<Record<string, unknown>>)[0]!.waist_stiffness = waist;
+      const scenario = validateScenario(json);
+      const model = buildScenarioModel(scenario);
+      const lumbar = model.joints.indexOf("lumbar_pitch");
+      const thorax = model.joints.indexOf("thorax_pitch");
+      let maxDeg = 0;
+      const recording = await runScenario(scenario, {
+        engineVersion: "test",
+        onSample: (m, d) => {
+          const adr = (m as { jnt_qposadr: Int32Array }).jnt_qposadr;
+          const q = (d as { qpos: Float64Array }).qpos;
+          maxDeg = Math.max(maxDeg, (q[adr[lumbar]!]! + q[adr[thorax]!]!) * 180 / Math.PI);
+        },
+      });
+      return { maxDeg, tilt: recording.summary.max_tilt_deg, report: describeTrial(recording).join("\n") };
+    };
+    const rigid = await bend(undefined);
+    const soft = await bend(0.3);
+    expect(soft.maxDeg).toBeGreaterThan(rigid.maxDeg + 5);
+    expect(soft.tilt).toBeLessThan(rigid.tilt - 20);
+    expect(soft.tilt).toBeGreaterThan(120);
+    expect(soft.report).toMatch(/Cabeza: no toca el suelo/);
+    // `waist_stiffness: 1` es lo mismo que no ponerlo.
+    expect((await bend(1)).tilt).toBe(rigid.tilt);
+    const bad = load();
+    (bad.actors as Array<Record<string, unknown>>)[0]!.waist_stiffness = 1.5;
+    expect(() => validateScenario(bad)).toThrow(ScenarioValidationError);
+  }, 60_000);
+
   it("sin el cuerpo no hay agarres: Uke se queda de pie", async () => {
     const json = load();
     ((json.tori as Record<string, unknown>).body as Record<string, unknown>).enabled = false;

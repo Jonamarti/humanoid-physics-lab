@@ -23,7 +23,7 @@ La física es la misma de `npm run sim` (`runScenario`): mismo modelo, mismo pas
 | Bloque | Campos | Notas |
 |---|---|---|
 | General | Duración, rozamiento del suelo | El rozamiento del suelo es el de los pies de Uke |
-| Uke | Masa, altura, fuerza muscular, actitud | `en tensión` mantiene la postura; `relajado` no tiene objetivos |
+| Uke | Masa, altura, fuerza muscular, rigidez de la cintura, actitud | `en tensión` mantiene la postura; `relajado` no tiene objetivos |
 | Tori | Activar o quitar a Tori; masa y rozamiento de sus pies; casilla del cuerpo; altura, rozamiento con Uke, qué agarra cada mano (con tope y suelta) y tablas de posturas, pies y manos | Ver [TORI_BODY.md](TORI_BODY.md). Sin Tori solo actúan las fuerzas directas y los obstáculos |
 | Fuerzas directas sobre Uke | «+ Impacto» y «+ Fuerza constante»; en cada una: punto, tipo, ejes, componentes X/Y/Z, inicio, duración | El punto se elige de una lista o tocando a Uke en el visor 3D |
 | Añadir obstáculo | «+ Barra», «+ Poste», «+ Almohadilla» | Cada obstáculo, tirón, mano y fuerza tiene su botón «Quitar» |
@@ -101,6 +101,7 @@ Sobre `uke_tense_75_175_tori_body` (Tori con cuerpo y agarres):
 - **¿Y si suelta la solapa?** Pon «Suelta a (s)» de la mano derecha en 1,05.
 - **¿Y si la manga va pegada al cuerpo?** En la tabla de la mano izquierda, baja «Hacia la cabeza» de las filas 2 a 4 a 0.
 - **¿Y si agarra la muñeca en vez de la manga?** Cambia «Mano izquierda agarra» a «muñeca derecha».
+- **¿Y si Uke se dobla por la cintura?** Baja «Rigidez de la cintura» de Uke a 0,3.
 - **¿Y si entra más bajo?** Baja «Pelvis Z» de la cuarta postura.
 
 Sin Tori (pulsa «Quitar a Tori» y quita los tirones, o abre `uke_tense_75_175_side_impact_post`):

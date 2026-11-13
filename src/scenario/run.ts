@@ -318,6 +318,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       ukeParams = {
         attitude: settleAttitude!, stance: humanoid.stance, mass_kg: humanoid.mass_kg,
         height_m: humanoid.height_m, strength: humanoid.strength, targets: placement.targets,
+        ...(humanoid.waist_stiffness !== undefined ? { waist_stiffness: humanoid.waist_stiffness } : {}),
       };
       uke = createUkeController(ukeParams, model as unknown as StandingModel, data as unknown as StandingState);
     }

@@ -116,6 +116,12 @@ export interface HumanoidActor {
   build?: number;
   /** Longitudes explícitas de segmentos, en m. */
   segment_lengths_m?: Partial<Record<SegmentLengthKey, number>>;
+  /**
+   * Rigidez de la cintura (0 a 1; por defecto 1). Escala la rigidez y el par máximo con los que la actitud `tense` mantiene
+   * rectas las articulaciones lumbares, las torácicas y la flexión de las caderas ante una carga. No cambia el tono que
+   * sostiene el tronco contra su propio peso.
+   */
+  waist_stiffness?: number;
   /** Por defecto `tense`. */
   attitude: UkeAttitude;
   /** Por defecto `neutral`. */

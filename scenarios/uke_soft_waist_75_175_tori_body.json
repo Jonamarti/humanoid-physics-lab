@@ -1,0 +1,230 @@
+{
+ "schema": "hpl.scenario.v1",
+ "id": "uke_soft_waist_75_175_tori_body",
+ "duration_s": 3,
+ "record_hz": 50,
+ "ground": {
+  "friction": 1
+ },
+ "actors": [
+  {
+   "id": "uke",
+   "kind": "humanoid",
+   "mass_kg": 75,
+   "height_m": 1.75,
+   "strength": 1,
+   "attitude": "tense",
+   "stance": "neutral",
+   "waist_stiffness": 0.3
+  }
+ ],
+ "props": [],
+ "effectors": [],
+ "tori": {
+  "mass_kg": 75,
+  "body": {
+   "height_m": 1.75,
+   "grips": {
+    "left": {
+     "site": "right_sleeve_elbow",
+     "max_force_n": 300
+    },
+    "right": {
+     "site": "sternum",
+     "max_force_n": 300
+    }
+   },
+   "keys": [
+    {
+     "t_s": 0.2,
+     "pelvis_m": [
+      0.62,
+      0,
+      0.887
+     ],
+     "yaw_deg": 180,
+     "lean_deg": 5,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.64,
+      -0.13,
+      0
+     ],
+     "right_foot_m": [
+      0.64,
+      0.13,
+      0
+     ],
+     "left_hand_m": [
+      0.418,
+      0.199,
+      -0.298
+     ],
+     "right_hand_m": [
+      0.497,
+      0,
+      -0.099
+     ]
+    },
+    {
+     "t_s": 0.45,
+     "pelvis_m": [
+      0.56,
+      0,
+      0.841
+     ],
+     "yaw_deg": 200,
+     "lean_deg": 8,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.64,
+      -0.13,
+      0
+     ],
+     "right_foot_m": [
+      0.5,
+      0.08,
+      0
+     ],
+     "left_hand_m": [
+      0.108,
+      0.133,
+      0.265
+     ],
+     "right_hand_m": [
+      0.318,
+      -0.119,
+      0.05
+     ]
+    },
+    {
+     "t_s": 0.65,
+     "pelvis_m": [
+      0.5,
+      0,
+      0.706
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 20,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.5,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.5,
+      -0.14,
+      0
+     ],
+     "left_hand_m": [
+      -0.088,
+      -0.2,
+      0.436
+     ],
+     "right_hand_m": [
+      0.099,
+      0.08,
+      0.05
+     ]
+    },
+    {
+     "t_s": 0.85,
+     "pelvis_m": [
+      0.4,
+      0,
+      0.597
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 40,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.42,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.42,
+      -0.14,
+      0
+     ],
+     "left_hand_m": [
+      -0.089,
+      -0.2,
+      0.502
+     ],
+     "right_hand_m": [
+      0.099,
+      0.05,
+      0.05
+     ]
+    },
+    {
+     "t_s": 1.2,
+     "pelvis_m": [
+      0.24,
+      0,
+      0.905
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 100,
+     "twist_deg": 25,
+     "left_foot_m": [
+      0.42,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.42,
+      -0.14,
+      0
+     ],
+     "left_hand_m": [
+      -0.165,
+      -0.033,
+      0.262
+     ],
+     "right_hand_m": [
+      -0.057,
+      0.137,
+      0.114
+     ]
+    },
+    {
+     "t_s": 1.8,
+     "pelvis_m": [
+      0.36,
+      0,
+      0.86
+     ],
+     "yaw_deg": 360,
+     "lean_deg": 60,
+     "twist_deg": 0,
+     "left_foot_m": [
+      0.42,
+      0.14,
+      0
+     ],
+     "right_foot_m": [
+      0.42,
+      -0.14,
+      0
+     ],
+     "left_hand_m": [
+      0.365,
+      0,
+      -0.124
+     ],
+     "right_hand_m": [
+      0.272,
+      0.1,
+      -0.186
+     ]
+    }
+   ]
+  }
+ },
+ "expect": {
+  "outcome": "fall"
+ }
+}

@@ -30,10 +30,17 @@ export function buildFulcrumScenario({
   // X coordinate is approximate for neutral stance. In the staggered stance
   // the rear foot is farther back and this fixed block must be repositioned.
   const sign=blocked==="left"?1:-1;
+  // A narrow, *raised* strike zone at the selected height; a knee-level stop
+  // must not also block the foot just because it occupies the whole column below.
+  // X positions leave a clearance at t=0 for the 1.75m neutral Uke geometry.
+  const barrier={ankle:{x:.242,depth:.065,band:.12},shin:{x:.14,depth:.07,band:.12},
+    knee:{x:.15,depth:.07,band:.12},thigh:{x:.16,depth:.09,band:.12}}[height];
+  const shift=stance==="staggered_left"&&blocked==="right" ? -.13 :
+    stance==="staggered_right"&&blocked==="left" ? -.13 : 0;
   const block=blocked==="none"?[]:[{
     id:"foot_stop",kind:"fixed_box",
-    size_m:vec(.065,.125,h),
-    pos_m:vec(.242,sign*.105,h/2),
+    size_m:vec(barrier.depth,.13,barrier.band),
+    pos_m:vec(barrier.x+shift,sign*.105,h),
   }];
   const siteName=(s)=>site==="shoulder"?s+"_shoulder_impact":s+"_sleeve_elbow";
   const eff=["left","right"].map((s)=>({

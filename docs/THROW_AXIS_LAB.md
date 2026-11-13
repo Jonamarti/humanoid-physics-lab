@@ -80,6 +80,31 @@ En el caso medio 13 cm, la dirección de caída medida fue +6,52° (tope derecho
 
 **Decisión técnica:** la hipótesis de par lateral está respaldada por la simulación de bloqueo medio y su reflexión, pero **no está validado** el modelo de derribo ni la sujeción de un pie trasero. No fusionar automáticamente ni aplicar estos parámetros al juego. El siguiente experimento debe ajustar el tope unilateral para que contacte en la fase de kuzushi, medir deslizamiento del pie bloqueado, comprobar que el tronco evita colisión con Tori, y evitar impactos con la cabeza antes de considerar válidas las curvas.
 
+## Ensayo de kuzushi circular prolongado con fulcro transitorio — 13/11/2026
+
+Añadido a `/throw-axis-lab.html` y a `public/fulcrum-scenarios.js` como **escenarios alternativos**, sin alterar el solver `runScenario` ni los ensayos anteriores:
+
+- Fuerza `pull` continua por puntos de control, entre t=0,30 y 2,60 s (2,30 s), o entre 0,30 y 3,38 s (3,08 s). Primero +X/+Z (kuzushi), luego +X, luego +X/-Z (continuación del giro); la fuerza termina suavemente. No es animación posicional de Uke.
+- Tracción en manga derecha, ajustable: simétrica / 1,45× / 1,85× durante la fase final, con ensayo control de tracción recta de igual duración; se puede tirar del hombro en vez de la manga.
+- Tope unilateral **sin unión rígida** (fixed_box). Variante temporal con `obstacle: pad` con 4 kg y servo limitado, que se retira lateralmente por una curva a partir de ~t=1,46 s; el contacto puede cesar *antes* de la retirada si Uke lo sobrepasa.
+- Brazo izquierdo y derecho tienen curvas temporales medibles. HPL calcula por su cuenta contacto, fuerzas, inclinación, giro y posiciones; si Uke no toca el tope, nunca se afirma que haya pivotado sobre él.
+
+Batería real MuJoCo WASM, CI #819 en verde, y repetición con almohadilla móvil más estrecha (CI #822 en verde). Los valores son **resultados de simulación** y no una técnica ya validada.
+
+| Ensayo | Contacto con tope | Primer contacto suelo | Cabeza en suelo | Cara frontal del pecho al tocar suelo* |
+|---|---|---|---|---|
+| Recto prolongado, tope espinilla derecha, 1,45× manga | 1,208–1,232 s, espinilla derecha | antebrazo derecho | sí, 2,45 m/s | −0,936 |
+| Circular prolongado, mismo tope, 1,45× manga | 1,040–1,056 s, espinilla derecha | antebrazo derecho | sí, 4,55 m/s | −0,918 |
+| Circular, manga derecha 1,85×, tope espinilla | 1,040–1,056 s, espinilla derecha | antebrazo derecho | sí, 2,99 m/s | −0,886 |
+| Circular, tope móvil estrecho que se retira | 0,624–0,976 s, pie/espinilla derechos | antebrazo derecho; después pecho y pelvis | **no registrado** | −0,623 |
+| Circular, tope tobillo derecho estacionario | ninguno | brazo izquierdo | sí, 4,02 m/s | no se utiliza el fulcro |
+
+*La componente vertical de la dirección frontal del pecho en el primer contacto de pecho, medida con `xmat[6]` para el cuerpo `chest`. **Negativa significa que el pecho mira hacia abajo, por lo que no constituye caída dorsal** (aproximación con rig físico HPL). El tope móvil elimina el contacto con la otra pierna en la nueva configuración, pero la recepción sigue siendo **prona/no dorsal** y el impacto del pecho fue ~5,94 m/s: **NO APTO** para dar por corregido Tai Otoshi.
+
+**Hallazgo biomecánico esencial:** la separación ocurre de forma espontánea; un fulcro no necesita contacto continuo. El obstáculo fijo de espinilla solo hizo contacto ~16 ms antes de separarse. La fuerza circular cambia drásticamente la trayectoria, pero con esta parametrización el giro no pasa a una recepción sobre espalda. Hacen falta pruebas de los pares de rotación, control de orientación dorsal y ajuste de dirección y temporización del tirón, comparando siempre el escenario sin obstáculo. No deducir que una fuerza mayor o más prolongada asegura ukemi.
+
+**Vídeo diagnóstico:** la conversación acompaña un MP4 con comparación recto/circular reconstruida de las posiciones del motor a 125 Hz, submuestreadas para visualización. El modelo de trazo son cuerpos/centros de segmento, no la malla definitiva; la interpolación entre frames no recalcula física.
+
 ## Qué revisar en cada técnica
 
 - **Tai-otoshi:** a partir de 1,57 s, dirección de la cabeza respecto a pelvis, trayectoria de hombros, sobrepaso de la barrera de la pierna derecha de Tori y lado de caída. Comparar la vista cenital y la frontal; comprobar la mano que retiene la manga.

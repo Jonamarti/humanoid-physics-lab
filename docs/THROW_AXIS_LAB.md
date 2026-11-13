@@ -32,6 +32,29 @@ La copia alternativa aplica una rotación alrededor del eje Z del mundo sobre **
 
 **No se considera una solución definitiva**: al rotar todo Uke (también manos y pies), cambia sus puntos de contacto y agarres con Tori. Además, la estimación de yaw por hombros puede mezclar giro axial y ladeo; cuando hay rolido intenso, debe contrastarse con las curvas originales `uke_giro` del guion. Es un diagnóstico reversible, no un cambio de las curvas ni del algoritmo.
 
+## Segunda fase: simulaciones dinámicas con MuJoCo
+
+La misma entrada ofrece «Ensayo físico aislado · MuJoCo». El adaptador puro `public/throw-axis-physics.js` transforma los
+fotogramas de Tori del JSON importado en escenarios `hpl.scenario.v1`. Abre otra pestaña de la web principal con
+`#scn=...`: **es el editor habitual de HPL el que valida, ejecuta y reproduce el resultado con `runScenario` y MuJoCo
+WASM** (paso físico de 2 ms). Ningún resultado se persiste ni se añade a la galería.
+
+- **Cuerpo aproximado completo:** 14 segmentos de Tori, posturas de pelvis/torso/pies/manos derivadas del guion y dos
+  agarres limitados a 300 N. El motor resuelve el giro de Uke como consecuencia de colisiones y agarres; el ángulo original
+  de Uke **no** se utiliza como consigna.
+- **Apoyo simplificado:** solo Uke y una barra (espinilla derecha), almohadilla dorsal o almohadilla de cadera. El
+  obstáculo sigue una secuencia aproximada de posiciones de Tori con fuerza limitada; dos tirones declarados se aplican
+  a manga y esternón. La barra es transversal (eje Y), **no** sigue la orientación angular exacta de una espinilla oblicua.
+- **Control sin apoyo:** conserva exactamente los mismos dos tirones y los parámetros de Uke, pero elimina la geometría
+  del apoyo. Así permite identificar el efecto del contacto. El control solo está disponible en el modo simplificado,
+  porque sin el cuerpo de Tori también desaparecen sus agarres.
+
+Las fuerzas de los tirones son **hipótesis aproximadas**, no mediciones ni fuerzas extraídas de AnimeSpec, que es
+cinemático; la transformación de muñecas y tobillos de AnimSpec al cuerpo paramétrico de HPL también es aproximada.
+Por tanto el ensayo físico **no reproduce exactamente** el derribo guionizado, aunque puede ayudar a depurar la dirección,
+los puntos de contacto y el sentido de los pares. Se debe comparar desde la cámara cenital y frontal, mirar el informe de
+contactos y no interpretar una coincidencia como validación biomecánica.
+
 ## Qué revisar en cada técnica
 
 - **Tai-otoshi:** a partir de 1,57 s, dirección de la cabeza respecto a pelvis, trayectoria de hombros, sobrepaso de la barrera de la pierna derecha de Tori y lado de caída. Comparar la vista cenital y la frontal; comprobar la mano que retiene la manga.
@@ -54,4 +77,4 @@ La copia alternativa aplica una rotación alrededor del eje Z del mundo sobre **
 5. Importar ambos JSON originales (solo locales), repetir 2–4 y anotar el primer fotograma en que el lado mejora o empeora.
 6. Confirmar que ninguna grabación de `public/recordings/` ni escenario de `scenarios/` ha sido modificada en el diff.
 
-**Estado de validación de esta entrega:** implementación preparada; no se ha ejecutado un navegador, TypeScript build ni ensayo con JSON real en este entorno. No considerar aprobada la hipótesis hasta revisión visual.
+**Comprobación:** se han añadido tests de validación del modelo y de ejecución MuJoCo para Tai-otoshi y O-soto-gari. La comprobación definitiva con los JSON de AnimeSpec y una inspección desde el navegador sigue pendiente. El experimento no autoriza modificar ni regenerar las grabaciones originales.

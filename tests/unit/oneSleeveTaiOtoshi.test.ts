@@ -7,6 +7,8 @@ import {buildOneSleeveScenario} from "../../public/one-sleeve-lab.js";
 
 const scenarios=[
   {name:"right_brief", mode:"brief",bar:"right"},
+  {name:"right_brief_soft",mode:"brief",bar:"right",force:"soft"},
+  {name:"right_sustained_soft",mode:"sustained",bar:"right",force:"soft"},
   {name:"right_brief_x038",mode:"brief",bar:"right",barX:.38},
   {name:"right_brief_x045",mode:"brief",bar:"right",barX:.45},
   {name:"right_brief_x065",mode:"brief",bar:"right",barX:.65},
@@ -75,6 +77,7 @@ describe("manga derecha aislada: barra diagonal y torque sobre Uke",()=>{
       contact_parts:[...new Set(barContacts.map(c=>c.other))],
       last_contact:barContacts.at(-1)?.t??null,
       pre_pull_drift_m:Number(drift.toFixed(3)),
+      angleAt1s:motion.reduce((a,b)=>Math.abs(b.t-1)<Math.abs(a.t-1)?b:a).angle,
       fall_time_s:fall?.t_s??null,first_ground_part:fall?.first_part??null,
       head_ground_speed_mps:fall?.impact.head?.speed_mps??null,
       status:rec.summary.outcome,
@@ -82,6 +85,13 @@ describe("manga derecha aislada: barra diagonal y torque sobre Uke",()=>{
     };
     expect(rec.samples.at(-1)!.qpos.every(Number.isFinite)).toBe(true);
     expect(pre).not.toHaveLength(0);
+    expect(drift,"Uke no puede caer ni retroceder antes del tirón").toBeLessThan(.01);
+    if(o.bar!=="none"){
+      expect(barContacts[0]?.t,"barra no debe entrar en contacto antes del tirón").toBeGreaterThan(.65);
+    }
+    if(o.name==="no_bar_brief"){
+      expect(out.faceYAt1s,"tirón unilateral debe orientar el pecho hacia izquierda de Uke").toBeGreaterThan(.2);
+    }
     console.log("SINGLE_SLEEVE_METRICS|"+JSON.stringify(out));
     console.log("SINGLE_SLEEVE_FRAMES|"+o.name+"|"+Buffer.from(JSON.stringify({out,motion})).toString("base64"));
   },90000);

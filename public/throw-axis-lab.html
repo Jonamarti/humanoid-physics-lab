@@ -93,6 +93,19 @@ label{display:block;margin:13px 0 5px;font-weight:650;font-size:.9rem}select,inp
 <p class="hint" id="arc-status" role="status">El escenario se abre en la aplicación física de HPL. Los agarres se modelan como fuerzas prescritas, no como restricciones geométricas.</p>
 <p class="hint">Hipótesis por comprobar: el apoyo de la pierna derecha cambia el par de giro y el tirón continuo de manga permite la rotación sin contacto final. El modelo no garantiza ni exige caer de espaldas; se revisa el informe de impactos reales.</p>
 </section>
+<section style="margin:18px 0;padding:15px;border:1px solid #5d8f9e;border-radius:9px;background:#0d2134" aria-label="Ensayo barra diagonal y manga derecha">
+<h2>Prueba simplificada: solo manga derecha + barra diagonal</h2>
+<p class="hint">Sin Tori completo. Uke empieza erguido, con tono firme y postura neutral. Una única fuerza actúa sobre su manga derecha. La barra es una cápsula diagonal REAL en 3D, no una caja horizontal. No se prescribe el giro: lo resuelve MuJoCo.</p>
+<label for="single-bar">Qué pierna intercepta la barra</label><select id="single-bar"><option value="right">Solo pierna derecha (principal)</option><option value="none">Sin barra (control)</option><option value="both">Ambas piernas (control extra)</option></select>
+<label for="single-mode">Tipo de tirón de manga</label><select id="single-mode"><option value="brief">Breve y recto: solo hacia delante</option><option value="sustained">Recto y prolongado</option><option value="redirect">Redirigido: adelante/arriba → adelante → adelante/abajo</option></select>
+<label for="single-force">Intensidad</label><select id="single-force"><option value="soft">Suave (230 N de referencia)</option><option value="medium" selected>Media (420 N)</option><option value="strong">Fuerte (650 N)</option></select>
+<label for="single-posture">Tono de Uke</label><select id="single-posture"><option value="firm" selected>Firme (controlador tenso, fuerza muscular 1,5×)</option><option value="tense">Tenso normal (1×)</option></select>
+<label for="single-angle">Geometría de la barra</label><select id="single-angle"><option value="diagonal">Diagonal ascendente (en Y y Z)</option><option value="straight">Horizontal (control geométrico)</option></select>
+<label for="single-lean">Componente lateral adicional</label><select id="single-lean"><option value="none" selected>Ninguna (solo componente hacia delante)</option><option value="left">Hacia la izquierda de Uke (+Y, 22 %)</option></select>
+<div class="controls"><button type="button" id="single-run">Simular manga derecha + barra</button><button type="button" id="single-nobar">Comparar SIN barra</button><button type="button" id="single-noforce">Control SIN tirón</button></div>
+<p id="single-status" role="status" class="hint">Compara orientación de pecho, giro de pelvis, contacto real con barra, elevación del pie derecho y primera zona que toca el suelo. El perfil breve permite comprobar cuánto giro aparece sin redirigir la fuerza.</p>
+<p class="hint">La barra fija debe empezar sin penetrar a Uke; las pruebas comprueban su posición inicial. El contacto puede durar solo unos instantes. No considerar un giro correcto hasta revisar el hombro de recepción y la orientación de Uke.</p>
+</section>
 <div id="report" class="report" role="status" aria-live="polite"></div>
 <p class="hint">Las distancias son entre <strong>segmentos del esqueleto</strong>, no penetraciones de malla; no acreditan contacto físico ni fuerzas. La hipótesis invierte el yaw alrededor de la pelvis y conserva el resto de las articulaciones relativas; puede cambiar agarres y contactos. Revisar fotograma a fotograma antes de llevar una corrección a AnimeSpec.</p>
 </section></div>

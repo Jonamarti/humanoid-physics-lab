@@ -384,7 +384,12 @@ class FrameRenderer:
         for s in self.samples:
             self.data.qpos[:] = s["qpos"]
             mujoco.mj_kinematics(self.model, self.data)
-            pts.append(self.data.xpos[self.body].copy())
+            roots = (self.rec.get("meta") or {}).get("humanoid_actors") or []
+            if roots:
+                for actor in roots:
+                    pts.append(self.data.xpos[self.model.body(actor["root_body"]).id].copy())
+            else:
+                pts.append(self.data.xpos[self.body].copy())
         pts = np.array(pts)
         r = 0.5 * self.extent
         lo, hi = pts.min(axis=0) - r, pts.max(axis=0) + r
@@ -469,7 +474,17 @@ class FrameRenderer:
         img = Image.fromarray(self.renderer.render().copy()).convert("RGBA")
 
         cam = scene.camera[0]
-        margin_text = draw_balance(img, sample, cam, self.width, self.height, self.fovy)
+        actor_samples = sample.get("actors") or {}
+        if actor_samples:
+            for actor_id, observation in actor_samples.items():
+                draw_balance(img, observation, cam, self.width, self.height, self.fovy)
+                com = observation.get("com")
+                pos = project(np.array(com), cam, self.width, self.height, self.fovy) if com else None
+                if pos is not None:
+                    draw_label(img, (pos[0] + 12, pos[1] - 12), actor_id, self.font, (255, 255, 255))
+            margin_text = None
+        else:
+            margin_text = draw_balance(img, sample, cam, self.width, self.height, self.fovy)
         placed = []
         for start, vec, rgba, text in arrows:
             n = float(np.linalg.norm(vec))

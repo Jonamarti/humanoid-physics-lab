@@ -1,3 +1,4 @@
+import { resolveCoupledGrip } from "../effectors/coupledGrip";
 import { resolveHandParams } from "../effectors/hand";
 import { resolvePullParams } from "../effectors/pull";
 import { resolveToriBodyParams } from "../effectors/toriBody";
@@ -21,6 +22,7 @@ import {
   SCENARIO_RECORD_HZ_MIN,
   SCENARIO_SCHEMA_ID,
   type ActorSpec,
+  type ActorGripSpec,
   type HumanoidActor,
   type SegmentLengthKey,
   type EffectorSpec,
@@ -151,7 +153,7 @@ function asRange(value: unknown, path: string, [lo, hi]: readonly [number, numbe
 
 function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
   checkKeys(obj, path, ["id", "kind", "mass_kg", "height_m"], [
-    "strength", "build", "segment_lengths_m", "attitude", "stance", "waist_stiffness",
+    "strength", "build", "segment_lengths_m", "attitude", "stance", "waist_stiffness", "fall", "joint_limit_timeconst_s", "placement",
   ]);
   const actor: HumanoidActor = {
     id,
@@ -162,6 +164,15 @@ function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
     attitude: "attitude" in obj ? asEnum(obj.attitude, join(path, "attitude"), UKE_ATTITUDES) : "tense",
     stance: "stance" in obj ? asEnum(obj.stance, join(path, "stance"), UKE_STANCES) : "neutral",
   };
+  if ("placement" in obj) {
+    const p = asObject(obj.placement, join(path,"placement"));
+    checkKeys(p,join(path,"placement"),["xy_m","heading_deg"]);
+    const xy = asArray(p.xy_m,join(path,"placement.xy_m"));
+    if(xy.length!==2) fail(join(path,"placement.xy_m"),"debe tener dos coordenadas");
+    actor.placement={xy_m:[asRange(xy[0],join(path,"placement.xy_m[0]"),[-100,100],"m"),asRange(xy[1],join(path,"placement.xy_m[1]"),[-100,100],"m")],heading_deg:asFinite(p.heading_deg,join(path,"placement.heading_deg"))};
+  }
+  if ("joint_limit_timeconst_s" in obj) actor.joint_limit_timeconst_s = asRange(obj.joint_limit_timeconst_s, join(path, "joint_limit_timeconst_s"), [0.004, 0.05], "s");
+  if ("fall" in obj) actor.fall = asEnum(obj.fall, join(path, "fall"), ["none", "instinctive"] as const);
   if ("build" in obj) actor.build = asRange(obj.build, join(path, "build"), [0, 1], "");
   if ("waist_stiffness" in obj) actor.waist_stiffness = asRange(obj.waist_stiffness, join(path, "waist_stiffness"), [0, 1], "");
   if ("segment_lengths_m" in obj) {
@@ -406,7 +417,7 @@ function validateTori(value: unknown, path: string, effectorIds: readonly string
 
 function validateToriBody(value: unknown, path: string, massKg: number, effectorIds: readonly string[]): ToriBodySpec {
   const obj = asObject(value, path);
-  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "grips", "interp"]);
+  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "grips", "interp", "grip_mode"]);
   const body: ToriBodySpec = { height_m: asPositive(obj.height_m, join(path, "height_m")), keys: [] };
   if ("enabled" in obj) {
     if (typeof obj.enabled !== "boolean") fail(join(path, "enabled"), `debe ser true o false, no ${describe(obj.enabled)}`);
@@ -414,6 +425,7 @@ function validateToriBody(value: unknown, path: string, massKg: number, effector
   }
   if ("friction" in obj) body.friction = asNonNegative(obj.friction, join(path, "friction"));
   if ("interp" in obj) body.interp = asEnum(obj.interp, join(path, "interp"), ["min_jerk", "linear"] as const);
+  if ("grip_mode" in obj) body.grip_mode = asEnum(obj.grip_mode, join(path, "grip_mode"), ["target", "coupled"] as const);
   if ("grips" in obj) {
     const grips = asObject(obj.grips, join(path, "grips"));
     checkKeys(grips, join(path, "grips"), [], ["left", "right"]);
@@ -422,13 +434,19 @@ function validateToriBody(value: unknown, path: string, massKg: number, effector
       if (!(side in grips)) continue;
       const gp = join(path, `grips.${side}`);
       const g = asObject(grips[side], gp);
-      checkKeys(g, gp, ["site"], ["max_force_n", "release_s", "engage_s"]);
+      checkKeys(g, gp, ["site"], ["max_force_n", "release_s", "engage_s", "max_power_w", "capture_radius_m", "capture_window_s", "break_distance_m", "slip_after_s"]);
       const site = asString(g.site, join(gp, "site"));
       if (!(site in HUMANOID_SITE_BODY)) fail(join(gp, "site"), `"${site}" no es un sitio del humanoide`);
       const grip: ToriGripSpec = { site };
       if ("max_force_n" in g) grip.max_force_n = asPositive(g.max_force_n, join(gp, "max_force_n"));
       if ("release_s" in g) grip.release_s = asNonNegative(g.release_s, join(gp, "release_s"));
       if ("engage_s" in g) grip.engage_s = asNonNegative(g.engage_s, join(gp, "engage_s"));
+      for (const key of ["max_power_w", "capture_radius_m", "capture_window_s", "break_distance_m", "slip_after_s"] as const) {
+        if (key in g) grip[key] = asPositive(g[key], join(gp, key));
+      }
+      if ((grip.break_distance_m ?? 0.25) <= (grip.capture_radius_m ?? 0.12)) fail(gp, "break_distance_m debe superar capture_radius_m");
+      if (grip.release_s !== undefined && grip.release_s <= (grip.engage_s ?? 0)) fail(gp, "release_s debe ser posterior a engage_s");
+      if (body.grip_mode !== "coupled" && ["max_power_w", "capture_radius_m", "capture_window_s", "break_distance_m", "slip_after_s"].some(k => k in g)) fail(gp, "los límites físicos requieren grip_mode: coupled");
       body.grips[side] = grip;
       const id = `tori_${side}_hand`;
       if (effectorIds.includes(id)) fail(gp, `el id de efector "${id}" está reservado para este agarre`);
@@ -460,6 +478,23 @@ function validateToriBody(value: unknown, path: string, massKg: number, effector
     failFromRange(path, error);
   }
   return body;
+}
+
+function validateActorGrip(value: unknown, path: string, actors: readonly ActorSpec[]): ActorGripSpec {
+  const g = asObject(value,path);
+  const numeric = ["max_power_w","capture_radius_m","capture_window_s","break_distance_m","slip_after_s"] as const;
+  checkKeys(g,path,["id","source","target","engage_s","max_force_n"],["release_s",...numeric]);
+  const endpoint = (key: "source"|"target"): {actor:string;site:string} => {
+    const p=join(path,key), v=asObject(g[key],p); checkKeys(v,p,["actor","site"]);
+    const a=validateAttachment(v,p,actors); return {actor:a.actor.id,site:a.site!};
+  };
+  const grip:ActorGripSpec={id:asId(g.id,join(path,"id")),source:endpoint("source"),target:endpoint("target"),
+    engage_s:asNonNegative(g.engage_s,join(path,"engage_s")),max_force_n:asPositive(g.max_force_n,join(path,"max_force_n"))};
+  if(grip.source.actor===grip.target.actor)fail(path,"el agarre debe unir actores distintos");
+  for(const key of numeric)if(key in g)grip[key]=asPositive(g[key],join(path,key));
+  if("release_s" in g){grip.release_s=asNonNegative(g.release_s,join(path,"release_s"));if(grip.release_s<=grip.engage_s)fail(path,"release_s debe ser posterior a engage_s");}
+  try{resolveCoupledGrip(grip);}catch(error){failFromRange(path,error);}
+  return grip;
 }
 
 function validateEffector(value: unknown, path: string, actors: readonly ActorSpec[]): EffectorSpec {
@@ -543,7 +578,7 @@ export function validateScenario(json: unknown, options: ValidateOptions = {}): 
     const schema = asString(root.schema, "schema");
     if (schema !== SCENARIO_SCHEMA_ID) fail("schema", `debe ser "${SCENARIO_SCHEMA_ID}", no "${schema}"`);
   }
-  checkKeys(root, "", ["schema", "id", "duration_s", "record_hz", "ground", "actors", "props", "effectors"], ["expect", "obstacles", "tori"]);
+  checkKeys(root, "", ["schema", "id", "duration_s", "record_hz", "ground", "actors", "props", "effectors"], ["expect", "obstacles", "tori", "actor_grips"]);
 
   const id = asId(root.id, "id");
   if (options.fileName !== undefined && fileStem(options.fileName) !== id) {
@@ -566,6 +601,13 @@ export function validateScenario(json: unknown, options: ValidateOptions = {}): 
 
   const actors = validateList(root.actors, "actors", validateActor, (a) => a.id);
   if (actors.length === 0) fail("actors", "debe haber al menos un actor");
+  if (actors.length > 2) fail("actors","como máximo dos actores");
+  if (actors.length === 2) {
+    if (actors.some(a=>a.kind!=="humanoid")) fail("actors","dos actores requieren dos humanoides");
+    if (!/^[a-z]/.test(actors[1]!.id)) fail("actors[1].id","debe empezar por una letra");
+    if (!(actors[1] as HumanoidActor).placement) fail("actors[1].placement","obligatoria para el segundo humanoide");
+    if ("tori" in root) fail("tori","no mezclar dos actores dinámicos con el Tori abstracto");
+  }
   const props = validateList(root.props, "props", validateProp, (p) => p.id);
   const effectors = validateList(root.effectors, "effectors", (v, p) => validateEffector(v, p, actors), (e) => e.id);
 
@@ -579,6 +621,11 @@ export function validateScenario(json: unknown, options: ValidateOptions = {}): 
     props,
     effectors,
   };
+  if ("actor_grips" in root) {
+    if (actors.length !== 2) fail("actor_grips","requiere dos humanoides articulados");
+    scenario.actor_grips=validateList(root.actor_grips,"actor_grips",(v,p)=>validateActorGrip(v,p,actors),g=>g.id);
+    scenario.actor_grips.forEach((g,i)=>{if(effectors.some(e=>e.id===g.id))fail(`actor_grips[${i}].id`,"colisiona con un efector");});
+  }
   if ("obstacles" in root) {
     scenario.obstacles = validateList(root.obstacles, "obstacles", validateObstacle, (o) => o.id);
     const taken = new Set(props.map((p) => p.id));

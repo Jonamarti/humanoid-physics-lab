@@ -43,11 +43,11 @@ export interface DampingModel {
  * Escribe `model.dof_damping` por nombre de bisagra. Rechaza nombres que no sean bisagras (la raíz libre no se toca) y
  * valores no finitos o negativos.
  */
-export function setJointDamping(model: DampingModel, byName: Readonly<Record<string, number>>): void {
+export function setJointDamping(model: DampingModel, byName: Readonly<Record<string, number>>, prefix = ""): void {
   const hinges = new Set(UKE_HINGE_JOINTS);
   for (const [name, value] of Object.entries(byName)) {
     if (!hinges.has(name)) throw new Error(`"${name}" no es una bisagra de Uke: no se escribe su amortiguación`);
     if (!Number.isFinite(value) || value < 0) throw new RangeError(`amortiguación inválida para ${name}: ${value}`);
-    model.dof_damping[model.jnt_dofadr[model.jnt(name).id]!] = value;
+    model.dof_damping[model.jnt_dofadr[model.jnt(prefix + name).id]!] = value;
   }
 }

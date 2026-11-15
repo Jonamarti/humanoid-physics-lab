@@ -23,6 +23,10 @@ export interface UkeController {
 }
 
 export interface UkeControllerParams {
+  /** Optional actor namespace, e.g. tori_. */
+  prefix?: string;
+  /** Commands only this actor; projects balance moments onto its physical joint axes. */
+  scope_to_actor?: boolean;
   attitude: UkeAttitude;
   stance: UkeStance;
   mass_kg: number;
@@ -40,7 +44,21 @@ export function createTenseController(
   data: StandingState,
   gains: UkeGains = scaledGains(params.mass_kg, params.height_m, params.strength),
 ): UkeController {
-  const base = makeStandingController(model, data);
+  const prefix = params.prefix ?? "";
+  const actorModel: StandingModel = {
+    njnt: model.njnt, jnt_type: model.jnt_type, jnt_qposadr: model.jnt_qposadr, jnt_dofadr: model.jnt_dofadr,
+    geom_bodyid: model.geom_bodyid, body_mass: model.body_mass,
+    jnt: name => model.jnt(prefix + name), geom: name => model.geom(prefix + name),
+  };
+  const rootBody = model.geom_bodyid[actorModel.geom("pelvis_geom").id]!;
+  const comOffset = 3 * rootBody;
+  const rootDof = model.jnt_dofadr[actorModel.jnt("pelvis_root").id]!;
+  const actorInitial = {
+    qpos: data.qpos, qvel: data.qvel, qfrc_applied: data.qfrc_applied, xpos: data.xpos,
+    subtree_com: [0,0,0,data.subtree_com[comOffset]!,data.subtree_com[comOffset+1]!,data.subtree_com[comOffset+2]!],
+    subtree_linvel: [0,0,0,data.subtree_linvel[comOffset]!,data.subtree_linvel[comOffset+1]!,data.subtree_linvel[comOffset+2]!],
+  };
+  const base = makeStandingController(actorModel, actorInitial);
   const settings = new Map<number, JointPDSettings>();
   const limitOf = new Map<number, number>();
   const nameOf = new Map<number, string>();
@@ -48,7 +66,7 @@ export function createTenseController(
   for (const name of UKE_HINGE_JOINTS) {
     const group = jointGroupOf(name);
     const g = gains.groups[group];
-    const id = model.jnt(name).id;
+    const id = actorModel.jnt(name).id;
     // Cintura flexible: el PD del tronco (lumbares y torácicas) y el de la flexión de las caderas empujan menos hacia la
     // postura recta. El tope de la compensación de la gravedad (más abajo) no se escala: el tronco se sostiene solo, pero
     // cede cuando lo cargan.
@@ -66,6 +84,8 @@ export function createTenseController(
   }
   const controller: StandingController = {
     ...base,
+    // Only Uke is supported by these ankles. Props and Tori are separate dynamic trees.
+    totalMassKg: params.mass_kg,
     gains: settings,
     kpX: gains.comKp, kdX: gains.comKd, kpY: gains.comKp, kdY: gains.comKd,
     ankleLimitNm: gains.ankleLimitNm,
@@ -87,19 +107,19 @@ export function createTenseController(
     dof: model.jnt_dofadr[id]!, qadr: model.jnt_qposadr[id]!, g,
   }));
   const applyPostureTorques = (d: StandingState): void => {
-    d.qfrc_applied.fill(0);
+    if (!params.scope_to_actor) d.qfrc_applied.fill(0);
     for (const { dof, qadr, g } of pdList) {
       const tau = g.stiffnessNmPerRad * (g.targetRad - d.qpos[qadr]!) - g.dampingNmsPerRad * d.qvel[dof]!;
       d.qfrc_applied[dof] = Math.max(-g.maxTorqueNm, Math.min(g.maxTorqueNm, tau));
     }
   };
-  const footGeoms = ["left", "right"].map((s) => model.geom(`${s}_foot_geom`).id);
+  const footGeoms = ["left", "right"].map((s) => actorModel.geom(`${s}_foot_geom`).id);
   const clipAnkle = (v: number): number => Math.max(-gains.ankleLimitNm, Math.min(gains.ankleLimitNm, v));
   const stepBalance = (d: StandingState): void => {
     applyPostureTorques(d);
     const gx = (d as StandingState & { geom_xpos: ArrayLike<number> }).geom_xpos;
-    const cx = d.subtree_com[3]!, cy = d.subtree_com[4]!;
-    const vx = d.subtree_linvel[3]!, vy = d.subtree_linvel[4]!;
+    const cx = d.subtree_com[comOffset]!, cy = d.subtree_com[comOffset+1]!;
+    const vx = d.subtree_linvel[comOffset]!, vy = d.subtree_linvel[comOffset+1]!;
     const p = footGeoms.map((g) => [gx[3 * g]!, gx[3 * g + 1]!] as const);
     const dx = p[1]![0] - p[0]![0], dy = p[1]![1] - p[0]![1];
     const len2 = dx * dx + dy * dy;
@@ -115,11 +135,20 @@ export function createTenseController(
       const pitch = share[i]! * (controller.totalMassKg * 9.81 * (p[i]![0] + dX - ankleX) + fx);
       const roll = -share[i]! * (controller.totalMassKg * 9.81 * (p[i]![1] + dY - ankleY) + fy);
       const pd = controller.anklePitchDofs[i]!, rd = controller.ankleRollDofs[i]!;
-      d.qfrc_applied[pd] = clipAnkle(d.qfrc_applied[pd]! + pitch);
-      d.qfrc_applied[rd] = clipAnkle(d.qfrc_applied[rd]! + roll);
+      let localPitch = pitch, localRoll = roll;
+      if (params.scope_to_actor) {
+        const axes = (d as StandingState & { xaxis: ArrayLike<number> }).xaxis;
+        const side = i === 0 ? "left" : "right";
+        const pj = actorModel.jnt(`${side}_ankle_pitch`).id * 3;
+        const rj = actorModel.jnt(`${side}_ankle_roll`).id * 3;
+        localPitch = roll * axes[pj]! + pitch * axes[pj+1]!;
+        localRoll = roll * axes[rj]! + pitch * axes[rj+1]!;
+      }
+      d.qfrc_applied[pd] = clipAnkle(d.qfrc_applied[pd]! + localPitch);
+      d.qfrc_applied[rd] = clipAnkle(d.qfrc_applied[rd]! + localRoll);
     }
     for (let k = 0; k < 6; k++) {
-      if (d.qfrc_applied[k] !== 0) throw new Error("Se detectó fuerza no permitida sobre pelvis libre");
+      if (d.qfrc_applied[rootDof + k] !== 0) throw new Error("Se detectó fuerza no permitida sobre pelvis libre");
     }
   };
   const ffDofs = Array.from(feedforwardLimit.keys());
@@ -179,7 +208,8 @@ export function createRelaxedController(params: UkeControllerParams): UkeControl
   let steps = 0;
   return {
     step(_m, d): void {
-      d.qfrc_applied.fill(0);
+      if (!params.scope_to_actor) d.qfrc_applied.fill(0);
+      else for (const name of UKE_HINGE_JOINTS) d.qfrc_applied[_m.jnt_dofadr[_m.jnt((params.prefix ?? "") + name).id]!] = 0;
       steps++;
     },
     status(): Record<string, unknown> {

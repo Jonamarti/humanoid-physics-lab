@@ -104,6 +104,12 @@ export interface RigidCylinderActor {
 }
 
 export interface HumanoidActor {
+  /** Initial placement only; never drives the free pelvis during simulation. */
+  placement?: { xy_m: readonly [number, number]; heading_deg: number };
+  /** Optional experimental protection; changes only bounded joint torques. */
+  fall?: "none" | "instinctive";
+  /** Optional soft-limit response time, seconds; never changes the anatomical ranges. */
+  joint_limit_timeconst_s?: number;
   id: string;
   kind: "humanoid";
   /** Masa en kg (50 a 150). */
@@ -276,6 +282,12 @@ export interface ToriPoseKeySpec {
 
 /** Agarre de una mano de Tori sobre un sitio de Uke: cuerda con muelle y tope de fuerza entre la mano y el sitio. */
 export interface ToriGripSpec {
+  /** Only coupled mode: physical acquisition, finite reach and overload release. SI units. */
+  max_power_w?: number;
+  capture_radius_m?: number;
+  capture_window_s?: number;
+  break_distance_m?: number;
+  slip_after_s?: number;
   /** Sitio con nombre del humanoide (ver `HUMANOID_SITE_BODY`). */
   site: string;
   /** Tope de fuerza en N (por defecto 500). */
@@ -291,6 +303,8 @@ export interface ToriGripSpec {
  * Con `enabled: false` el escenario se simula sin él (sirve para comparar con y sin cuerpo sin borrar las posturas).
  */
 export interface ToriBodySpec {
+  /** target: historical assisted grips; coupled: simulated wrist, acquisition and action/reaction. */
+  grip_mode?: "target" | "coupled";
   height_m: number;
   /** Por defecto `true`. */
   enabled?: boolean;
@@ -358,7 +372,23 @@ export interface ExpectSpec {
   tolerance_deg?: number;
 }
 
+export interface ActorGripSpec {
+  max_force_n: number;
+  max_power_w?: number;
+  capture_radius_m?: number;
+  capture_window_s?: number;
+  break_distance_m?: number;
+  slip_after_s?: number;
+  id: string;
+  source: { actor: string; site: string };
+  target: { actor: string; site: string };
+  engage_s: number;
+  release_s?: number;
+}
+
 export interface Scenario {
+  /** Compliant connections between sites of two genuinely simulated actors. */
+  actor_grips?: ActorGripSpec[];
   schema: typeof SCENARIO_SCHEMA_ID;
   /** Solo `[a-z0-9_]`; igual al nombre del fichero sin extensión. */
   id: string;

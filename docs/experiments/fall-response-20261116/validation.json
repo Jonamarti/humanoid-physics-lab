@@ -1,0 +1,56 @@
+{
+  "baseline_commit": "b8cf20d0cc49a1f24b4973f0f1885795623b83df",
+  "baseline_reflex_verified": true,
+  "source_sha256": "dde09196f16dd015680404d873a31104f2cc6d256dd70437a8583b10d5c642c7",
+  "source_files": [
+    "scenarios/fall_refs/passive_heavy.json",
+    "scenarios/fall_refs/passive_neutral.json",
+    "scenarios/fall_refs/push_front.json",
+    "scenarios/fall_refs/recoverable.json",
+    "scripts/compare_fall_recordings.py",
+    "scripts/test_compare_fall_recordings.py",
+    "src/scenario/articulatedActor.ts",
+    "src/scenario/run.ts",
+    "src/uke/fallReflex.ts",
+    "tests/fixtures/fallResponseCases.json",
+    "tests/manual/fallResponseBench.test.ts",
+    "tests/unit/fallProtectionControl.test.ts"
+  ],
+  "normalization": "UTF-8; CRLF to LF; sorted path + NUL + content + NUL",
+  "full_suite": {
+    "passed": 743,
+    "skipped": 13,
+    "todo": 3,
+    "files_passed": 96,
+    "files_skipped": 10
+  },
+  "typecheck": true,
+  "lint": true,
+  "build": true,
+  "physics_hz": 500,
+  "record_hz": 500,
+  "mujoco_wasm": "3.17.0",
+  "node": "v23.7.0",
+  "before_after": {
+    "scenarios": 10,
+    "response_modes": 2,
+    "paired_comparisons": 20,
+    "unchanged_none_recordings": 10,
+    "stages": 7,
+    "total_measured_runs": 140
+  },
+  "strict_cli_passive_exit": 0,
+  "synchronized_renderer_checks": 4,
+  "videos": 10,
+  "reviewed_sheets": 10,
+  "all_video_frames_decoded": true,
+  "full_video_motion_reviewed": false,
+  "mutations_detected": 3,
+  "source_restored_after_mutations": true,
+  "remaining": [
+    "Arm ground penetration in strong pushes and takedowns exceeds 1 cm",
+    "Backward push contact peak increases about 1.3 percent",
+    "Protective targets remain heuristic",
+    "No new squat, lunge or walking controller in this correction"
+  ]
+}

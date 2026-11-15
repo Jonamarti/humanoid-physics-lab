@@ -1,0 +1,14 @@
+[
+  {
+    "name": "missing_grip_reaction",
+    "exit_code": 1,
+    "detected": true,
+    "restored_sha256": "198da2c40b36841ccd84bbc1743f9fc2b45757024c00191ef3ed5538c080cddc"
+  },
+  {
+    "name": "controller_erases_other_actor",
+    "exit_code": 1,
+    "detected": true,
+    "restored_sha256": "4d9d2f785d921ee962ecfa3ed808df77f730fb7b369b38ff1bb78871cce879d1"
+  }
+]

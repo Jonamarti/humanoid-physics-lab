@@ -1,0 +1,20 @@
+[
+  {
+    "viewport": "1440x1000",
+    "actor": "tori",
+    "pause_seek_step": true,
+    "reaction_contacts": true,
+    "overflow": false,
+    "errors": [],
+    "diagnostics": "Actor medido: tori · control articular · pelvis libre\nload: 86.1 N\nwrist: held, separación 9.5 cm\nMargen dinámico: 7.0 cm (no decide la caída)\nVelocidad COM: 0.14 m/s\nApoyo vertical izq/der: 549 / 207 N"
+  },
+  {
+    "viewport": "390x844",
+    "actor": "tori",
+    "pause_seek_step": true,
+    "reaction_contacts": true,
+    "overflow": false,
+    "errors": [],
+    "diagnostics": "Actor medido: tori · control articular · pelvis libre\nload: 86.1 N\nwrist: held, separación 9.5 cm\nMargen dinámico: 7.0 cm (no decide la caída)\nVelocidad COM: 0.14 m/s\nApoyo vertical izq/der: 549 / 207 N"
+  }
+]

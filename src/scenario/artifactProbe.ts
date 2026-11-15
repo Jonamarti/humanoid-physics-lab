@@ -32,6 +32,10 @@ export interface ProbeContext {
   dt: number;
   /** Amplitud mínima del temblor; por defecto la del detector (parámetro solo para medir sensibilidad). */
   tremorAmplitudeRad?: number;
+  measureJointLimits?: boolean;
+  prefix?: string;
+  energyScope?: "world";
+  rootDof?: number;
 }
 
 interface JointTrack {
@@ -83,7 +87,9 @@ export class ArtifactProbe {
   private readonly feet: FootTrack[] = [];
   private readonly groundPen = peak();
   private readonly segmentPen = peak();
+  private readonly interbodyPen = peak();
   private readonly jointSpeed = peak();
+  private readonly jointLimitExcursion = peak();
   private readonly contactForce = peak();
   private readonly footSlip = peak();
   private readonly tremor = peak();
@@ -119,7 +125,8 @@ export class ArtifactProbe {
       this.joints.push({ name, dof: dofAdr[j]!, qposAdr: qAdr[j]!, dir: 0, cand: 0, started: false, reversals: [] });
     });
     if (ctx.humanoid) {
-      for (const name of FOOT_BODIES) {
+      for (const semanticName of FOOT_BODIES) {
+        const name = (ctx.prefix ?? "") + semanticName;
         this.feet.push({
           name, bodyId: ctx.bodies.indexOf(name), dx: 0, dy: 0, load: 0, weightedVx: 0, weightedVy: 0, saturated: false, seenContact: false,
         });
@@ -135,6 +142,12 @@ export class ArtifactProbe {
     const qvel = this.data.qvel as Float64Array;
     const qpos = this.data.qpos as Float64Array;
     for (const j of this.joints) {
+      if (this.ctx.measureJointLimits) {
+        const id = this.ctx.joints.indexOf(j.name);
+        const range = this.model.jnt_range as Float64Array;
+        const angle = qpos[j.qposAdr]!;
+        raise(this.jointLimitExcursion, Math.max(0, range[2*id]! - angle, angle - range[2*id+1]!), t, j.name);
+      }
       raise(this.jointSpeed, Math.abs(qvel[j.dof]!), t, j.name);
       this.trackTremor(j, qpos[j.qposAdr]!, t);
     }
@@ -164,7 +177,7 @@ export class ArtifactProbe {
     this.qvelBefore.set(this.data.qvel as Float64Array);
     this.qfrcBefore.set(this.data.qfrc_applied as Float64Array);
     if (this.ctx.humanoid) {
-      for (let k = 0; k < 6; k++) this.rootForce = Math.max(this.rootForce, Math.abs(this.qfrcBefore[k]!));
+      for (let k = 0; k < 6; k++) this.rootForce = Math.max(this.rootForce, Math.abs(this.qfrcBefore[(this.ctx.rootDof ?? 0) + k]!));
     }
     this.armed = true;
   }
@@ -222,6 +235,8 @@ export class ArtifactProbe {
           else if (a1 && a2 && b1 !== b2) {
             const [lo, hi] = b1 < b2 ? [b1, b2] : [b2, b1];
             raise(this.segmentPen, penetration, t, `${this.ctx.bodies[lo]}|${this.ctx.bodies[hi]}`);
+          } else if (this.ctx.measureJointLimits && b1 > 0 && b2 > 0) {
+            raise(this.interbodyPen, penetration, t, `${this.ctx.bodies[b1]}|${this.ctx.bodies[b2]}`);
           }
           if (!hasCompleteSolvedContactRows(contact.efc_address, contact.dim, this.pyramidal, this.data.nefc, efcForce.length)) continue;
           const solved = decodeSolvedContactForce({
@@ -282,7 +297,7 @@ export class ArtifactProbe {
       const xipos = this.data.xipos as Float64Array;
       const mass = this.model.body_mass as Float64Array;
       let mz = 0;
-      for (let b = 0; b < this.isActor.length; b++) if (this.isActor[b]) mz += mass[b]! * xipos[3 * b + 2]!;
+      for (let b = 0; b < this.isActor.length; b++) if (this.ctx.energyScope === "world" || this.isActor[b]) mz += mass[b]! * xipos[3 * b + 2]!;
       this.energyScaleJ = GRAVITY * mz;
     }
     const excess = (total - this.energy0) - (this.torqueWorkJ + effectorWorkJ);
@@ -292,6 +307,7 @@ export class ArtifactProbe {
 
   diagnostics(): RecordingDiagnostics {
     const d: RecordingDiagnostics = {
+      ...(this.ctx.energyScope ? { energy_scope: this.ctx.energyScope } : {}),
       actor_mass_kg: this.massKg,
       ground_penetration: this.groundPen,
       contact_force: this.contactForce,
@@ -300,6 +316,10 @@ export class ArtifactProbe {
       d.segment_penetration = this.segmentPen;
       d.foot_slip = this.footSlip;
       d.root_generalized_force = this.rootForce;
+    }
+    if (this.ctx.measureJointLimits) {
+      d.joint_limit_excursion_rad = this.jointLimitExcursion;
+      d.interbody_penetration_m = this.interbodyPen;
     }
     if (this.joints.length > 0) {
       d.joint_speed = this.jointSpeed;

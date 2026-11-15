@@ -1,0 +1,40 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "push_front",
+  "duration_s": 5,
+  "record_hz": 500,
+  "ground": {
+    "friction": 1
+  },
+  "actors": [
+    {
+      "id": "uke",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "tense",
+      "stance": "neutral",
+      "joint_limit_timeconst_s": 0.004,
+      "fall": "instinctive"
+    }
+  ],
+  "props": [],
+  "effectors": [
+    {
+      "id": "push",
+      "kind": "prescribed_force",
+      "actor": "uke",
+      "site": "sternum",
+      "frame": "world",
+      "force_n": [
+        863.9379797371931,
+        0,
+        0
+      ],
+      "start_s": 0.5,
+      "duration_s": 0.1,
+      "waveform": "half_sine"
+    }
+  ]
+}

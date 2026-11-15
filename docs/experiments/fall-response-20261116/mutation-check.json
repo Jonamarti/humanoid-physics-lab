@@ -1,0 +1,20 @@
+[
+  {
+    "name": "extend_folded_legs",
+    "detected": true,
+    "exit_code": 1,
+    "restored_sha256": "b28edadcd254568a7652e7b82a96d6c967dca3d5512ccadd9c4bc8c1604b334a"
+  },
+  {
+    "name": "missing_active_damping",
+    "detected": true,
+    "exit_code": 1,
+    "restored_sha256": "b28edadcd254568a7652e7b82a96d6c967dca3d5512ccadd9c4bc8c1604b334a"
+  },
+  {
+    "name": "keep_rigid_after_landing",
+    "detected": true,
+    "exit_code": 1,
+    "restored_sha256": "b28edadcd254568a7652e7b82a96d6c967dca3d5512ccadd9c4bc8c1604b334a"
+  }
+]

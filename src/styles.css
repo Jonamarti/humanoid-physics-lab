@@ -107,7 +107,7 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 .replay-panel { margin-top: 12px; padding-top: 12px; border-top: 1px solid #29445b; }
 .replay-panel input[type="range"] { width: 100%; }
 .replay-panel button[aria-pressed="true"] { outline: 2px solid #5df0b3; }
-.replay-forces { position: absolute; top: 10px; left: 12px; margin: 0; white-space: pre; font: 600 .85rem/1.35 ui-monospace, monospace; color: #ffbd59; text-shadow: 0 1px 3px #000; pointer-events: none; }
+.replay-forces { position: absolute; top: 10px; left: 12px; margin: 0; max-width: calc(100% - 24px); white-space: pre-wrap; overflow-wrap: anywhere; font: 600 .85rem/1.35 ui-monospace, monospace; color: #ffbd59; text-shadow: 0 1px 3px #000; pointer-events: none; }
 
 /* Galería de grabaciones de ejemplo (src/renderer/galleryView.ts) */
 .gallery { margin-top: 12px; }
@@ -139,3 +139,7 @@ footer { color: #91a8bb; font-size: .85rem; padding: 22px 0; }
 .scenario-editor fieldset > label.scenario-check { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .scenario-editor fieldset > label.scenario-check input { width: auto; margin: 0; }
 .scenario-editor fieldset > button { margin-top: 8px; }
+
+.replay-diagnostics { white-space: pre-wrap; overflow-wrap: anywhere; font: .8rem/1.5 ui-monospace, monospace; }
+.replay-panel details { margin-top: 12px; }
+.replay-panel details summary { cursor: pointer; min-height: 44px; }

@@ -140,7 +140,9 @@ describe("ejecutor: volteo con tirón en arco (`uke_tense_75_175_hip_roll`)", ()
     expect(rec.summary.outcome).toBe("fall");
     expect(rec.summary.max_tilt_deg).toBeGreaterThan(150);
     expect(rec.summary.uke!.fall!.first_part).not.toBe("head");
-    expect(rec.summary.artifacts!.some((a) => a.type === "contact_force")).toBe(false);
+    // Correct Uke-only mass exposes the old leg crossing; keep reporting it.
+    expect(rec.summary.artifacts!.filter(a => a.type === "contact_force").map(a => a.where)).toEqual(["right_shin|left_foot"]);
+    expect(rec.summary.artifacts!.some(a => a.type === "segment_penetration")).toBe(true);
     const headHits = rec.samples.flatMap((s) => s.contacts)
       .filter((c) => [c.body_a, c.body_b].includes("head") && [c.body_a, c.body_b].includes("world"));
     expect(Math.max(0, ...headHits.map((c) => Math.hypot(...c.force_n)))).toBeLessThan(3000);

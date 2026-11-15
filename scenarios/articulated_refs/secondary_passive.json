@@ -1,0 +1,40 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "secondary_passive",
+  "duration_s": 4,
+  "record_hz": 50,
+  "ground": {
+    "friction": 1
+  },
+  "actors": [
+    {
+      "id": "uke",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "tense",
+      "stance": "neutral",
+      "joint_limit_timeconst_s": 0.004
+    },
+    {
+      "id": "tori",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "relaxed",
+      "stance": "neutral",
+      "joint_limit_timeconst_s": 0.004,
+      "placement": {
+        "xy_m": [
+          3,
+          0
+        ],
+        "heading_deg": 180
+      }
+    }
+  ],
+  "props": [],
+  "effectors": []
+}

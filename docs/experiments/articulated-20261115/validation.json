@@ -1,0 +1,78 @@
+{
+  "base_commit": "1d10c0643a038534d82941c1cfeda7e1b01e87c8",
+  "source_sha256": "c79159c5f616c688d4ffb34860433aa84d2a444c700d1377ec7b4b5aa47e6027",
+  "source_files": [
+    "scenarios/articulated_refs/secondary_passive.json",
+    "scenarios/articulated_refs/two_standing.json",
+    "scenarios/articulated_refs/wrist_load.json",
+    "scenarios/articulated_refs/wrist_miss.json",
+    "scripts/render_recording.py",
+    "src/recording/schema.ts",
+    "src/renderer/replayView.ts",
+    "src/scenario/articulatedActor.ts",
+    "src/scenario/articulatedGrips.ts",
+    "src/scenario/artifactProbe.ts",
+    "src/scenario/buildModel.ts",
+    "src/scenario/run.ts",
+    "src/scenario/schema.ts",
+    "src/scenario/validate.ts",
+    "src/uke/actorModel.ts",
+    "src/uke/attitudes.ts",
+    "src/uke/damping.ts",
+    "src/uke/fallReflex.ts",
+    "src/uke/generate.ts",
+    "src/uke/modelNamespace.ts",
+    "src/uke/stances.ts",
+    "tests/manual/articulatedBench.test.ts",
+    "tests/unit/articulatedActors.test.ts",
+    "tests/unit/articulatedScenario.test.ts"
+  ],
+  "normalization": "UTF-8; CRLF to LF; sorted path + NUL + content + NUL",
+  "full_suite": {
+    "passed": 736,
+    "skipped": 12,
+    "todo": 3,
+    "files_passed": 95,
+    "files_skipped": 9
+  },
+  "manual_bench": {
+    "scenes": 12,
+    "actor_rows": 24,
+    "passed": true
+  },
+  "typecheck": true,
+  "lint": true,
+  "build": true,
+  "python_renderer_tests": 7,
+  "strict_cli": {
+    "exit_code": 4,
+    "primary_outcome": "standing",
+    "secondary_outcome": "fall",
+    "artifacts": [
+      {
+        "type": "contact_force",
+        "t_s": 1.456,
+        "where": "tori/tori_chest|world",
+        "value": 10939.4,
+        "threshold": 10000,
+        "detail": "fuerza de contacto de 10.9 kN en tori_chest|world"
+      },
+      {
+        "type": "ground_penetration",
+        "t_s": 1.468,
+        "where": "tori/tori_chest",
+        "value": 0.0128407,
+        "threshold": 0.01,
+        "detail": "penetración en el suelo de 1.28 cm en tori_chest"
+      }
+    ]
+  },
+  "browser": "Edge headless; desktop and 390x844 mobile emulation; no errors/overflow",
+  "mutations": "Both detected by assertion failures; source files restored byte-for-byte",
+  "unverified": [
+    "No autonomous articulated takedown",
+    "No reactive recovery step",
+    "No real mobile hardware or Safari validation",
+    "Protection worsens the passive secondary fall"
+  ]
+}

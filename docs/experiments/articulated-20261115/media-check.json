@@ -1,0 +1,52 @@
+[
+  {
+    "file": "passive-front.mp4",
+    "frames": 482,
+    "fps": 24.0,
+    "size": [
+      960,
+      540
+    ],
+    "sampled_mean_min": 219.91122363683127
+  },
+  {
+    "file": "passive-side.mp4",
+    "frames": 482,
+    "fps": 24.0,
+    "size": [
+      960,
+      540
+    ],
+    "sampled_mean_min": 219.37801440329218
+  },
+  {
+    "file": "wrist-load-front.mp4",
+    "frames": 482,
+    "fps": 24.0,
+    "size": [
+      960,
+      540
+    ],
+    "sampled_mean_min": 213.87347865226337
+  },
+  {
+    "file": "wrist-load-oblique.mp4",
+    "frames": 482,
+    "fps": 24.0,
+    "size": [
+      960,
+      540
+    ],
+    "sampled_mean_min": 211.64652263374487
+  },
+  {
+    "file": "wrist-load-side.mp4",
+    "frames": 482,
+    "fps": 24.0,
+    "size": [
+      960,
+      540
+    ],
+    "sampled_mean_min": 213.75761059670782
+  }
+]

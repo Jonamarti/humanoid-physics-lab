@@ -1,0 +1,2655 @@
+{
+  "date": "2026-11-15",
+  "base_commit": "2f06812586e6bfc06178cd7c20fb16156cdd0b51",
+  "final_source_sha256": "cb9838bfdabac6be899e9bdda0ca96c20534e273f49b7ecdf6c15eb121d5f770",
+  "source_hash_recipe": "sorted paths and LF-normalized UTF-8 contents of src/**, scenarios/physical_refs/**, package.json, package-lock.json; path + NUL + text",
+  "node": "v23.7.0",
+  "physics_hz": 500,
+  "record_hz": 50,
+  "rows": [
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_nominal",
+      "scenario_sha256": "15aca5222402efb1a80d841ae6522509c2fe237672f6574155cd0c95d6654144",
+      "outcome": "fall",
+      "fall_s": 1.8800000000000001,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 2377.5681444901056,
+      "contact_peak_n": 2912.5960697197665,
+      "ground_penetration_cm": 0.9483284576902458,
+      "self_penetration_cm": 0.521260093987723,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 2.110577331971463,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0003057834497358659,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip",
+      "elapsed_ms": 1638.2235999999998,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_passive",
+      "scenario_sha256": "e92e3349e82194b43ecfc232afd1193ee32f2844864d8959208fc2241fa01b11",
+      "outcome": "fall",
+      "fall_s": 0.74,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 2429.4761951473497,
+      "contact_peak_n": 2884.8537326517726,
+      "ground_penetration_cm": 0.6668283523854,
+      "self_penetration_cm": 1.1480801341443199,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.7502487796052948,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00036193786293660553,
+      "tori_budget_feasible": false,
+      "artifacts": "tremor",
+      "elapsed_ms": 1509.7632000000003,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_defensive",
+      "scenario_sha256": "0278550cdd91bec374bcb4055301ba3655cac8bfddb3f34e1b8e0873d97b5e02",
+      "outcome": "fall",
+      "fall_s": 1.5,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 2882.51957075536,
+      "contact_peak_n": 12526.37889277433,
+      "ground_penetration_cm": 1.2815736029845906,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 1.0904420643881427,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0003316803095382471,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1174.7029999999995,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_heavy",
+      "scenario_sha256": "5de8726c3b4cfc045a7d0d75cf6d5562f02966c5c2bf0f3a0aac4c87e8c66ef3",
+      "outcome": "fall",
+      "fall_s": 1.6,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 2802.626676977884,
+      "contact_peak_n": 31988.28554216932,
+      "ground_penetration_cm": 2.7611495340069325,
+      "self_penetration_cm": 0.3582922701266339,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.8493003914823959,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00028606137477782254,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration|tremor",
+      "elapsed_ms": 1019.1855999999998,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_light",
+      "scenario_sha256": "4cc691250fc642c40f604fe11c48acfef4b7f6b27f97995be5790a6b9abf1dcf",
+      "outcome": "fall",
+      "fall_s": 1.7,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1912.4423616530678,
+      "contact_peak_n": 6618.759702228414,
+      "ground_penetration_cm": 2.6107741032135,
+      "self_penetration_cm": 0.8261312068597318,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.6762765696416675,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00031992877120476897,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|tremor",
+      "elapsed_ms": 1191.956900000001,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_tall",
+      "scenario_sha256": "285bff3760090ca4a19df87822a3a29bc5bad2067ee36d62b9b7dd4c200c3c4c",
+      "outcome": "fall",
+      "fall_s": 1.7,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1089.7935243700906,
+      "contact_peak_n": 17264.18311609587,
+      "ground_penetration_cm": 3.2169077508676613,
+      "self_penetration_cm": 0.3142208916207728,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 1.5975303194953903,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0026764384767509375,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration|tremor",
+      "elapsed_ms": 1333.1131000000005,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_slippery",
+      "scenario_sha256": "ca3cde43e0df1a30f098b5d2e278c52058c8286533213470a74c058813697fb8",
+      "outcome": "fall",
+      "fall_s": 2.18,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 2772.0943646413234,
+      "contact_peak_n": 8632.388348968167,
+      "ground_penetration_cm": 0.952949676754089,
+      "self_penetration_cm": 0.6393041716171388,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.4999814926720391,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00020782932694599903,
+      "tori_budget_feasible": false,
+      "artifacts": "",
+      "elapsed_ms": 1548.4274999999998,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_weak_grip",
+      "scenario_sha256": "46656997df55a71a0021ceaf6a220bec919ca50edb435eedfaaf3e0f4eaa819e",
+      "outcome": "fall",
+      "fall_s": 1.6600000000000001,
+      "hand_left_n": 40,
+      "hand_right_n": 40,
+      "tori_contact_n": 916.8518856180734,
+      "contact_peak_n": 14565.870410873264,
+      "ground_penetration_cm": 2.071230609970831,
+      "self_penetration_cm": 0.6538802802543483,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.6709358597420925,
+      "root_force": 0,
+      "final_com_speed_mps": 0.013254805890959283,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1471.1844,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_no_grips",
+      "scenario_sha256": "0f09a84d43caba66e65810c9c98f7e319425e94ee8c11a25604d7e80945528c6",
+      "outcome": "fall",
+      "fall_s": 1.78,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 742.6184519473062,
+      "contact_peak_n": 7692.452685877488,
+      "ground_penetration_cm": 2.098129113353607,
+      "self_penetration_cm": 1.8163736726452537,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.7852977564321064,
+      "root_force": 0,
+      "final_com_speed_mps": 0.021591747327100203,
+      "tori_budget_feasible": true,
+      "artifacts": "ground_penetration|tremor",
+      "elapsed_ms": 1131.891099999999,
+      "grip_events": {}
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_out_of_reach",
+      "scenario_sha256": "a31854abdcf1983ff919c74cbbeb35d9a83004b04e72130fcae98e0935b2b66d",
+      "outcome": "fall",
+      "fall_s": 2.34,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 2930.1213008626783,
+      "contact_peak_n": 2707.7861399055178,
+      "ground_penetration_cm": 2.668820535901098,
+      "self_penetration_cm": 1.6985504815887813,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 1.994079204496047,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00392586967143361,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|tremor",
+      "elapsed_ms": 1132.8132999999998,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "siega_exterior_no_attacker",
+      "scenario_sha256": "fdb446405b38168aed65205133977537d3283b93ca745763f8174fa0db34aafe",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.54193887076804,
+      "ground_penetration_cm": 0.06346302367524412,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.00006614370379555972,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0000026496303347827547,
+      "tori_budget_feasible": null,
+      "artifacts": "",
+      "elapsed_ms": 783.6322,
+      "grip_events": {}
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_nominal",
+      "scenario_sha256": "3766079873b561f53780fb82f44d8907fbccdfd7dd24f773fef6834da66a6555",
+      "outcome": "fall",
+      "fall_s": 1.8800000000000001,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1373.7987738789948,
+      "contact_peak_n": 18888.961568030827,
+      "ground_penetration_cm": 2.224276872028677,
+      "self_penetration_cm": 0.01872809891848154,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.8061668021704481,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0004971114812657833,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1091.8158999999978,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_passive",
+      "scenario_sha256": "cf62c9ea2d84f586d95efff9e6d7f06043ee48e29c48ba7a2ae9e34411253d5a",
+      "outcome": "fall",
+      "fall_s": 0.78,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1568.4493396466664,
+      "contact_peak_n": 5020.771542041641,
+      "ground_penetration_cm": 1.3672818029884972,
+      "self_penetration_cm": 1.6851220967293856,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.45387332579237977,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00030549269026022385,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1167.2429999999986,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_defensive",
+      "scenario_sha256": "b0966c1b6c66cbe3f1d51e43e7221c6ad259ce9c76b3afa4340f556bb366848a",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1251.2178044776333,
+      "contact_peak_n": 10478.799015237842,
+      "ground_penetration_cm": 1.650147448828937,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.8686292178611199,
+      "root_force": 0,
+      "final_com_speed_mps": 0.005153057390920911,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 867.6546000000017,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_heavy",
+      "scenario_sha256": "c5ed4336b0c71e91ac399fab622c3f80657e51db1f0ef762fbdcc6faa016b2f6",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 2281.302674504206,
+      "contact_peak_n": 25663.5542736781,
+      "ground_penetration_cm": 2.062095375105319,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 1.661606722251991,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0002904958697742979,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 973.9412999999986,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_light",
+      "scenario_sha256": "da5fe60a7b33aca534e53e444679988cf7fb8a1b6b048f6480ebbe605ab42658",
+      "outcome": "fall",
+      "fall_s": 1.9000000000000001,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1394.6186583001365,
+      "contact_peak_n": 12768.320070509488,
+      "ground_penetration_cm": 2.1522884544839442,
+      "self_penetration_cm": 0.1548339858439239,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.7818911178866877,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0002482721712750516,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 996.9480999999978,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_tall",
+      "scenario_sha256": "041f353089cf8eaad6400dbd01c503935efb92d88fb982e75075b6592641412f",
+      "outcome": "fall",
+      "fall_s": 2,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1428.7386080725678,
+      "contact_peak_n": 19604.43590966669,
+      "ground_penetration_cm": 2.693517270452317,
+      "self_penetration_cm": 0.09939702463376138,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.7471587175943886,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00039367638701259886,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1037.5560000000005,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_slippery",
+      "scenario_sha256": "44d6219d80d8f2aef4d32a0b4418eaf331af44558eae8f212d57d7001479e164",
+      "outcome": "fall",
+      "fall_s": 1.84,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 1091.880176326063,
+      "contact_peak_n": 14105.013263419198,
+      "ground_penetration_cm": 1.5407289034263416,
+      "self_penetration_cm": 0.3831328642273854,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.06738791974796608,
+      "root_force": 0,
+      "final_com_speed_mps": 0.000046413800695440436,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1146.533800000001,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_weak_grip",
+      "scenario_sha256": "2842c5851311d368699b8f9e8f14b83b8f96a2660f7cb097aad2e75600f47b6d",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 40,
+      "hand_right_n": 40,
+      "tori_contact_n": 1373.7987738789948,
+      "contact_peak_n": 13310.126190503233,
+      "ground_penetration_cm": 1.892324545405759,
+      "self_penetration_cm": 0.03176123520163693,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.2840736382529613,
+      "root_force": 0,
+      "final_com_speed_mps": 0.029379713526898582,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 927.916500000003,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_no_grips",
+      "scenario_sha256": "442159ceed84c0f38fd50089893268620cb0fdb14f5c813ffb4f46788fdca41b",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 1373.7987738789948,
+      "contact_peak_n": 12425.816477270651,
+      "ground_penetration_cm": 2.1047208809671187,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.3558957229331241,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00007297400491603413,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1060.1447999999982,
+      "grip_events": {}
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_out_of_reach",
+      "scenario_sha256": "66d6ab741b144554dc027e6082b629f5fbb3d397394bbbce27eb493cc8d4da52",
+      "outcome": "fall",
+      "fall_s": 2.62,
+      "hand_left_n": 400,
+      "hand_right_n": 400,
+      "tori_contact_n": 5282.810005958176,
+      "contact_peak_n": 15659.825955436898,
+      "ground_penetration_cm": 2.008499698280905,
+      "self_penetration_cm": 0.47788729231216936,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 1.401132403977127,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0004038451235372101,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1045.6207000000031,
+      "grip_events": {
+        "tori_left_hand": [],
+        "tori_right_hand": []
+      }
+    },
+    {
+      "campaign": "baseline",
+      "id": "entrada_piernas_no_attacker",
+      "scenario_sha256": "59a6b1931c09ab9a99e7a1a3943d2545193bc925d46acdf5c97a022182bc2177",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.54193887076804,
+      "ground_penetration_cm": 0.06346302367524412,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.00006614370379555972,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0000026496303347827547,
+      "tori_budget_feasible": null,
+      "artifacts": "",
+      "elapsed_ms": 736.152900000001,
+      "grip_events": {}
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_nominal",
+      "scenario_sha256": "b33cdd68a6afd6e5ee046c66c7af94f8f15664c8c63174214030b2c108044274",
+      "outcome": "fall",
+      "fall_s": 1.7,
+      "hand_left_n": 335.1946338334622,
+      "hand_right_n": 346.60813318466194,
+      "tori_contact_n": 866.373409729074,
+      "contact_peak_n": 14742.78974864546,
+      "ground_penetration_cm": 1.8505641055928626,
+      "self_penetration_cm": 0.33109926217862895,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.4296138899702118,
+      "root_force": 0,
+      "final_com_speed_mps": 0.027207482038375513,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1418.0926999999997,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.374,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.318,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_passive",
+      "scenario_sha256": "d27a9302f283a890fe8c2d71ebc5a8fd3a2919f60e980ca531c6cd6dcae71190",
+      "outcome": "fall",
+      "fall_s": 0.8,
+      "hand_left_n": 339.45869592743,
+      "hand_right_n": 292.28440207051204,
+      "tori_contact_n": 2816.447921277207,
+      "contact_peak_n": 5808.278951846238,
+      "ground_penetration_cm": 1.0764438502449187,
+      "self_penetration_cm": 0.8010931650896169,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.5252418522435651,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0002942965483771911,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|tremor",
+      "elapsed_ms": 1241.8375,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 0.6880000000000001,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_defensive",
+      "scenario_sha256": "51fea62dc72613e154ec790f44978b93dd34c8235bd7585106db062515d92144",
+      "outcome": "fall",
+      "fall_s": 1.62,
+      "hand_left_n": 353.37625464015167,
+      "hand_right_n": 374.25162426988345,
+      "tori_contact_n": 2844.2057602698787,
+      "contact_peak_n": 15129.165626703092,
+      "ground_penetration_cm": 1.4333751125976235,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.6816597896371693,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0019778977427402705,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 989.1587000000004,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_heavy",
+      "scenario_sha256": "ddf071eb8a59c3a81c15db0f14dc775c8a1f98a0cb4005e8c6e03d07e531030f",
+      "outcome": "fall",
+      "fall_s": 1.6400000000000001,
+      "hand_left_n": 313.0016849109281,
+      "hand_right_n": 360.7295354541648,
+      "tori_contact_n": 2148.3747168265177,
+      "contact_peak_n": 31639.67269443572,
+      "ground_penetration_cm": 2.2568320304664997,
+      "self_penetration_cm": 0.41716829799482713,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.8343412876351575,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00907920950199029,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 986.0069999999996,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.388,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.29,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_light",
+      "scenario_sha256": "7e15c28ed63986cb2c9894057b66fd1a4f030bb5c4dead7a5e981e254c8d60ff",
+      "outcome": "fall",
+      "fall_s": 1.68,
+      "hand_left_n": 362.65614974066654,
+      "hand_right_n": 330.15796012558695,
+      "tori_contact_n": 1002.4796631432308,
+      "contact_peak_n": 10248.73998442035,
+      "ground_penetration_cm": 2.219674851928624,
+      "self_penetration_cm": 0.21887401188316544,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.44667382359891444,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00020219166527627664,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1055.8685999999998,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_tall",
+      "scenario_sha256": "92dfd65a7aec8b34626afbab3c2c2b63670da98189c4d51d90a43997499ae9a0",
+      "outcome": "fall",
+      "fall_s": 1.78,
+      "hand_left_n": 366.4970775485426,
+      "hand_right_n": 0,
+      "tori_contact_n": 1398.2622918588897,
+      "contact_peak_n": 17745.816727012094,
+      "ground_penetration_cm": 2.8570235994628925,
+      "self_penetration_cm": 0.21604255795854566,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 1.1914378197081223,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0003715291827879416,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1205.9755000000005,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.35000000000000003,
+            "status": "missed"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_slippery",
+      "scenario_sha256": "ca8bea9feee2a7b3d7fb76a19682d6cf3d1f3f7729bff12e461ce6987712a2c4",
+      "outcome": "fall",
+      "fall_s": 1.56,
+      "hand_left_n": 332.04129700218755,
+      "hand_right_n": 343.416804348012,
+      "tori_contact_n": 1116.4388076651617,
+      "contact_peak_n": 18296.367523459092,
+      "ground_penetration_cm": 2.3426802997253064,
+      "self_penetration_cm": 0.3187146128915505,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.35048364131657067,
+      "root_force": 0,
+      "final_com_speed_mps": 0.004031328766796261,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1159.410899999999,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.32,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_weak_grip",
+      "scenario_sha256": "9f83c366033f3d4ba2612ac4249eb361f581e869e6f3a383785e689c13bb66b6",
+      "outcome": "fall",
+      "fall_s": 1.74,
+      "hand_left_n": 40,
+      "hand_right_n": 40,
+      "tori_contact_n": 905.9821374822685,
+      "contact_peak_n": 7463.596126381043,
+      "ground_penetration_cm": 1.9461522337294936,
+      "self_penetration_cm": 1.886883084398068,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.6446033848740812,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0009602485057006213,
+      "tori_budget_feasible": true,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1075.9427000000014,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.112,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 0.1,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_no_grips",
+      "scenario_sha256": "55bc0db8df2d2751c727015373d8f87a588f2a22988eae8d0857a813befd4d69",
+      "outcome": "fall",
+      "fall_s": 1.8,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 748.190177081279,
+      "contact_peak_n": 7575.578375783248,
+      "ground_penetration_cm": 2.07218183053587,
+      "self_penetration_cm": 2.0534332210284543,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.9379135451276073,
+      "root_force": 0,
+      "final_com_speed_mps": 0.041976074874407965,
+      "tori_budget_feasible": true,
+      "artifacts": "ground_penetration|segment_penetration",
+      "elapsed_ms": 1006.304900000001,
+      "grip_events": {}
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_out_of_reach",
+      "scenario_sha256": "49c579b504cc3229f3f7f64531830ffe7e6662980b58d92d384ea10e2ff66060",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.5419388707687,
+      "ground_penetration_cm": 0.06346302367524481,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.00006614370378935258,
+      "root_force": 0,
+      "final_com_speed_mps": 0.000002649630293545238,
+      "tori_budget_feasible": true,
+      "artifacts": "",
+      "elapsed_ms": 1615.741100000001,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.35000000000000003,
+            "status": "missed"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.35000000000000003,
+            "status": "missed"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "siega_exterior_no_attacker",
+      "scenario_sha256": "fdb446405b38168aed65205133977537d3283b93ca745763f8174fa0db34aafe",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.54193887076804,
+      "ground_penetration_cm": 0.06346302367524412,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.00006614370379555972,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0000026496303347827547,
+      "tori_budget_feasible": null,
+      "artifacts": "",
+      "elapsed_ms": 886.8159999999989,
+      "grip_events": {}
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_nominal",
+      "scenario_sha256": "2ea4c2351d672d5362ea0e0cffa3741e3bd77269f0477785f583ed7f265f97be",
+      "outcome": "fall",
+      "fall_s": 1.8,
+      "hand_left_n": 240.11196506179417,
+      "hand_right_n": 290.09585669642354,
+      "tori_contact_n": 1516.097343283584,
+      "contact_peak_n": 12871.022601437428,
+      "ground_penetration_cm": 2.0621892042796865,
+      "self_penetration_cm": 0.05007334228289834,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.19439355460432975,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00020540300470247414,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1281.927099999999,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.064,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.076,
+            "status": "held"
+          },
+          {
+            "t_s": 1.476,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_passive",
+      "scenario_sha256": "4beabbaba923bf7580e16e06643230e752ee5dd1fe1c7a932ba01c0837422c7b",
+      "outcome": "fall",
+      "fall_s": 0.84,
+      "hand_left_n": 175.7746363546829,
+      "hand_right_n": 0,
+      "tori_contact_n": 979.1808566454384,
+      "contact_peak_n": 5707.264774685838,
+      "ground_penetration_cm": 1.852530172516166,
+      "self_penetration_cm": 2.160502273656278,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.5549089319818098,
+      "root_force": 0,
+      "final_com_speed_mps": 0.000304582024484529,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|segment_penetration",
+      "elapsed_ms": 1308.6490999999987,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.05,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.4000000000000001,
+            "status": "missed"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_defensive",
+      "scenario_sha256": "4e4abc5e3f7ca6399faf3146e9d99d0f615dcdc2181167a7fc624eaa07fc2d00",
+      "outcome": "fall",
+      "fall_s": 1.74,
+      "hand_left_n": 214.5087407210799,
+      "hand_right_n": 180.84453124732136,
+      "tori_contact_n": 1476.1061624068443,
+      "contact_peak_n": 13107.162937052164,
+      "ground_penetration_cm": 1.5301443075257963,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.9824011628223966,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0004922689803553066,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 932.5116999999991,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.05,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.07,
+            "status": "held"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_heavy",
+      "scenario_sha256": "f1199c56cdb43afc9b2185d6ee076fa7332514c168b62d126ca985db9cac7d6d",
+      "outcome": "fall",
+      "fall_s": 1.74,
+      "hand_left_n": 228.63508734642258,
+      "hand_right_n": 299.6024861911655,
+      "tori_contact_n": 2281.1999486815325,
+      "contact_peak_n": 28750.112372729298,
+      "ground_penetration_cm": 2.0135937784745894,
+      "self_penetration_cm": 0.1856736026400574,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.724351316785673,
+      "root_force": 0,
+      "final_com_speed_mps": 0.002453657252771885,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1172.4879,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.092,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.088,
+            "status": "held"
+          },
+          {
+            "t_s": 1.42,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_light",
+      "scenario_sha256": "227dc5ca0e47dac0640424122777c6b8dd40b76913f7d9eb86205c4791658ed7",
+      "outcome": "fall",
+      "fall_s": 1.82,
+      "hand_left_n": 244.87313991826485,
+      "hand_right_n": 290.47893505989555,
+      "tori_contact_n": 1514.08297834919,
+      "contact_peak_n": 6895.304167829021,
+      "ground_penetration_cm": 1.8655895392290325,
+      "self_penetration_cm": 0.9510918075943599,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.17855348447359484,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0007784491455007434,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1308.5529999999999,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.05,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.068,
+            "status": "held"
+          },
+          {
+            "t_s": 1.492,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_tall",
+      "scenario_sha256": "dfb519666fe8a8c544c52b392db0169f17495970f7c92941de048841847d51ec",
+      "outcome": "fall",
+      "fall_s": 1.8800000000000001,
+      "hand_left_n": 256.7832466387973,
+      "hand_right_n": 301.30358397004767,
+      "tori_contact_n": 1441.0134336674587,
+      "contact_peak_n": 13429.462736249883,
+      "ground_penetration_cm": 1.7760205992672002,
+      "self_penetration_cm": 0.06330668457245475,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.24046798866115612,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0007230229915069975,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1606.6335,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.05,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.06,
+            "status": "held"
+          },
+          {
+            "t_s": 2.496,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_slippery",
+      "scenario_sha256": "07284dfebb751da329fae315a6602eadf229ce5d64fbf2806c78c97a87a01f46",
+      "outcome": "fall",
+      "fall_s": 1.92,
+      "hand_left_n": 253.102643442714,
+      "hand_right_n": 293.34131404580967,
+      "tori_contact_n": 1103.395630378428,
+      "contact_peak_n": 9775.964642793422,
+      "ground_penetration_cm": 2.095136462715995,
+      "self_penetration_cm": 0.41818738559655444,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.12022503005655523,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00047483491197044186,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1300.2412000000004,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.1,
+            "status": "held"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.09,
+            "status": "held"
+          },
+          {
+            "t_s": 1.542,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_weak_grip",
+      "scenario_sha256": "3d819d5e62c000de1d8cc8153c9b9314f03ce7f8183ce78a3f74fcb649a46c9f",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 40,
+      "hand_right_n": 40,
+      "tori_contact_n": 1516.097343283584,
+      "contact_peak_n": 12841.0321412043,
+      "ground_penetration_cm": 1.811012111625092,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.2165891982901083,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00023088800177207676,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1216.4763999999996,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.064,
+            "status": "held"
+          },
+          {
+            "t_s": 1.294,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.076,
+            "status": "held"
+          },
+          {
+            "t_s": 1.31,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_no_grips",
+      "scenario_sha256": "bb207ab3eb06ebdf6fa7e93b3686665bbedcf60296c1c596ece6d1f0723f79d6",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 1516.097343283584,
+      "contact_peak_n": 13061.925459206659,
+      "ground_penetration_cm": 2.044391578741299,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.27960250887431715,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00007944106308334335,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1444.821,
+      "grip_events": {}
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_out_of_reach",
+      "scenario_sha256": "95b5537398b17dbc955ae71924c5852349a93ae7e7c2d69cad457aa2afe88839",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.54193887076826,
+      "ground_penetration_cm": 0.06346302367524412,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.00006614370379813049,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0000026496303095712663,
+      "tori_budget_feasible": true,
+      "artifacts": "",
+      "elapsed_ms": 1323.8179999999993,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.4000000000000001,
+            "status": "missed"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.4000000000000001,
+            "status": "missed"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "same_tracks_after_grips_mass",
+      "id": "entrada_piernas_no_attacker",
+      "scenario_sha256": "59a6b1931c09ab9a99e7a1a3943d2545193bc925d46acdf5c97a022182bc2177",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.54193887076804,
+      "ground_penetration_cm": 0.06346302367524412,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.00006614370379555972,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0000026496303347827547,
+      "tori_budget_feasible": null,
+      "artifacts": "",
+      "elapsed_ms": 816.8778999999995,
+      "grip_events": {}
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_nominal",
+      "scenario_sha256": "e8a5c3a3a697b8c7cb22c7d41c3fedcd8ca9ddc85173393ec45454496b52e86b",
+      "outcome": "fall",
+      "fall_s": 1.9000000000000001,
+      "hand_left_n": 353.2795272630331,
+      "hand_right_n": 400,
+      "tori_contact_n": 2676.103884926641,
+      "contact_peak_n": 14750.890001543195,
+      "ground_penetration_cm": 1.5288401426217804,
+      "self_penetration_cm": 0.7412580545971125,
+      "interbody_penetration_cm": 2.3048244069392263,
+      "joint_excursion_deg": 1.3460921024612105,
+      "foot_slip_cm": 2.1606709935344215,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00033698218478141304,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip|contact_force|ground_penetration|tremor",
+      "elapsed_ms": 1912.7417999999998,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_passive",
+      "scenario_sha256": "e1af783162195713a85a69bf4fb283154862a2999e2d9a744a6257458acb23cb",
+      "outcome": "fall",
+      "fall_s": 0.48,
+      "hand_left_n": 337.74325454530054,
+      "hand_right_n": 366.7127808533272,
+      "tori_contact_n": 2325.6721971691536,
+      "contact_peak_n": 4672.295681160562,
+      "ground_penetration_cm": 1.1346869818231562,
+      "self_penetration_cm": 1.3063128015694017,
+      "interbody_penetration_cm": 2.691970720776592,
+      "joint_excursion_deg": 0.697078478573921,
+      "foot_slip_cm": 0.2833652572303444,
+      "root_force": 0,
+      "final_com_speed_mps": 0.001471080317377795,
+      "tori_budget_feasible": true,
+      "artifacts": "tremor|ground_penetration",
+      "elapsed_ms": 1536.9447,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_defensive",
+      "scenario_sha256": "13f4ea8a63f820a5ea8596a25cd7a0d005d05e2d322baeab61f5b133da144ce7",
+      "outcome": "fall",
+      "fall_s": 1.58,
+      "hand_left_n": 301.405199289568,
+      "hand_right_n": 354.17828578324685,
+      "tori_contact_n": 2948.9586001103075,
+      "contact_peak_n": 11727.636575286364,
+      "ground_penetration_cm": 1.210389029544621,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 3.5050662382290954,
+      "joint_excursion_deg": 1.0581399410642802,
+      "foot_slip_cm": 3.210764209347847,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0007966465949222353,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip|contact_force|ground_penetration",
+      "elapsed_ms": 1295.6127999999999,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_heavy",
+      "scenario_sha256": "b05106b87a11fc1eb9481ad18616ac67b5154cb47164325f20237b161625135b",
+      "outcome": "fall",
+      "fall_s": 1.6600000000000001,
+      "hand_left_n": 302.65891659051243,
+      "hand_right_n": 367.7212322068127,
+      "tori_contact_n": 2809.3613075931557,
+      "contact_peak_n": 31157.475664551683,
+      "ground_penetration_cm": 1.740858523544797,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 2.4556860257349142,
+      "joint_excursion_deg": 1.529130846648404,
+      "foot_slip_cm": 2.760358287752673,
+      "root_force": 0,
+      "final_com_speed_mps": 0.28268023965779876,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip|contact_force|ground_penetration",
+      "elapsed_ms": 1557.9619999999995,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_light",
+      "scenario_sha256": "83ad621058ef7b60cf5bb31002820cbfa715a4ccafd3543dae5c23efab3d4679",
+      "outcome": "fall",
+      "fall_s": 1.72,
+      "hand_left_n": 356.5193729579753,
+      "hand_right_n": 400,
+      "tori_contact_n": 2575.6892486604356,
+      "contact_peak_n": 11693.40287279606,
+      "ground_penetration_cm": 1.4409320853706844,
+      "self_penetration_cm": 0.5591945971820542,
+      "interbody_penetration_cm": 2.7803878620437734,
+      "joint_excursion_deg": 1.3437461737966931,
+      "foot_slip_cm": 3.3890912449289865,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0004305071640610559,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip|contact_force|ground_penetration",
+      "elapsed_ms": 1584.7592999999997,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_tall",
+      "scenario_sha256": "5952d148f98ed51179bc2e01e9ace7d6b822a0c80a9cf96a5fdf270d945ef661",
+      "outcome": "fall",
+      "fall_s": 1.6600000000000001,
+      "hand_left_n": 331.98976914354967,
+      "hand_right_n": 400,
+      "tori_contact_n": 2941.16636545385,
+      "contact_peak_n": 16630.750210368748,
+      "ground_penetration_cm": 1.765448682820582,
+      "self_penetration_cm": 0.6304962441218089,
+      "interbody_penetration_cm": 2.5074890165324866,
+      "joint_excursion_deg": 1.3974568384736483,
+      "foot_slip_cm": 1.385851808117281,
+      "root_force": 0,
+      "final_com_speed_mps": 0.05920836084516874,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1504.5680000000011,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_slippery",
+      "scenario_sha256": "e6ae5a9582dafc789bc17062e1c5961ddbe6013d5680636c0503b9c37d58f720",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 306.6002528073069,
+      "hand_right_n": 400,
+      "tori_contact_n": 2757.0813725693147,
+      "contact_peak_n": 15306.305311334583,
+      "ground_penetration_cm": 1.647376372612247,
+      "self_penetration_cm": 1.0480614875046979,
+      "interbody_penetration_cm": 2.693494795183826,
+      "joint_excursion_deg": 1.526714679108241,
+      "foot_slip_cm": 0.7216858987038938,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0002152794466698196,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1410.5193,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_weak_grip",
+      "scenario_sha256": "0b28c1d57f42cb81e18e5772cbf0cd4844d33a8d0d151d950eaa27835fc7af6e",
+      "outcome": "fall",
+      "fall_s": 1.6,
+      "hand_left_n": 40,
+      "hand_right_n": 40,
+      "tori_contact_n": 2316.5106543767006,
+      "contact_peak_n": 12269.65231110714,
+      "ground_penetration_cm": 2.043625574727448,
+      "self_penetration_cm": 0.999445359492608,
+      "interbody_penetration_cm": 3.2159696668762687,
+      "joint_excursion_deg": 1.3228256756987475,
+      "foot_slip_cm": 1.613463276859871,
+      "root_force": 0,
+      "final_com_speed_mps": 0.13170308273946152,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1250.9812999999995,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 0.632,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 0.562,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_no_grips",
+      "scenario_sha256": "682013a1f7e4e24c932540455033cbd0897c996593c3c1996f7a36db66af17bb",
+      "outcome": "fall",
+      "fall_s": 1.6600000000000001,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 502.78381780783565,
+      "contact_peak_n": 10693.07325472869,
+      "ground_penetration_cm": 2.469954516821689,
+      "self_penetration_cm": 0.37386065687636355,
+      "interbody_penetration_cm": 1.7605499964932991,
+      "joint_excursion_deg": 1.257433832632662,
+      "foot_slip_cm": 1.7602873618243993,
+      "root_force": 0,
+      "final_com_speed_mps": 0.11634616969383223,
+      "tori_budget_feasible": true,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1238.8287999999993,
+      "grip_events": {}
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_out_of_reach",
+      "scenario_sha256": "d1a725223a51f5fe75942cc7b14da823082bdb2d675d309a75f2528f9767cd26",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 120.59891057689835,
+      "ground_penetration_cm": 0.059463197787967825,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 0,
+      "joint_excursion_deg": 0,
+      "foot_slip_cm": 0.0009018860919566757,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00002482205946267578,
+      "tori_budget_feasible": true,
+      "artifacts": "",
+      "elapsed_ms": 1525.022100000002,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.35000000000000003,
+            "status": "missed"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.35000000000000003,
+            "status": "missed"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_no_attacker",
+      "scenario_sha256": "2ddc293f53f7c3ac9eac78d7552fcf06e9407a47cbf11334fd4c1cdc35638b0b",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 120.59891057690412,
+      "ground_penetration_cm": 0.059463197787965744,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.0009018860919559342,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00002482205946305619,
+      "tori_budget_feasible": null,
+      "artifacts": "",
+      "elapsed_ms": 949.5678999999982,
+      "grip_events": {}
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_protective",
+      "scenario_sha256": "58c036f87823d13be623c4714ce9293c67133b8f70d17726cfd0b84527831ab5",
+      "outcome": "fall",
+      "fall_s": 1.84,
+      "hand_left_n": 358.5297615868045,
+      "hand_right_n": 400,
+      "tori_contact_n": 2676.103884926641,
+      "contact_peak_n": 9684.329054603219,
+      "ground_penetration_cm": 2.721104611651556,
+      "self_penetration_cm": 0.5453636418555988,
+      "interbody_penetration_cm": 2.3048244069392263,
+      "joint_excursion_deg": 1.2435611479251896,
+      "foot_slip_cm": 2.1606709935344215,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00016561169057394888,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip|ground_penetration",
+      "elapsed_ms": 1628.3372999999992,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_small_attacker",
+      "scenario_sha256": "6024a58978e5ecf394152acf37fbba85cacf795d0b867b846e2044a456164771",
+      "outcome": "fall",
+      "fall_s": 1.78,
+      "hand_left_n": 257.7625697842579,
+      "hand_right_n": 297.9999641376793,
+      "tori_contact_n": 2125.6907010861005,
+      "contact_peak_n": 14063.534925471422,
+      "ground_penetration_cm": 1.6658850930716866,
+      "self_penetration_cm": 0.4787972720177525,
+      "interbody_penetration_cm": 2.379365572103661,
+      "joint_excursion_deg": 1.423114713384387,
+      "foot_slip_cm": 2.974452112707681,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0008283978003972314,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip|contact_force|ground_penetration",
+      "elapsed_ms": 1327.008899999997,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_slow_action",
+      "scenario_sha256": "e182793156b8964a6b50c135fdf0147688c6016ea8d04d1bee59b930815961aa",
+      "outcome": "fall",
+      "fall_s": 2.38,
+      "hand_left_n": 344.8889631875793,
+      "hand_right_n": 384.852127971476,
+      "tori_contact_n": 1825.8385160628134,
+      "contact_peak_n": 7830.54600512919,
+      "ground_penetration_cm": 1.531818140962516,
+      "self_penetration_cm": 0.4341809316632028,
+      "interbody_penetration_cm": 1.8440280888600211,
+      "joint_excursion_deg": 1.4075525875261001,
+      "foot_slip_cm": 3.0031609698961574,
+      "root_force": 0,
+      "final_com_speed_mps": 0.06307628938764723,
+      "tori_budget_feasible": false,
+      "artifacts": "foot_slip|ground_penetration",
+      "elapsed_ms": 1192.2265999999981,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 3.08,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.9040000000000001,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_oblique",
+      "scenario_sha256": "e7467a9a609fc75ee14df72df6f2c650b8a12c7b10c8c32008cd3dbbe69de3a2",
+      "outcome": "fall",
+      "fall_s": 1.5,
+      "hand_left_n": 289.4551124478156,
+      "hand_right_n": 347.5233915596021,
+      "tori_contact_n": 1847.8544798504117,
+      "contact_peak_n": 17487.946020144296,
+      "ground_penetration_cm": 1.8145142232571603,
+      "self_penetration_cm": 1.2294468365499034,
+      "interbody_penetration_cm": 1.1255301154867308,
+      "joint_excursion_deg": 1.4804558643914723,
+      "foot_slip_cm": 0.8609069283096293,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0006630854070328678,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration|tremor",
+      "elapsed_ms": 1359.6137999999992,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.268,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_proportions",
+      "scenario_sha256": "51b02436a9c7cf3ce38962ad5c97fbf8fbc6a1ede4b450cf2f76a3deb09b6096",
+      "outcome": "fall",
+      "fall_s": 1.84,
+      "hand_left_n": 349.8585008989593,
+      "hand_right_n": 400,
+      "tori_contact_n": 2707.5608173631376,
+      "contact_peak_n": 14787.133680066681,
+      "ground_penetration_cm": 1.4973325953275607,
+      "self_penetration_cm": 1.0587627058432616,
+      "interbody_penetration_cm": 2.577678778154996,
+      "joint_excursion_deg": 1.4491877199050822,
+      "foot_slip_cm": 1.3834015849108967,
+      "root_force": 0,
+      "final_com_speed_mps": 0.03275979779042098,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1237.011400000003,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0,
+            "status": "held"
+          },
+          {
+            "t_s": 1.36,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "siega_exterior_passive_no_attacker",
+      "scenario_sha256": "d31522f008f71be0f115b34e8466b46e735093a898ba7f4f49f92b2de7c0bb74",
+      "outcome": "fall",
+      "fall_s": 0.42,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 10392.504055276964,
+      "ground_penetration_cm": 0.8139931673122082,
+      "self_penetration_cm": 1.9124662001326245,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.0922288729482907,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00019594530649251298,
+      "tori_budget_feasible": null,
+      "artifacts": "contact_force",
+      "elapsed_ms": 1057.8378999999986,
+      "grip_events": {}
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_nominal",
+      "scenario_sha256": "a0459a1b84b93771dc30f1fe21ec4e0cb87bf130ddb79751cd4166b2413d5fbc",
+      "outcome": "fall",
+      "fall_s": 1.76,
+      "hand_left_n": 282.7461801523205,
+      "hand_right_n": 295.2588617759945,
+      "tori_contact_n": 2021.8493363576047,
+      "contact_peak_n": 11335.326906329388,
+      "ground_penetration_cm": 1.798236024058729,
+      "self_penetration_cm": 0.7046601124964789,
+      "interbody_penetration_cm": 1.2975822409086457,
+      "joint_excursion_deg": 1.09431556797669,
+      "foot_slip_cm": 0.189326360384035,
+      "root_force": 0,
+      "final_com_speed_mps": 0.000086509491208006,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1581.2883999999976,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.888,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9540000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 1.474,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_passive",
+      "scenario_sha256": "bba9a147b7a94d2ad442e41583576c4f295a3f9760121c68c4b1f28d035fbbcc",
+      "outcome": "fall",
+      "fall_s": 0.84,
+      "hand_left_n": 93.48969029496006,
+      "hand_right_n": 236.72101438827409,
+      "tori_contact_n": 1916.948494846665,
+      "contact_peak_n": 6859.9961635943155,
+      "ground_penetration_cm": 1.3412420286704265,
+      "self_penetration_cm": 1.7503636370674467,
+      "interbody_penetration_cm": 0.8464813507816928,
+      "joint_excursion_deg": 0.9177660229680726,
+      "foot_slip_cm": 0.2635690989532582,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0006273693580265561,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1954.9814000000006,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.896,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.962,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_defensive",
+      "scenario_sha256": "4a17772c31848a60ee3ebbb808c58c4b35785cfa6f9800322fdc5202b90517d7",
+      "outcome": "fall",
+      "fall_s": 1.72,
+      "hand_left_n": 251.98458795378434,
+      "hand_right_n": 205.24340269574017,
+      "tori_contact_n": 1475.3366052456913,
+      "contact_peak_n": 12861.983225611642,
+      "ground_penetration_cm": 1.5015470947311094,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 0.8420296808085731,
+      "joint_excursion_deg": 0.461729961449081,
+      "foot_slip_cm": 0.9457535990200312,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0012013251086551487,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1589.8477999999996,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.906,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.93,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_heavy",
+      "scenario_sha256": "930cd3cd51c2dfe21b537d488f5a82507fe60395ad1613725829d88134a8a31f",
+      "outcome": "fall",
+      "fall_s": 1.72,
+      "hand_left_n": 285.62380312351536,
+      "hand_right_n": 298.1272214232115,
+      "tori_contact_n": 2281.1541315354616,
+      "contact_peak_n": 29986.26140638891,
+      "ground_penetration_cm": 1.854105057163824,
+      "self_penetration_cm": 0.050995163277520184,
+      "interbody_penetration_cm": 1.2736110440805408,
+      "joint_excursion_deg": 1.1839454345101905,
+      "foot_slip_cm": 0.3047663670469847,
+      "root_force": 0,
+      "final_com_speed_mps": 0.032529965854226836,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1276.5757000000012,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.896,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9480000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 1.426,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_light",
+      "scenario_sha256": "b955111e5fc43ba4dc67fe6c14f963cf91c4963db37b2dade3617d94d3d649e9",
+      "outcome": "fall",
+      "fall_s": 1.78,
+      "hand_left_n": 259.75240516457575,
+      "hand_right_n": 288.52426775774495,
+      "tori_contact_n": 1922.5700204678822,
+      "contact_peak_n": 7419.70598083303,
+      "ground_penetration_cm": 1.9620316864328948,
+      "self_penetration_cm": 0.2917705337429972,
+      "interbody_penetration_cm": 1.9990931606882125,
+      "joint_excursion_deg": 0.8565042150436982,
+      "foot_slip_cm": 0.19908637577467836,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00005906700292243107,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1735.6858000000066,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.886,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9540000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 1.462,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_tall",
+      "scenario_sha256": "91b5aaa000ac3562ac73eaff781166a2fce120ef0f0b590a9c60902828aca9f4",
+      "outcome": "fall",
+      "fall_s": 1.84,
+      "hand_left_n": 248.37750023133708,
+      "hand_right_n": 276.01124182681554,
+      "tori_contact_n": 1751.643632038191,
+      "contact_peak_n": 13043.974763531216,
+      "ground_penetration_cm": 2.052856273841097,
+      "self_penetration_cm": 0.3001573955126083,
+      "interbody_penetration_cm": 0.9448225317158866,
+      "joint_excursion_deg": 1.2266719052151724,
+      "foot_slip_cm": 0.2212692152910916,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0002330996825700648,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1709.121699999996,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.862,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9380000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_slippery",
+      "scenario_sha256": "970d66c18e97a0bee714b4324e6330422eb83802bf1b68fbb08ed12ffe1e720a",
+      "outcome": "fall",
+      "fall_s": 1.96,
+      "hand_left_n": 250.18228613092032,
+      "hand_right_n": 289.93759453255973,
+      "tori_contact_n": 1103.1398754560357,
+      "contact_peak_n": 11474.85147490313,
+      "ground_penetration_cm": 1.723027080026121,
+      "self_penetration_cm": 0.3056501167404697,
+      "interbody_penetration_cm": 1.1256092620573601,
+      "joint_excursion_deg": 1.1373264887331969,
+      "foot_slip_cm": 0.19377498997482517,
+      "root_force": 0,
+      "final_com_speed_mps": 0.10104059307554036,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1452.1390000000029,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.888,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9540000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_weak_grip",
+      "scenario_sha256": "30d133785c9b2857baf87574b6b04077cc0ef98ced402616bcc4584d514ad917",
+      "outcome": "fall",
+      "fall_s": 1.74,
+      "hand_left_n": 40,
+      "hand_right_n": 40,
+      "tori_contact_n": 2020.7299301860435,
+      "contact_peak_n": 14297.901152482891,
+      "ground_penetration_cm": 1.9715775078727655,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 1.1855387743666033,
+      "joint_excursion_deg": 0.7916569525795597,
+      "foot_slip_cm": 0.17541696323459388,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00009722878949292401,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1579.8248000000021,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.888,
+            "status": "held"
+          },
+          {
+            "t_s": 1.176,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9540000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 1.244,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_no_grips",
+      "scenario_sha256": "e22514b135e9c9ca6d30e23f9f8b3dda2564214348b560297d163106751e25fa",
+      "outcome": "fall",
+      "fall_s": 1.74,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 2018.2851158621966,
+      "contact_peak_n": 13163.836244233013,
+      "ground_penetration_cm": 1.9624055841543906,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 1.1855387743871835,
+      "joint_excursion_deg": 0.7655061836643682,
+      "foot_slip_cm": 0.12251838693359374,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0001202283751996488,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1558.2890000000043,
+      "grip_events": {}
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_out_of_reach",
+      "scenario_sha256": "57791ea15a62e2390912a3b403fbeb11256ce43fc9237402bad80159ba11f883",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.54338692388356,
+      "ground_penetration_cm": 0.06346340667576292,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 0,
+      "joint_excursion_deg": 0,
+      "foot_slip_cm": 0.00006560209707676492,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0000026818486506704803,
+      "tori_budget_feasible": true,
+      "artifacts": "",
+      "elapsed_ms": 1363.7428,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.2,
+            "status": "missed"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.2,
+            "status": "missed"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_no_attacker",
+      "scenario_sha256": "35c66d06bdbf24f7d03593496072d8e699a4c7512f5be0bda7c6d1d164b13a40",
+      "outcome": "standing",
+      "fall_s": null,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 135.54338692388373,
+      "ground_penetration_cm": 0.06346340667576292,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.00006560209707696471,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0000026818486482374527,
+      "tori_budget_feasible": null,
+      "artifacts": "",
+      "elapsed_ms": 867.5155000000013,
+      "grip_events": {}
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_protective",
+      "scenario_sha256": "6ba49868778e04275afb1dafb7892a472a29ccd4b6fda7b67d2a81c52c7d9ff4",
+      "outcome": "fall",
+      "fall_s": 1.74,
+      "hand_left_n": 319.0508651479039,
+      "hand_right_n": 295.2588617759945,
+      "tori_contact_n": 2021.8493363576047,
+      "contact_peak_n": 8400.040470162654,
+      "ground_penetration_cm": 2.9186724489361646,
+      "self_penetration_cm": 0,
+      "interbody_penetration_cm": 1.1855387743666033,
+      "joint_excursion_deg": 0.8191592398963152,
+      "foot_slip_cm": 0.12805680637320044,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00012933399105655584,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1713.4418000000005,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.888,
+            "status": "held"
+          },
+          {
+            "t_s": 1.8880000000000001,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9540000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 1.474,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_small_attacker",
+      "scenario_sha256": "125f28f83f7fc789733f426ed78506b4bd3012d704133aeb3e22de341a18f5ab",
+      "outcome": "fall",
+      "fall_s": 1.8,
+      "hand_left_n": 209.42693560055693,
+      "hand_right_n": 260.7477911958109,
+      "tori_contact_n": 1551.103446601069,
+      "contact_peak_n": 12142.337438556591,
+      "ground_penetration_cm": 1.6107241438995916,
+      "self_penetration_cm": 0.3916449531712357,
+      "interbody_penetration_cm": 1.0523465939033563,
+      "joint_excursion_deg": 1.4434117667019237,
+      "foot_slip_cm": 0.1619108668527493,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0009520578068630048,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1615.775800000003,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.888,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9520000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_slow_action",
+      "scenario_sha256": "b959a96e936347de385dba4525b96b38c293fcf490b0729662caf81542f2dc2d",
+      "outcome": "fall",
+      "fall_s": 2.2800000000000002,
+      "hand_left_n": 265.0955657246581,
+      "hand_right_n": 289.243295762688,
+      "tori_contact_n": 1073.6325188972114,
+      "contact_peak_n": 13511.164365439045,
+      "ground_penetration_cm": 2.032463079587103,
+      "self_penetration_cm": 0.11603147400579827,
+      "interbody_penetration_cm": 0.6428817158668652,
+      "joint_excursion_deg": 1.0196094523888666,
+      "foot_slip_cm": 0.14319919108342494,
+      "root_force": 0,
+      "final_com_speed_mps": 0.0002202652237176554,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration|contact_force",
+      "elapsed_ms": 1540.5972000000038,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 1.242,
+            "status": "held"
+          },
+          {
+            "t_s": 3.08,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 1.324,
+            "status": "held"
+          },
+          {
+            "t_s": 2.02,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_oblique",
+      "scenario_sha256": "c96365bf28f366ddd9675663dde18f1c75f81064d22782064d0397fc7a386a07",
+      "outcome": "fall",
+      "fall_s": 1.84,
+      "hand_left_n": 319.7044564013929,
+      "hand_right_n": 310.04148657000013,
+      "tori_contact_n": 1704.1650104962764,
+      "contact_peak_n": 7540.342409784714,
+      "ground_penetration_cm": 1.6874170765624017,
+      "self_penetration_cm": 1.9447638255204416,
+      "interbody_penetration_cm": 0.9649566906708019,
+      "joint_excursion_deg": 1.4543929705730978,
+      "foot_slip_cm": 0.9362777842437837,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00422920665625797,
+      "tori_budget_feasible": false,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1446.049699999996,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.896,
+            "status": "held"
+          },
+          {
+            "t_s": 1.808,
+            "status": "slipped"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.9420000000000001,
+            "status": "held"
+          },
+          {
+            "t_s": 1.874,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_proportions",
+      "scenario_sha256": "583a084956dc89e7b9d56a88cded2dc1d365dc79ccccaf00bf3069c9a1978270",
+      "outcome": "fall",
+      "fall_s": 1.72,
+      "hand_left_n": 224.03395341484176,
+      "hand_right_n": 310.4759851559364,
+      "tori_contact_n": 2011.1159362847004,
+      "contact_peak_n": 12118.187218121135,
+      "ground_penetration_cm": 1.708488181404963,
+      "self_penetration_cm": 0.72043533799913,
+      "interbody_penetration_cm": 1.7316615518083327,
+      "joint_excursion_deg": 1.0530353247943653,
+      "foot_slip_cm": 0.12070053237485248,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00031498881206458207,
+      "tori_budget_feasible": false,
+      "artifacts": "contact_force|ground_penetration",
+      "elapsed_ms": 1586.6483000000007,
+      "grip_events": {
+        "tori_left_hand": [
+          {
+            "t_s": 0.912,
+            "status": "held"
+          },
+          {
+            "t_s": 2.2,
+            "status": "released"
+          }
+        ],
+        "tori_right_hand": [
+          {
+            "t_s": 0.974,
+            "status": "held"
+          },
+          {
+            "t_s": 1.414,
+            "status": "slipped"
+          }
+        ]
+      }
+    },
+    {
+      "campaign": "final_refs",
+      "id": "entrada_piernas_passive_no_attacker",
+      "scenario_sha256": "56bfbe08d85e26943a92aae00e1e7613de60e65e6eb3f170fc4d6d059f31ca65",
+      "outcome": "fall",
+      "fall_s": 0.84,
+      "hand_left_n": 0,
+      "hand_right_n": 0,
+      "tori_contact_n": 0,
+      "contact_peak_n": 7629.304350962628,
+      "ground_penetration_cm": 1.2238356688374086,
+      "self_penetration_cm": 1.8001898314443334,
+      "interbody_penetration_cm": null,
+      "joint_excursion_deg": null,
+      "foot_slip_cm": 0.0870072067894558,
+      "root_force": 0,
+      "final_com_speed_mps": 0.00007325293032270931,
+      "tori_budget_feasible": null,
+      "artifacts": "ground_penetration",
+      "elapsed_ms": 1002.8061999999991,
+      "grip_events": {}
+    }
+  ]
+}

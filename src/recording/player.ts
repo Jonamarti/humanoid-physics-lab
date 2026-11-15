@@ -119,7 +119,7 @@ export class RecordingPlayer {
     if (!b || alpha === 0) {
       return {
         t: time, index: i, qpos: a.qpos.slice(),
-        effectors: a.effectors.map((e) => ({ id: e.id, point_m: [...e.point_m], force_n: [...e.force_n] })),
+        effectors: a.effectors.map((e) => ({ ...structuredClone(e), point_m: [...e.point_m], force_n: [...e.force_n] })),
         contacts: a.contacts,
       };
     }
@@ -131,8 +131,8 @@ export class RecordingPlayer {
     }
     const effectors = a.effectors.map((e, k): EffectorSample => {
       const next = b.effectors[k];
-      if (!next || next.id !== e.id) return { id: e.id, point_m: [...e.point_m], force_n: [...e.force_n] };
-      return { id: e.id, point_m: lerpVec(e.point_m, next.point_m, alpha), force_n: lerpVec(e.force_n, next.force_n, alpha) };
+      if (!next || next.id !== e.id) return structuredClone(e);
+      return { ...structuredClone(e), point_m: lerpVec(e.point_m, next.point_m, alpha), force_n: lerpVec(e.force_n, next.force_n, alpha) };
     });
     return { t: time, index: i, qpos, effectors, contacts: a.contacts };
   }

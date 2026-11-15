@@ -1,0 +1,20 @@
+[
+  {
+    "mutation": "masa_global",
+    "detected": true,
+    "exit": 1,
+    "restored_sha256": "7a3807afbd3a138b819bac1464e40533f9d68bf8965f9fc6393b66d6b069c3f3"
+  },
+  {
+    "mutation": "sin_reaccion_real",
+    "detected": true,
+    "exit": 1,
+    "restored_sha256": "de62608dbb09640e4ad8ab2c49644a7c9dd2a375c8517bc7acdcce08d86ba124"
+  },
+  {
+    "mutation": "fisica_ligada_a_grabacion",
+    "detected": true,
+    "exit": 1,
+    "restored_sha256": "de62608dbb09640e4ad8ab2c49644a7c9dd2a375c8517bc7acdcce08d86ba124"
+  }
+]

@@ -142,4 +142,8 @@ La tolerancia de la prueba no se ha relajado.
 ## Límites
 
 - Determinismo exacto solo dentro de Node, no entre Node y navegador.
-- Un único actor y solo fuerzas prescritas; sin humanoide, agarres ni controladores (issues #75 y #76).
+- El resultado superior conserva el primer actor; para escenas dobles hay que consultar también `summary.actors`. Los defectos de ambos se agregan en `summary.artifacts`.
+
+## Extensión: observación de dos humanoides
+
+`meta.humanoid_actors`, `samples[].actors.<id>` y `summary.actors.<id>` identifican y miden cada actor. Los campos históricos de estado y resultado conservan el primero; `summary.artifacts` agrega los defectos de ambos. La energía se mide globalmente (`energy_scope: world`). El visor permite seleccionar qué actor observar. Detalles: [ARTICULATED_ACTORS.md](ARTICULATED_ACTORS.md).

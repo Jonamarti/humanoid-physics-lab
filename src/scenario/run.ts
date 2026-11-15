@@ -7,6 +7,8 @@
  * `Recording.samples` y `peaks` conservan la precisión completa; el redondeo a 6 cifras
  * se aplica al escribir (`src/recording/write.ts`).
  */
+import { createCoupledGripState, resolveCoupledGrip, stepCoupledGrip } from "../effectors/coupledGrip";
+import { FallReflex } from "../uke/fallReflex";
 import type { StandingModel, StandingState } from "../control/standingBaseline";
 import { detectArtifacts } from "../metrics/artifacts";
 import { capturePoint, signedMargin, supportPolygon } from "../metrics/balance";
@@ -32,6 +34,8 @@ import {
   type Recording, type RecordingSample, type RecordingSummary, type ToriBodyPeaks,
 } from "../recording/schema";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../physics/contactForces";
+import { ArticulatedGrips } from "./articulatedGrips";
+import { ArticulatedActor } from "./articulatedActor";
 import { ArtifactProbe } from "./artifactProbe";
 import { buildScenarioModel } from "./buildModel";
 import { sha256Hex } from "./sha256";
@@ -56,6 +60,8 @@ export interface RunOptions {
    * Lo usa la prueba de reproducción para comparar `xpos` de la simulación real con `mj_forward`.
    */
   onSample?: (model: unknown, data: unknown, sampleIndex: number) => void;
+  /** Solve current control/contact state each physical tick, independently of recording cadence. */
+  coherentControl?: boolean;
 }
 
 /** Ganancia (0 a 1) de la forma de onda en el instante `t` (s del escenario) de un efector. */
@@ -122,6 +128,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const totalSteps = Math.round(scenario.duration_s / dt);
     const actorBodyId = built.bodies.indexOf(built.actorBody);
     const humanoid = built.humanoid;
+    const paired = Boolean(built.humanoids);
+    let secondary: ArticulatedActor | undefined;
+    const prefixOf = (actorId: string): string => built.humanoids?.find(a => a.actor.id === actorId)?.prefix ?? "";
     // Cuerpo cuya inclinación se mide: el tronco (`chest`) del humanoide o el propio actor.
     const tiltBodyId = humanoid ? built.bodies.indexOf("chest") : actorBodyId;
 
@@ -139,7 +148,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       let local: Vec3 = spec.local_point_m;
       if (spec.site !== undefined) {
         // Punto de un sitio con nombre: su posición en el cuerpo más el desplazamiento opcional (ejes del cuerpo).
-        const siteId = model.site(spec.site).id;
+        const siteId = model.site(prefixOf(spec.actor) + spec.site).id;
         const sp = model.site_pos as Float64Array;
         local = [sp[3 * siteId]! + local[0], sp[3 * siteId + 1]! + local[1], sp[3 * siteId + 2]! + local[2]];
       }
@@ -147,7 +156,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         spec: EffectorSpec; bodyId: number; local: Vec3;
         hand?: { params: HandParams; state: HandState; peaks: HandPeaks };
         pull?: PullParams;
-      } = { spec, bodyId: built.bodies.indexOf(spec.body), local };
+      } = { spec, bodyId: built.bodies.indexOf(prefixOf(spec.actor) + spec.body), local };
       if (spec.kind === "pull") entry.pull = resolvePullParams(spec);
       return entry;
     });
@@ -173,6 +182,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       if (e.pull) peaks[e.spec.id]!.pull = { max_power_w: 0, time_power_limited_s: 0 };
       if (cap !== undefined) peaks[e.spec.id]!.limit_n = cap;
     }
+    const actorGrips = new ArticulatedGrips(model, data, scenario.actor_grips ?? [], prefixOf, peaks);
     const pending: Array<PendingWork | null> = effectors.map(() => null);
 
     const xfrc = data.xfrc_applied as Float64Array;
@@ -200,6 +210,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       };
     });
     // Agarres: cuerda con muelle entre la mano de la postura y un sitio de Uke. Se graban como efectores `tori_<lado>_hand`.
+    const coupledGrips = scenario.tori?.body?.grip_mode === "coupled";
     const toriGrips = (["left", "right"] as const).flatMap((side) => {
       const spec = toriBody ? scenario.tori?.body?.grips?.[side] : undefined;
       if (!spec) return [];
@@ -209,9 +220,13 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const params = resolveToriGripParams(spec.max_force_n);
       peaks[id] = { max_force_n: 0, impulse_ns: [0, 0, 0], work_j: 0, limit_n: params.max_force_n };
       return [{
+        coupled: resolveCoupledGrip({ ...spec, max_force_n: params.max_force_n }),
+        state: createCoupledGripState(),
+        sourceBodyId: built.bodies.indexOf(`tori_${side}_forearm`),
+        handLocal: [0, 0, toriBody!.dims.forearm / 2] as Vec3,
         side, id, params, engage_s: spec.engage_s ?? 0, release_s: spec.release_s ?? Infinity,
         bodyId: (model.site_bodyid as Int32Array)[siteId]!, local: triple(sp, 3 * siteId),
-        last: undefined as { force: Vec3; velocity: Vec3 } | undefined,
+        last: undefined as { force: Vec3; velocity: Vec3; sourceVelocity?: Vec3 } | undefined,
         // Distancia de la mano de la postura al punto agarrado en t = 0: se absorbe poco a poco para empezar sin tirón.
         offset: undefined as Vec3 | undefined,
       }];
@@ -230,7 +245,10 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const cvel = data.cvel as Float64Array;
       const hands: ToriHandTargets = {};
       // Mientras agarra, la muñeca se dibuja en el punto agarrado (hasta donde llegue el brazo).
-      for (const g of toriGrips) if (t >= g.engage_s && t < g.release_s) hands[g.side] = gripPoint(g);
+      for (const g of toriGrips) {
+        const closing = coupledGrips && g.state.status === "waiting" && t >= g.engage_s && t <= g.engage_s + g.coupled.capture_window_s;
+        if ((!coupledGrips && t >= g.engage_s && t < g.release_s) || closing) hands[g.side] = gripPoint(g);
+      }
       void xpos;
       const now = toriSkeleton(toriBody, t, hands);
       const next = toriSkeleton(toriBody, t + dt, hands);
@@ -307,17 +325,24 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     let rootForceMax = 0;
     const runUke = (t: number): void => {
       mj.mj_subtreeVel(model, data);
+      if (paired) data.qfrc_applied.fill(0);
       uke!.step(model as unknown as StandingModel, data as unknown as StandingState, t);
+      secondary?.control(t);
       const applied = data.qfrc_applied as Float64Array;
       for (let k = 0; k < 6; k++) rootForceMax = Math.max(rootForceMax, Math.abs(applied[k]!));
       if (rootForceMax !== 0) throw new Error("El controlador de Uke escribió fuerza generalizada en la raíz");
     };
     if (humanoid) {
       const placement = applyStance(mj, model, data, humanoid.stance);
+      if (built.humanoids) {
+        const second = built.humanoids[1]!;
+        secondary = new ArticulatedActor(mj, model, data, second.actor, second.prefix, built.bodies, built.joints, dt);
+      }
       mj.mj_forward(model, data); // también deja `qfrc_bias` (gravedad) listo para el controlador
       ukeParams = {
         attitude: settleAttitude!, stance: humanoid.stance, mass_kg: humanoid.mass_kg,
         height_m: humanoid.height_m, strength: humanoid.strength, targets: placement.targets,
+        ...(paired || humanoid.placement ? { scope_to_actor: true } : {}),
         ...(humanoid.waist_stiffness !== undefined ? { waist_stiffness: humanoid.waist_stiffness } : {}),
       };
       uke = createUkeController(ukeParams, model as unknown as StandingModel, data as unknown as StandingState);
@@ -345,6 +370,8 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         humanoid.attitude, humanoid.mass_kg, humanoid.height_m, humanoid.strength,
       ));
     }
+
+    secondary?.start();
 
     // 2. Escenario. `data.time` no se usa: el tiempo del escenario es `i * dt`.
 
@@ -420,17 +447,23 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const initialRotation = Array.from((data.xmat as Float64Array).subarray(9 * actorBodyId, 9 * actorBodyId + 9));
     const startXY: [number, number] = [(data.xpos as Float64Array)[3 * actorBodyId]!, (data.xpos as Float64Array)[3 * actorBodyId + 1]!];
 
+    const effectorInitial = new Map(scenario.actors.map(actor => {
+      const root = built.bodies.indexOf(prefixOf(actor.id) + ACTOR_BODIES[actor.kind][0]!);
+      return [actor.id, { origin: triple(data.xpos, 3*root), rotation: Array.from((data.xmat as Float64Array).subarray(9*root,9*root+9)) }];
+    }));
+
     // Manos: el hombro, los desplazamientos y el eje vienen en `actor_initial` (origen y ejes del cuerpo principal en t = 0)
     // y se pasan al mundo aquí; `stepHand` trabaja todo en el mundo.
-    const initialOrigin = triple(data.xpos as Float64Array, 3 * actorBodyId);
+
     for (const e of effectors) {
       if (e.spec.kind !== "hand") continue;
       const spec = e.spec;
+      const reference = effectorInitial.get(spec.actor)!;
       const params = resolveHandParams({
         ...spec,
-        shoulder_m: add(initialOrigin, rotate(initialRotation, 0, spec.shoulder_m)),
-        phases: spec.phases.map((p) => ({ ...p, offset_m: rotate(initialRotation, 0, p.offset_m) })),
-        ...(spec.axis !== undefined ? { axis: rotate(initialRotation, 0, spec.axis) } : {}),
+        shoulder_m: add(reference.origin, rotate(reference.rotation, 0, spec.shoulder_m)),
+        phases: spec.phases.map((p) => ({ ...p, offset_m: rotate(reference.rotation, 0, p.offset_m) })),
+        ...(spec.axis !== undefined ? { axis: rotate(reference.rotation, 0, spec.axis) } : {}),
       });
       const handPeaks: HandPeaks = {
         max_power_w: 0, time_at_cap_s: 0, time_power_limited_s: 0, time_reach_limited_s: 0, events: [],
@@ -487,8 +520,25 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
     // Detector de artefactos (#75 PR 5): medidas por paso físico a partir de t = 0 (no del asentamiento).
     const probe = new ArtifactProbe(mj, model, data, {
-      bodies: built.bodies, joints: built.joints, actorBodies: ACTOR_BODIES[scenario.actors[0]!.kind], humanoid: Boolean(humanoid), dt,
+      bodies: built.bodies, joints: built.joints, actorBodies: ACTOR_BODIES[scenario.actors[0]!.kind], humanoid: Boolean(humanoid), dt, ...(paired ? {energyScope:"world" as const} : {}), measureJointLimits: paired || coupledGrips || humanoid?.fall === "instinctive",
     });
+    const fallReflex = humanoid?.fall === "instinctive" ? new FallReflex(humanoid, model as unknown as StandingModel) : undefined;
+    const coherentControl = paired || humanoid?.placement !== undefined || (options.coherentControl ?? (coupledGrips || humanoid?.fall !== undefined || humanoid?.joint_limit_timeconst_s !== undefined));
+    const applyCurrentControl = (t: number, tilt: number): void => {
+      if (uke) runUke(t);
+      if (secondary?.actor.fall === "instinctive") secondary.protect(t, readContacts());
+      if (fallReflex) {
+        const contacts = readContacts();
+        mj.mj_subtreeVel(model, data);
+        const velocity = triple(data.subtree_linvel as Float64Array, 3 * actorBodyId);
+        const com = triple(data.subtree_com as Float64Array, 3 * actorBodyId);
+        fallReflex.step(data as unknown as StandingState, { t, dt,
+          capture_margin_m: signedMargin(capturePoint(com, velocity), supportPolygon(contacts, b => FOOT_BODIES.includes(b))),
+          com_velocity_mps: velocity, tilt_deg: Math.max(tilt, tiltDeg(data.xmat as Float64Array, 9 * actorBodyId)), heading_rad: heading,
+          nonfoot_ground_contact: contacts.some(c => (c.body_a === "world" && touchBodies.has(c.body_b)) || (c.body_b === "world" && touchBodies.has(c.body_a))),
+        });
+      }
+    };
     const samples: RecordingSample[] = [];
     const toriBudget = scenario.tori
       ? new ToriBudget({ ...scenario.tori, friction: scenario.tori.friction ?? scenario.ground.friction })
@@ -509,6 +559,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
       const t = i * dt;
       if (i > 0) updateKinematics();
       probe.state(t);
+      secondary?.state(t);
 
       // Veredicto a 500 Hz sobre el estado actual.
       const xmat = data.xmat as Float64Array;
@@ -531,6 +582,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 
       // Efectores: fuerza durante el paso [t, t + dt], evaluada en el punto medio.
       xfrc.fill(0);
+      applyToriBody(t, i < totalSteps);
       const sampleEffectors: EffectorSample[] = [];
       let handsForce: Vec3 = [0, 0, 0];
       let handsPower = 0;
@@ -570,7 +622,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           // Tirón guiado: fuerza de la curva en el punto medio del paso, llevada al mundo y recortada por potencia.
           const demand = pullDemand(e.pull!.keys, t + dt / 2);
           const world: Vec3 = e.spec.frame === "world" ? demand
-            : e.spec.frame === "actor_initial" ? rotate(initialRotation, 0, demand) : rotate(xmat, 9 * e.bodyId, demand);
+            : e.spec.frame === "actor_initial" ? rotate(effectorInitial.get(e.spec.actor)!.rotation, 0, demand) : rotate(xmat, 9 * e.bodyId, demand);
           const limited = limitPullPower(e.pull!, world, velocity);
           force = limited.force_n;
           if (i < totalSteps) {
@@ -584,7 +636,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
             const f = e.spec.force_n;
             const scaled: Vec3 = [f[0] * gain, f[1] * gain, f[2] * gain];
             if (e.spec.frame === "world") force = scaled;
-            else if (e.spec.frame === "actor_initial") force = rotate(initialRotation, 0, scaled);
+            else if (e.spec.frame === "actor_initial") force = rotate(effectorInitial.get(e.spec.actor)!.rotation, 0, scaled);
             else force = rotate(xmat, 9 * e.bodyId, scaled);
           }
         }
@@ -644,7 +696,33 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
             peaks[g.id]!.work_j += dot(g.last.force, add(g.last.velocity, velocity)) * dt / 2;
           }
           let force: Vec3 = [0, 0, 0];
-          if (t >= g.engage_s && t < g.release_s) {
+          let coupledSample: EffectorSample["coupled_grip"];
+          let sourceVelocity: Vec3 | undefined;
+          if (coupledGrips) {
+            const hand = pointState(g.sourceBodyId, g.handLocal);
+            // Equal and opposite wrenches at the same world point conserve angular momentum too.
+            sourceVelocity = pointVelocityAt(g.sourceBodyId, point);
+            const r = stepCoupledGrip(g.coupled, g.state, { t, dt, engage_s: g.engage_s, release_s: g.release_s,
+              hand_m: hand.point, hand_velocity_mps: hand.velocity, grip_m: point, grip_velocity_mps: velocity });
+            force = r.force_n;
+            coupledSample = { status: r.state.status, hand_point_m: hand.point, distance_m: r.distance_m,
+              reaction_n: r.reaction_n, force_limited: r.force_limited, power_limited: r.power_limited };
+            const peak = peaks[g.id]!;
+            if (i < totalSteps) {
+              g.state = r.state;
+              peak.max_power_w = Math.max(peak.max_power_w ?? 0, r.power_on_actor_w);
+              if (r.event) (peak.grip_events ??= []).push({ t_s: t, status: r.event });
+            }
+            if (g.last?.sourceVelocity) {
+              peak.reaction_work_j = (peak.reaction_work_j ?? 0) - dot(g.last.force, add(g.last.sourceVelocity, sourceVelocity)) * dt / 2;
+            }
+            const reactionTorque = cross(sub(point, triple(data.xipos as Float64Array, 3 * g.sourceBodyId)), r.reaction_n);
+            for (let k = 0; k < 3; k++) {
+              const j = 6 * g.sourceBodyId + k;
+              xfrc[j] = xfrc[j]! + r.reaction_n[k]!;
+              xfrc[j + 3] = xfrc[j + 3]! + reactionTorque[k]!;
+            }
+          } else if (t >= g.engage_s && t < g.release_s) {
             const hand = handsNow[g.side];
             const handVelocity: Vec3 = [
               (handsNext[g.side][0] - hand[0]) / dt, (handsNext[g.side][1] - hand[1]) / dt, (handsNext[g.side][2] - hand[2]) / dt,
@@ -664,13 +742,14 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
             peak.max_force_n = Math.max(peak.max_force_n, Math.min(Math.hypot(...force), g.params.max_force_n));
             peak.impulse_ns = [peak.impulse_ns[0] + force[0] * dt, peak.impulse_ns[1] + force[1] * dt, peak.impulse_ns[2] + force[2] * dt];
           }
-          g.last = i < totalSteps ? { force, velocity } : undefined;
+          g.last = i < totalSteps ? { force, velocity, ...(sourceVelocity ? { sourceVelocity } : {}) } : undefined;
           handsForce = add(handsForce, force);
           handsPower += dot(force, velocity);
-          sampleEffectors.push({ id: g.id, point_m: point, force_n: force });
+          sampleEffectors.push({ id: g.id, point_m: point, force_n: force, ...(coupledSample ? { coupled_grip: coupledSample } : {}) });
         }
       }
-      applyToriBody(t, i < totalSteps);
+
+      sampleEffectors.push(...actorGrips.step(t, dt, i < totalSteps));
 
       // Obstáculos: orden del actuador para el paso [t, t + dt]. Se escribe ya (para el `mj_forward` de la muestra) y otra
       // vez tras el controlador de Uke, que pone `qfrc_applied` a cero.
@@ -690,9 +769,15 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         toriBudget.step({ t, dt, hands_force_n: handsForce, hands_power_w: handsPower, obstacle_force_on_uke_n: onUke });
       }
 
-      if (i % stepsPerSample === 0) {
-        mj.mj_forward(model, data); // contactos y fuerzas coherentes con el wrench ya aplicado
-        probe.sample(t, Object.values(peaks).reduce((sum, p) => sum + p.work_j, 0) + toriWorkJ);
+      if (coherentControl) {
+        applyCurrentControl(t, tilt);
+        applyObstacleCommands();
+        // This solve is part of physics, not sampling. Sampling only reads the solved state.
+        mj.mj_forward(model, data);
+      }
+      if (i % stepsPerSample === 0 || (paired && i === totalSteps)) {
+        if (!coherentControl) mj.mj_forward(model, data); // legacy recordings keep their historical timing
+        probe.sample(t, Object.values(peaks).reduce((sum, p) => sum + p.work_j + (p.reaction_work_j ?? 0), 0) + toriWorkJ);
         const sample: RecordingSample = {
           t,
           qpos: Array.from(data.qpos as Float64Array),
@@ -709,6 +794,20 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           const polygon = supportPolygon(sample.contacts, (b) => FOOT_BODIES.includes(b));
           const sites = data.site_xpos as Float64Array;
           sample.com = com;
+          if (paired || coupledGrips || fallReflex) {
+            sample.com_velocity_mps = velocity;
+            sample.angular_momentum_nms = triple(data.subtree_angmom as Float64Array, 3 * actorBodyId);
+            sample.ground_reaction_n = { left: [0,0,0], right: [0,0,0] };
+            for (const side of ["left", "right"] as const) {
+              const foot = `${side}_foot`;
+              let net: Vec3 = [0,0,0];
+              for (const c of sample.contacts) {
+                const sign = c.body_a === "world" && c.body_b === foot ? 1 : c.body_b === "world" && c.body_a === foot ? -1 : 0;
+                net = [net[0]+sign*c.force_n[0], net[1]+sign*c.force_n[1], net[2]+sign*c.force_n[2]];
+              }
+              sample.ground_reaction_n[side] = net;
+            }
+          }
           sample.xcom = [xcom[0], xcom[1]];
           sample.support_polygon = polygon.map((p): [number, number] => [p[0], p[1]]);
           sample.capture_margin_m = signedMargin(xcom, polygon);
@@ -722,6 +821,19 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
             trunk_dir_deg: fallDirectionDeg(data.xmat as Float64Array, 9 * tiltBodyId),
           });
         }
+        if (paired && secondary && humanoid) {
+          const torques: Record<string, number> = {};
+          for (let j=0; j<model.njnt; j++) {
+            if ((model.jnt_type as Int32Array)[j] !== 3 || !actorBodyIds.has((model.jnt_bodyid as Int32Array)[j]!)) continue;
+            torques[built.joints[j]!] = data.qfrc_applied[model.jnt_dofadr[j]!]!;
+          }
+          sample.joint_torques_nm = torques;
+          sample.actors = {
+            [humanoid.id]: { com: sample.com!, com_velocity_mps: sample.com_velocity_mps!, angular_momentum_nms: sample.angular_momentum_nms!,
+              joint_torques_nm: torques, ground_reaction_n: sample.ground_reaction_n!, xcom: sample.xcom!, support_polygon: sample.support_polygon!, capture_margin_m: sample.capture_margin_m! },
+            [secondary.actor.id]: secondary.sample(t, sample.contacts, Object.values(peaks).reduce((sum,p)=>sum+p.work_j+(p.reaction_work_j??0),0)+toriWorkJ),
+          };
+        }
         samples.push(sample);
         options.onSample?.(model, data, samples.length - 1);
       }
@@ -734,11 +846,21 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         finalXY = [(data.xpos as Float64Array)[3 * actorBodyId]!, (data.xpos as Float64Array)[3 * actorBodyId + 1]!];
         break;
       }
-      if (uke) runUke(t);
+      if (!coherentControl && uke) runUke(t);
+      if (!paired && humanoid && (coupledGrips || fallReflex) && i % stepsPerSample === 0) {
+        const sample = samples[samples.length-1]!;
+        sample.joint_torques_nm = {};
+        for (let j=0; j<model.njnt; j++) {
+          if ((model.jnt_type as Int32Array)[j] !== 3) continue;
+          sample.joint_torques_nm[built.joints[j]!] = (data.qfrc_applied as Float64Array)[(model.jnt_dofadr as Int32Array)[j]!]!;
+        }
+      }
       applyObstacleCommands();
       probe.beforeStep();
+      secondary?.beforeStep();
       mj.mj_step(model, data);
       probe.afterStep(t);
+      secondary?.afterStep(t);
       for (const o of obstacles) {
         // Contacto resuelto del paso que acaba de ejecutarse, solo contra el actor (no contra props ni otros obstáculos).
         o.contact = readObstacleContactForce(
@@ -785,11 +907,17 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
         settle_com_speed_mps: settleComSpeed,
         initial_com_height_m: initialComZ,
         max_root_generalized_force: rootForceMax,
-        controller: uke.status(),
+        controller: { ...uke.status(), ...(fallReflex ? { fall_response: fallReflex.status() } : {}) },
         balance: verdict.balance,
         fall: verdict.fall,
         step: verdict.step,
         unbalance: verdict.unbalance,
+      };
+    }
+    if (secondary && humanoid && summary.uke) {
+      summary.actors = {
+        [humanoid.id]: { ...summary.uke, outcome, t_outcome_s: summary.t_outcome_s, diagnostics: probe.diagnostics() },
+        [secondary.actor.id]: secondary.summary(),
       };
     }
     if (toriBudget) summary.tori_budget = toriBudget.summary();
@@ -821,6 +949,9 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const recording: Recording = {
       schema: RECORDING_SCHEMA_ID,
       meta: {
+        ...(toriBody ? { tori_assist: "independent_segment_tracking" as const,
+          tori_grip_model: coupledGrips ? "coupled" as const : "target" as const } : {}),
+        ...(built.humanoids ? { humanoid_actors: built.humanoids.map(a=>({id:a.actor.id,prefix:a.prefix,root_body:a.rootBody,control:"joint_torques" as const})) } : {}),
         scenario_id: scenario.id,
         scenario_sha256: scenarioSha256(scenario),
         engine_version: options.engineVersion ?? "unknown",
@@ -843,6 +974,15 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const report = detectArtifacts(recording);
     summary.artifacts = report.artifacts;
     summary.artifacts_not_evaluated = report.not_evaluated;
+    for (const actor of Object.values(summary.actors ?? {})) {
+      const actorReport = detectArtifacts({ ...recording, diagnostics: actor.diagnostics });
+      actor.artifacts = actorReport.artifacts;
+      actor.artifacts_not_evaluated = actorReport.not_evaluated;
+    }
+    if (summary.actors) {
+      summary.artifacts = Object.entries(summary.actors).flatMap(([id,a]) => (a.artifacts ?? []).map(f=>({...f,where:`${id}/${f.where}`})));
+      summary.artifacts_not_evaluated = Object.entries(summary.actors).flatMap(([id,a]) => (a.artifacts_not_evaluated ?? []).map(f=>({...f,reason:`${id}: ${f.reason}`})));
+    }
     return recording;
   } finally {
     data.delete();

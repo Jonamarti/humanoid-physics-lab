@@ -65,8 +65,9 @@ export interface StancePlacement {
 /**
  * Coloca el modelo en la postura (cinemática, sin dinámica): fija ángulos, resuelve los tobillos, apoya los pies. Deja `qvel` a cero. Hay que llamar a `mj_forward` después.
  */
-export function applyStance(mj: MujocoModule, model: Model, data: Data, stance: UkeStance): StancePlacement {
-  const qadr = (name: string): number => model.jnt_qposadr[model.jnt(name).id]!;
+export function applyStance(mj: MujocoModule, model: Model, data: Data, stance: UkeStance, prefix = ""): StancePlacement {
+  const qadr = (name: string): number => model.jnt_qposadr[model.jnt(prefix + name).id]!;
+  const rootQ = qadr("pelvis_root");
   const angles = STANCE_ANGLES[stance];
   for (const name of UKE_HINGE_JOINTS) {
     const [lo, hi] = jointRangeRad(name);
@@ -79,7 +80,7 @@ export function applyStance(mj: MujocoModule, model: Model, data: Data, stance: 
   for (let iter = 0; iter < 30; iter++) {
     mj.mj_kinematics(model, data);
     for (const side of ["left", "right"]) {
-      const o = 9 * model.body(`${side}_foot`).id;
+      const o = 9 * model.body(`${prefix}${side}_foot`).id;
       const r20 = data.xmat[o + 6]!, r21 = data.xmat[o + 7]!;
       data.qpos[qadr(`${side}_ankle_pitch`)] += Math.asin(r20);
       data.qpos[qadr(`${side}_ankle_roll`)] -= Math.asin(r21);
@@ -88,7 +89,7 @@ export function applyStance(mj: MujocoModule, model: Model, data: Data, stance: 
   mj.mj_kinematics(model, data);
   mj.mj_comPos(model, data);
 
-  const feet = ["left", "right"].map((s) => model.geom(`${s}_foot_geom`).id);
+  const feet = ["left", "right"].map((s) => model.geom(`${prefix}${s}_foot_geom`).id);
   let minBottom = Infinity;
   for (const g of feet) {
     const o = 9 * g;
@@ -97,7 +98,7 @@ export function applyStance(mj: MujocoModule, model: Model, data: Data, stance: 
       Math.abs(data.geom_xmat[o + 8]!) * model.geom_size[3 * g + 2]!;
     minBottom = Math.min(minBottom, data.geom_xpos[3 * g + 2]! - reach);
   }
-  data.qpos[2] += 0.0005 - minBottom;
+  data.qpos[rootQ + 2] += 0.0005 - minBottom;
   mj.mj_kinematics(model, data);
   mj.mj_comPos(model, data);
 

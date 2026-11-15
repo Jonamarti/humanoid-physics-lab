@@ -156,7 +156,10 @@ describe("cuerpo de Tori en el escenario (MuJoCo WASM real)", () => {
     expect(report).toMatch(/Cuerpo de Tori: cargan trunk/);
     expect(report).toMatch(/Cabeza: no toca el suelo/);
     expect(report).toMatch(/Suelo, por orden de llegada: pelvis/);
-    expect(report).toMatch(/Tori \(75 kg\): viable/);
+    // With Uke-only mass, the unchanged budget detects excessive late impulse.
+    expect(recording.summary.tori_budget?.feasible).toBe(false);
+    expect(recording.summary.tori_budget?.violations.map(v => v.kind)).toEqual(["horizontal_impulse"]);
+    expect(report).toMatch(/Tori \(75 kg\): INVIABLE/);
     expect(report).not.toMatch(/energía mecánica/);
     // Los segmentos de Tori no salen en la lista de golpes de Uke contra el suelo.
     expect(report).not.toMatch(/Suelo, por orden de llegada:.*tori_/);

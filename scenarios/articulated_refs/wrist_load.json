@@ -1,0 +1,73 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "wrist_load",
+  "duration_s": 4,
+  "record_hz": 50,
+  "ground": {
+    "friction": 1
+  },
+  "actors": [
+    {
+      "id": "uke",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "tense",
+      "stance": "neutral",
+      "joint_limit_timeconst_s": 0.004
+    },
+    {
+      "id": "tori",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "tense",
+      "stance": "neutral",
+      "joint_limit_timeconst_s": 0.004,
+      "placement": {
+        "xy_m": [
+          0,
+          0.55
+        ],
+        "heading_deg": 0
+      }
+    }
+  ],
+  "props": [],
+  "effectors": [
+    {
+      "id": "load",
+      "kind": "prescribed_force",
+      "actor": "tori",
+      "site": "sternum",
+      "frame": "world",
+      "force_n": [
+        0,
+        100,
+        0
+      ],
+      "start_s": 0.3,
+      "duration_s": 0.3,
+      "waveform": "half_sine"
+    }
+  ],
+  "actor_grips": [
+    {
+      "id": "wrist",
+      "source": {
+        "actor": "tori",
+        "site": "right_wrist"
+      },
+      "target": {
+        "actor": "uke",
+        "site": "left_wrist"
+      },
+      "engage_s": 0,
+      "release_s": 2,
+      "max_force_n": 200,
+      "max_power_w": 100
+    }
+  ]
+}

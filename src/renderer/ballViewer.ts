@@ -42,6 +42,8 @@ export class BallViewer {
   private multiForces: readonly { id: string; point: ForceVector; force: ForceVector; active: boolean }[] = [];
   private readonly forceFlash: THREE.Mesh;
   private readonly forceFlashRing: THREE.Mesh;
+  private readonly captureMarker = new THREE.Mesh(new THREE.RingGeometry(0.018, 0.027, 24), new THREE.MeshBasicMaterial({ color: 0xfa65df, side: THREE.DoubleSide }));
+  private readonly comVelocityArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 0.1, 0x61b6ff, 0.04, 0.02);
   private readonly comMarker: THREE.Mesh;
   private readonly comGroundMarker: THREE.Mesh;
   private readonly comVerticalLine: THREE.Line;
@@ -144,6 +146,9 @@ export class BallViewer {
       this.comVerticalLine, this.supportOutline]) {
       overlay.renderOrder = 90;
     }
+    this.captureMarker.rotation.x = -Math.PI / 2;
+    this.captureMarker.visible = false; this.comVelocityArrow.visible = false;
+    this.scene.add(this.captureMarker, this.comVelocityArrow);
     this.scene.add(this.comMarker, this.comGroundMarker,
       this.comVerticalLine, this.supportOutline);
     this.setSpherePosition([0, 0, 1.5]);
@@ -553,7 +558,22 @@ export class BallViewer {
     return projection.status;
   }
 
+  /** Capture point is a planning heuristic; velocity arrow length is 0.3 seconds of travel. */
+  setBalanceDynamics(com?: XYZ, velocity?: XYZ, capture?: XY): void {
+    this.captureMarker.visible = capture !== undefined;
+    if (capture) this.captureMarker.position.set(capture[0], 0.014, -capture[1]);
+    const speed = velocity ? Math.hypot(...velocity) : 0;
+    this.comVelocityArrow.visible = Boolean(com && velocity && speed > 1e-4);
+    if (com && velocity && speed > 1e-4) {
+      const [x,y,z] = mujocoToThreePosition(com); this.comVelocityArrow.position.set(x,y,z);
+      this.comVelocityArrow.setDirection(new THREE.Vector3(velocity[0],velocity[2],-velocity[1]).normalize());
+      this.comVelocityArrow.setLength(0.3*speed,Math.min(0.04,0.1*speed),Math.min(0.02,0.05*speed));
+    }
+  }
+
   clearBalanceProjection(): void {
+    this.captureMarker.visible = false;
+    this.comVelocityArrow.visible = false;
     this.comMarker.visible = false;
     this.comGroundMarker.visible = false;
     this.comVerticalLine.visible = false;
@@ -600,6 +620,10 @@ export class BallViewer {
       line.geometry.dispose();
       (line.material as THREE.Material).dispose();
     }
+    this.scene.remove(this.captureMarker, this.comVelocityArrow);
+    this.captureMarker.geometry.dispose(); (this.captureMarker.material as THREE.Material).dispose();
+    this.comVelocityArrow.line.geometry.dispose(); (this.comVelocityArrow.line.material as THREE.Material).dispose();
+    this.comVelocityArrow.cone.geometry.dispose(); (this.comVelocityArrow.cone.material as THREE.Material).dispose();
     this.forceArrow.line.geometry.dispose();
     (this.forceArrow.line.material as THREE.Material).dispose();
     this.forceArrow.cone.geometry.dispose();

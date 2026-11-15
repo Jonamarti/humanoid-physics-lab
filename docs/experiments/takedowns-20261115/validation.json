@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-15",
+  "source_sha256": "cb9838bfdabac6be899e9bdda0ca96c20534e273f49b7ecdf6c15eb121d5f770",
+  "node": "v23.7.0",
+  "mujoco_wasm": "3.17.0",
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "diff_check": "passed"
+  },
+  "suite": {
+    "passed": 725,
+    "skipped": 11,
+    "todo": 3,
+    "files_passed": 93,
+    "files_skipped": 8,
+    "log_sha256": "b377a5e210215a7a952133052f1ecff3f52758026b5cc4e94e8aa68c88c30250"
+  },
+  "campaigns": {
+    "baseline": 22,
+    "intermediate_same_tracks": 22,
+    "final_references": 34
+  },
+  "mutations": [
+    {
+      "mutation": "masa_global",
+      "detected": true,
+      "exit": 1,
+      "restored_sha256": "7a3807afbd3a138b819bac1464e40533f9d68bf8965f9fc6393b66d6b069c3f3"
+    },
+    {
+      "mutation": "sin_reaccion_real",
+      "detected": true,
+      "exit": 1,
+      "restored_sha256": "de62608dbb09640e4ad8ab2c49644a7c9dd2a375c8517bc7acdcce08d86ba124"
+    },
+    {
+      "mutation": "fisica_ligada_a_grabacion",
+      "detected": true,
+      "exit": 1,
+      "restored_sha256": "de62608dbb09640e4ad8ab2c49644a7c9dd2a375c8517bc7acdcce08d86ba124"
+    }
+  ],
+  "browser": {
+    "errors": [],
+    "overflow": false,
+    "info": "tori_left_hand: 74.8 N\ntori_right_hand: 40.4 N\ntori_left_hand: held, separación 16.6 cm\ntori_right_hand: held, separación 14.3 cm\nMargen dinámico: -29.2 cm (no decide la caída)\nVelocidad COM: 0.83 m/s\nApoyo vertical izq/der: 509 / 579 N\nTori: seguimiento asistido de segmentos; no tiene equilibrio propio\nArtefactos pendientes: contact_force, ground_penetration",
+    "controls": [
+      "pause",
+      "seek",
+      "step",
+      "contacts",
+      "reactions"
+    ],
+    "mobile_emulated": true
+  },
+  "limitations": [
+    "No valid reactive recovery step demonstrated",
+    "Tori uses externally assisted independent segments",
+    "Impact penetration and solver artifacts remain",
+    "No real mobile or Safari validation"
+  ]
+}

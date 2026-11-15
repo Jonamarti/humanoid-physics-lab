@@ -66,6 +66,8 @@ export function createTenseController(
   }
   const controller: StandingController = {
     ...base,
+    // Only Uke is supported by these ankles. Props and Tori are separate dynamic trees.
+    totalMassKg: params.mass_kg,
     gains: settings,
     kpX: gains.comKp, kdX: gains.comKd, kpY: gains.comKp, kdY: gains.comKd,
     ankleLimitNm: gains.ankleLimitNm,

@@ -62,12 +62,13 @@ describe("escenarios publicados para el editor: public/scenarios/", () => {
 describe("informe de un ensayo", () => {
   it("resume el volteo en arco y distingue la cadera resbaladiza", async () => {
     const json = JSON.parse(readFileSync(new URL("../../public/scenarios/uke_tense_75_175_hip_roll.json", import.meta.url), "utf8")) as Record<string, unknown>;
-    const good = describeTrial(await runScenario(validateScenario(json), { engineVersion: "test" })).join("\n");
-    expect(good).toMatch(/Resultado: fall/);
-    expect(good).toMatch(/Obstáculo hip_bar: toca .*pelvis/);
-    expect(good).toMatch(/Tori \(75 kg\): viable/);
-    expect(good).toMatch(/Fuerza hand_sleeve: máximo 400 N \(tope 500 N\)/);
-    expect(good).not.toMatch(/fuerza de contacto/);
+    const nominal = describeTrial(await runScenario(validateScenario(json), { engineVersion: "test" })).join("\n");
+    expect(nominal).toMatch(/Resultado: fall/);
+    expect(nominal).toMatch(/Obstáculo hip_bar: toca .*pelvis/);
+    expect(nominal).toMatch(/Tori \(75 kg\): viable/);
+    expect(nominal).toMatch(/Fuerza hand_sleeve: máximo 400 N \(tope 500 N\)/);
+    // The old nominal now correctly reports the excessive leg contact.
+    expect(nominal).toMatch(/Artefactos: .*fuerza de contacto/);
 
     (json.obstacles as Array<Record<string, unknown>>)[0]!.friction = 0.2;
     const slippery = describeTrial(await runScenario(validateScenario(json), { engineVersion: "test" })).join("\n");

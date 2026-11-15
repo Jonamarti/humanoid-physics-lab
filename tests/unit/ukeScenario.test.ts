@@ -45,7 +45,7 @@ describe("actor humanoide en el esquema de escenario", () => {
     expect(message(base({ attitude: "reactive" }))).toContain("actors[0].attitude");
     expect(message(base({ stance: "kneeling" }))).toContain("actors[0].stance");
     expect(message(base({ radius_m: 0.2 }))).toContain("actors[0].radius_m: campo desconocido");
-    expect(message(base({ fall: "instinctive" }))).toContain("actors[0].fall: campo desconocido");
+    expect(message(base({ fall_mode: "instinctive" }))).toContain("actors[0].fall_mode: campo desconocido");
     expect(message(base({ segment_lengths_m: { arm: 0.3 } }))).toContain("actors[0].segment_lengths_m.arm");
     expect(message(base({ segment_lengths_m: { thigh: 2 } }))).toContain("actors[0].segment_lengths_m.thigh");
     expect(message(base({ mass_kg: Number.NaN }))).toContain("actors[0].mass_kg");

@@ -176,6 +176,7 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
     extraWorldXml: propBlocks.join("\n"),
     optionAttrs: COLLISION_ATTRS,
     modelName: scenario.id,
+    ...(actor.joint_limit_timeconst_s !== undefined ? { jointLimitTimeconstS: actor.joint_limit_timeconst_s } : {}),
     jointDampingByName: attitudeJointDamping(actor.attitude, actor.mass_kg, actor.height_m, actor.strength),
   });
   return {

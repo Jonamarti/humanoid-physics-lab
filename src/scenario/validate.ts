@@ -151,7 +151,7 @@ function asRange(value: unknown, path: string, [lo, hi]: readonly [number, numbe
 
 function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
   checkKeys(obj, path, ["id", "kind", "mass_kg", "height_m"], [
-    "strength", "build", "segment_lengths_m", "attitude", "stance", "waist_stiffness",
+    "strength", "build", "segment_lengths_m", "attitude", "stance", "waist_stiffness", "fall", "joint_limit_timeconst_s",
   ]);
   const actor: HumanoidActor = {
     id,
@@ -162,6 +162,8 @@ function validateHumanoid(obj: Obj, path: string, id: string): HumanoidActor {
     attitude: "attitude" in obj ? asEnum(obj.attitude, join(path, "attitude"), UKE_ATTITUDES) : "tense",
     stance: "stance" in obj ? asEnum(obj.stance, join(path, "stance"), UKE_STANCES) : "neutral",
   };
+  if ("joint_limit_timeconst_s" in obj) actor.joint_limit_timeconst_s = asRange(obj.joint_limit_timeconst_s, join(path, "joint_limit_timeconst_s"), [0.004, 0.05], "s");
+  if ("fall" in obj) actor.fall = asEnum(obj.fall, join(path, "fall"), ["none", "instinctive"] as const);
   if ("build" in obj) actor.build = asRange(obj.build, join(path, "build"), [0, 1], "");
   if ("waist_stiffness" in obj) actor.waist_stiffness = asRange(obj.waist_stiffness, join(path, "waist_stiffness"), [0, 1], "");
   if ("segment_lengths_m" in obj) {
@@ -406,7 +408,7 @@ function validateTori(value: unknown, path: string, effectorIds: readonly string
 
 function validateToriBody(value: unknown, path: string, massKg: number, effectorIds: readonly string[]): ToriBodySpec {
   const obj = asObject(value, path);
-  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "grips", "interp"]);
+  checkKeys(obj, path, ["height_m", "keys"], ["enabled", "friction", "grips", "interp", "grip_mode"]);
   const body: ToriBodySpec = { height_m: asPositive(obj.height_m, join(path, "height_m")), keys: [] };
   if ("enabled" in obj) {
     if (typeof obj.enabled !== "boolean") fail(join(path, "enabled"), `debe ser true o false, no ${describe(obj.enabled)}`);
@@ -414,6 +416,7 @@ function validateToriBody(value: unknown, path: string, massKg: number, effector
   }
   if ("friction" in obj) body.friction = asNonNegative(obj.friction, join(path, "friction"));
   if ("interp" in obj) body.interp = asEnum(obj.interp, join(path, "interp"), ["min_jerk", "linear"] as const);
+  if ("grip_mode" in obj) body.grip_mode = asEnum(obj.grip_mode, join(path, "grip_mode"), ["target", "coupled"] as const);
   if ("grips" in obj) {
     const grips = asObject(obj.grips, join(path, "grips"));
     checkKeys(grips, join(path, "grips"), [], ["left", "right"]);
@@ -422,13 +425,19 @@ function validateToriBody(value: unknown, path: string, massKg: number, effector
       if (!(side in grips)) continue;
       const gp = join(path, `grips.${side}`);
       const g = asObject(grips[side], gp);
-      checkKeys(g, gp, ["site"], ["max_force_n", "release_s", "engage_s"]);
+      checkKeys(g, gp, ["site"], ["max_force_n", "release_s", "engage_s", "max_power_w", "capture_radius_m", "capture_window_s", "break_distance_m", "slip_after_s"]);
       const site = asString(g.site, join(gp, "site"));
       if (!(site in HUMANOID_SITE_BODY)) fail(join(gp, "site"), `"${site}" no es un sitio del humanoide`);
       const grip: ToriGripSpec = { site };
       if ("max_force_n" in g) grip.max_force_n = asPositive(g.max_force_n, join(gp, "max_force_n"));
       if ("release_s" in g) grip.release_s = asNonNegative(g.release_s, join(gp, "release_s"));
       if ("engage_s" in g) grip.engage_s = asNonNegative(g.engage_s, join(gp, "engage_s"));
+      for (const key of ["max_power_w", "capture_radius_m", "capture_window_s", "break_distance_m", "slip_after_s"] as const) {
+        if (key in g) grip[key] = asPositive(g[key], join(gp, key));
+      }
+      if ((grip.break_distance_m ?? 0.25) <= (grip.capture_radius_m ?? 0.12)) fail(gp, "break_distance_m debe superar capture_radius_m");
+      if (grip.release_s !== undefined && grip.release_s <= (grip.engage_s ?? 0)) fail(gp, "release_s debe ser posterior a engage_s");
+      if (body.grip_mode !== "coupled" && ["max_power_w", "capture_radius_m", "capture_window_s", "break_distance_m", "slip_after_s"].some(k => k in g)) fail(gp, "los límites físicos requieren grip_mode: coupled");
       body.grips[side] = grip;
       const id = `tori_${side}_hand`;
       if (effectorIds.includes(id)) fail(gp, `el id de efector "${id}" está reservado para este agarre`);

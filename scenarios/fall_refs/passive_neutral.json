@@ -1,0 +1,24 @@
+{
+  "schema": "hpl.scenario.v1",
+  "id": "passive_neutral",
+  "duration_s": 4,
+  "record_hz": 500,
+  "ground": {
+    "friction": 1
+  },
+  "actors": [
+    {
+      "id": "uke",
+      "kind": "humanoid",
+      "mass_kg": 75,
+      "height_m": 1.75,
+      "strength": 1,
+      "attitude": "relaxed",
+      "stance": "neutral",
+      "joint_limit_timeconst_s": 0.004,
+      "fall": "instinctive"
+    }
+  ],
+  "props": [],
+  "effectors": []
+}

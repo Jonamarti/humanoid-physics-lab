@@ -51,3 +51,7 @@ Cada entrada de `samples[].effectors` puede llevar `kind` (por ejemplo `prescrib
 ## Limitaciones
 
 - Las etiquetas de texto son un recuadro de Pillow proyectado desde la cámara, no etiquetas de MuJoCo; los contactos muy juntos comparten etiqueta.
+
+## Comparación sincronizada de caídas
+
+`compare_fall_recordings.py before.json.gz after.json.gz compare.mp4 --view side --sheet compare.png` produce dos vistas juntas, primero x1 y luego x0,25. Exige el mismo hash de escenario, MJCF y tiempos; usa cámara común y nunca avanza la física. Ver [UKE_FALL_RESPONSE_20261116.md](UKE_FALL_RESPONSE_20261116.md). Prueba: `python scripts/test_compare_fall_recordings.py` con las mismas dependencias del render.

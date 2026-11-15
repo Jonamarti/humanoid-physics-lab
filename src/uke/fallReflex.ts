@@ -7,19 +7,29 @@ import { jointGroupOf, scaledGains } from "./gains";
 import { jointRangeRad } from "./rangeOfMotion";
 import { UKE_HINGE_JOINTS } from "./stances";
 
+export interface FallModel extends StandingModel {
+  readonly dof_damping: Float64Array;
+}
+
 export interface FallObservation {
   t: number; dt: number; capture_margin_m: number | null;
   com_velocity_mps: Vec3; tilt_deg: number; heading_rad: number;
   nonfoot_ground_contact: boolean;
+  /** Central-body contact ends bracing; a hand or knee can still support the body. */
+  torso_ground_contact?: boolean;
 }
 export class FallReflex {
   private outsideSince: number | undefined;
   private activatedAt: number | undefined;
   private impactAt: number | undefined;
   private direction = 0;
+  private settleAt: number | undefined;
   private maxRatio = 0;
   private readonly joints;
-  constructor(actor: HumanoidActor, model: StandingModel, prefix = "") {
+  private readonly damping: Float64Array;
+  private readonly goal = new Map<string, number>();
+  constructor(actor: HumanoidActor, model: FallModel, prefix = "") {
+    this.damping = model.dof_damping;
     const gains = scaledGains(actor.mass_kg, actor.height_m, actor.strength);
     this.joints = UKE_HINGE_JOINTS.map(name => {
       const id = model.jnt(prefix + name).id;
@@ -45,8 +55,10 @@ export class FallReflex {
     }
     if (this.activatedAt === undefined) return;
     if (o.nonfoot_ground_contact) this.impactAt ??= o.t;
+    if (o.torso_ground_contact ?? o.nonfoot_ground_contact) this.settleAt ??= o.t;
     const ramp = Math.min(1, Math.max(0, (o.t - this.activatedAt) / 0.12));
-    const relax = this.impactAt === undefined ? 1 : 1 - 0.7 * Math.min(1, (o.t - this.impactAt) / 0.2);
+    // Limb support can arrest a fall. Yield the posture after the central body lands.
+    const relax = this.settleAt === undefined ? 1 : 1 - Math.min(1, (o.t - this.settleAt) / 0.15);
     const forward = Math.max(0, Math.cos(this.direction));
     const lateral = Math.sin(this.direction);
     const targets: Record<string, number> = {
@@ -59,17 +71,27 @@ export class FallReflex {
       left_elbow: -0.2, right_elbow: -0.2,
     };
     for (const j of this.joints) {
-      const desired = Math.min(j.range[1], Math.max(j.range[0], targets[j.name] ?? 0));
+      // Activating stiff PD on relaxed damping caused underdamped extension and head impacts.
+      this.damping[j.v] = Math.max(this.damping[j.v]!, j.gain.kd);
+      if (!this.goal.has(j.name)) {
+        const current = data.qpos[j.q]!;
+        let goal = targets[j.name] ?? 0;
+        // A late response must never extend an already folded leg or straighten the rounded trunk.
+        if (/(hip_pitch|knee)$/.test(j.name)) goal = Math.min(current, goal);
+        if (/^(lumbar|thorax)_pitch$/.test(j.name)) goal = Math.max(current, goal);
+        this.goal.set(j.name, Math.min(j.range[1], Math.max(j.range[0], goal)));
+      }
+      const desired = this.goal.get(j.name)!;
       // Damping already lives in model.dof_damping (implicit). No duplicate explicit damping.
       const requested = j.gain.kp * relax * (desired - data.qpos[j.q]!);
       const reflex = Math.max(-j.gain.maxNm, Math.min(j.gain.maxNm, requested));
-      const blended = (1 - ramp) * data.qfrc_applied[j.v]! + ramp * reflex;
+      const blended = (1 - ramp) * relax * data.qfrc_applied[j.v]! + ramp * reflex;
       data.qfrc_applied[j.v] = Math.max(-j.gain.maxNm, Math.min(j.gain.maxNm, blended));
       this.maxRatio = Math.max(this.maxRatio, Math.abs(data.qfrc_applied[j.v]!) / j.gain.maxNm);
     }
   }
   status(): Record<string, unknown> {
-    return { phase: this.activatedAt === undefined ? "posture" : this.impactAt === undefined ? "protect" : "settle",
-      activated_s: this.activatedAt ?? null, impact_s: this.impactAt ?? null, max_torque_ratio: this.maxRatio };
+    return { phase: this.activatedAt === undefined ? "posture" : this.impactAt === undefined ? "protect" : this.settleAt === undefined ? "brace" : "settle",
+      activated_s: this.activatedAt ?? null, impact_s: this.impactAt ?? null, settle_s: this.settleAt ?? null, max_torque_ratio: this.maxRatio };
   }
 }

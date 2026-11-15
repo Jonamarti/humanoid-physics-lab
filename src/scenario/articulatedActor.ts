@@ -5,7 +5,7 @@ import { classifyHumanoidTrajectory, fallDirectionDeg, tiltDeg, FOOT_BODIES, typ
 import type { ActorSample, ActorSummary, ContactSample } from "../recording/schema";
 import { createUkeController, type UkeController, type UkeControllerParams } from "../uke/attitudes";
 import { attitudeJointDamping, setJointDamping, type DampingModel } from "../uke/damping";
-import { FallReflex } from "../uke/fallReflex";
+import { FallReflex, type FallModel } from "../uke/fallReflex";
 import { applyStance, UKE_HINGE_JOINTS } from "../uke/stances";
 import { ArtifactProbe } from "./artifactProbe";
 import type { MujocoModule } from "./mujocoModule";
@@ -55,7 +55,7 @@ export class ArticulatedActor {
     this.controller = createUkeController(this.params, model as unknown as StandingModel, data as unknown as StandingState);
     this.probe = new ArtifactProbe(mj, model, data, { bodies, joints, actorBodies: ACTOR_BODIES.humanoid.map(b => prefix + b), humanoid: true, dt, prefix, rootDof: this.rootDof, energyScope: "world", measureJointLimits: true });
     if (actor.fall === "instinctive")
-      this.reflex = new FallReflex(actor, model as unknown as StandingModel, prefix);
+      this.reflex = new FallReflex(actor, model as unknown as FallModel, prefix);
   }
   control(t: number): void {
     this.controller.step(this.model as unknown as StandingModel, this.data as unknown as StandingState, t);
@@ -71,6 +71,7 @@ export class ArticulatedActor {
         capture_margin_m: signedMargin(capturePoint(com, velocity), supportPolygon(contacts, b => FOOT_BODIES.some(f => b === this.prefix + f))),
         tilt_deg: Math.max(tiltDeg(this.data.xmat, 9 * this.chest), tiltDeg(this.data.xmat, 9 * this.root)), heading_rad: this.heading,
         nonfoot_ground_contact: contacts.some(c => [c.body_a, c.body_b].includes("world") && [c.body_a, c.body_b].some(b => b.startsWith(this.prefix) && !FOOT_BODIES.some(f => b === this.prefix + f))),
+        torso_ground_contact: contacts.some(c => [c.body_a,c.body_b].includes("world") && ["head","chest","abdomen","pelvis"].some(b => [c.body_a,c.body_b].includes(this.prefix+b))),
       });
     }
   }

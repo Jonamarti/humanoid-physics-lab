@@ -1,0 +1,252 @@
+[
+  {
+    "file": "out\\fall-response\\delivery\\leg_drive-front.mp4",
+    "view": "front",
+    "frames": 722,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "901ab338f3d16a4c1d7da77f2a43b58c0f4aa79c1ec6c2a1ecfaf20c44d3b105",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.7309858499999999,
+      -0.017593700000000018,
+      0.9371477500000001
+    ],
+    "camera_distance": 4.561086248654797,
+    "decoded_frames": 722,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 203.94894257973252
+  },
+  {
+    "file": "out\\fall-response\\delivery\\leg_drive-oblique.mp4",
+    "view": "three_quarter",
+    "frames": 722,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "901ab338f3d16a4c1d7da77f2a43b58c0f4aa79c1ec6c2a1ecfaf20c44d3b105",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.7309858499999999,
+      -0.017593700000000018,
+      0.9371477500000001
+    ],
+    "camera_distance": 5.142948509121507,
+    "decoded_frames": 722,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 201.29471000514403
+  },
+  {
+    "file": "out\\fall-response\\delivery\\leg_drive-side.mp4",
+    "view": "side",
+    "frames": 722,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "901ab338f3d16a4c1d7da77f2a43b58c0f4aa79c1ec6c2a1ecfaf20c44d3b105",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.7309858499999999,
+      -0.017593700000000018,
+      0.9371477500000001
+    ],
+    "camera_distance": 3.602243637963315,
+    "decoded_frames": 722,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 203.3129430298354
+  },
+  {
+    "file": "out\\fall-response\\delivery\\outer_reap-front.mp4",
+    "view": "front",
+    "frames": 722,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "d6b2ea3abf4ac1bb850194fa11b4381f7c92634a205334db78c6badc8042f80b",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.4220973,
+      -0.47880225,
+      0.96576775
+    ],
+    "camera_distance": 4.203646749035323,
+    "decoded_frames": 722,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 201.60832626028807
+  },
+  {
+    "file": "out\\fall-response\\delivery\\outer_reap-oblique.mp4",
+    "view": "three_quarter",
+    "frames": 722,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "d6b2ea3abf4ac1bb850194fa11b4381f7c92634a205334db78c6badc8042f80b",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.4220973,
+      -0.47880225,
+      0.96576775
+    ],
+    "camera_distance": 5.563813820646108,
+    "decoded_frames": 722,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 199.16580889917697
+  },
+  {
+    "file": "out\\fall-response\\delivery\\outer_reap-side.mp4",
+    "view": "side",
+    "frames": 722,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "d6b2ea3abf4ac1bb850194fa11b4381f7c92634a205334db78c6badc8042f80b",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.4220973,
+      -0.47880225,
+      0.96576775
+    ],
+    "camera_distance": 4.302617512569495,
+    "decoded_frames": 722,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 201.46071630658437
+  },
+  {
+    "file": "out\\fall-response\\delivery\\passive_heavy-front.mp4",
+    "view": "front",
+    "frames": 482,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "94e383e6e7cff7799860a78ef4c8c65507f084e78d3f290a88827d170a0caa0f",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.505722376,
+      7.463492185388887e-09,
+      0.93061475
+    ],
+    "camera_distance": 4.899576443332584,
+    "decoded_frames": 482,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 214.4127154063786
+  },
+  {
+    "file": "out\\fall-response\\delivery\\passive_heavy-side.mp4",
+    "view": "side",
+    "frames": 482,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "94e383e6e7cff7799860a78ef4c8c65507f084e78d3f290a88827d170a0caa0f",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.505722376,
+      7.463492185388887e-09,
+      0.93061475
+    ],
+    "camera_distance": 3.980712157114936,
+    "decoded_frames": 482,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 213.36140496399176
+  },
+  {
+    "file": "out\\fall-response\\delivery\\passive_neutral-front.mp4",
+    "view": "front",
+    "frames": 482,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "212b7c8bdbc8c73e41bf59647f7d413d3282c8ca1db42843fe15bc5e9121a2f2",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.54382458,
+      -3.9963271580845117e-10,
+      0.93065175
+    ],
+    "camera_distance": 5.251115591356938,
+    "decoded_frames": 482,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 214.76916120113168
+  },
+  {
+    "file": "out\\fall-response\\delivery\\passive_neutral-side.mp4",
+    "view": "side",
+    "frames": 482,
+    "fps": 24,
+    "size": [
+      1920,
+      540
+    ],
+    "scenario_sha256": "212b7c8bdbc8c73e41bf59647f7d413d3282c8ca1db42843fe15bc5e9121a2f2",
+    "same_model": true,
+    "same_times": true,
+    "camera_center": [
+      -0.54382458,
+      -3.9963271580845117e-10,
+      0.93065175
+    ],
+    "camera_distance": 4.177676219434688,
+    "decoded_frames": 482,
+    "decoded_size": [
+      1920,
+      540
+    ],
+    "minimum_sampled_brightness": 214.3198292824074
+  }
+]

@@ -8,7 +8,7 @@
  * se aplica al escribir (`src/recording/write.ts`).
  */
 import { createCoupledGripState, resolveCoupledGrip, stepCoupledGrip } from "../effectors/coupledGrip";
-import { FallReflex } from "../uke/fallReflex";
+import { FallReflex, type FallModel } from "../uke/fallReflex";
 import type { StandingModel, StandingState } from "../control/standingBaseline";
 import { detectArtifacts } from "../metrics/artifacts";
 import { capturePoint, signedMargin, supportPolygon } from "../metrics/balance";
@@ -522,7 +522,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
     const probe = new ArtifactProbe(mj, model, data, {
       bodies: built.bodies, joints: built.joints, actorBodies: ACTOR_BODIES[scenario.actors[0]!.kind], humanoid: Boolean(humanoid), dt, ...(paired ? {energyScope:"world" as const} : {}), measureJointLimits: paired || coupledGrips || humanoid?.fall === "instinctive",
     });
-    const fallReflex = humanoid?.fall === "instinctive" ? new FallReflex(humanoid, model as unknown as StandingModel) : undefined;
+    const fallReflex = humanoid?.fall === "instinctive" ? new FallReflex(humanoid, model as unknown as FallModel) : undefined;
     const coherentControl = paired || humanoid?.placement !== undefined || (options.coherentControl ?? (coupledGrips || humanoid?.fall !== undefined || humanoid?.joint_limit_timeconst_s !== undefined));
     const applyCurrentControl = (t: number, tilt: number): void => {
       if (uke) runUke(t);
@@ -536,6 +536,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
           capture_margin_m: signedMargin(capturePoint(com, velocity), supportPolygon(contacts, b => FOOT_BODIES.includes(b))),
           com_velocity_mps: velocity, tilt_deg: Math.max(tilt, tiltDeg(data.xmat as Float64Array, 9 * actorBodyId)), heading_rad: heading,
           nonfoot_ground_contact: contacts.some(c => (c.body_a === "world" && touchBodies.has(c.body_b)) || (c.body_b === "world" && touchBodies.has(c.body_a))),
+          torso_ground_contact: contacts.some(c => (c.body_a === "world" && ["head","chest","abdomen","pelvis"].includes(c.body_b)) || (c.body_b === "world" && ["head","chest","abdomen","pelvis"].includes(c.body_a))),
         });
       }
     };

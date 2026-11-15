@@ -280,3 +280,7 @@ Ver [revisión física y límites](REVISION_FISICA_DERRIBOS_20261115.md). Campos
 - `tori.body.grip_mode: "target" | "coupled"`. Ausente usa `target`, histórico y asistido; las referencias físicas usan `coupled`.
 - Solo con `coupled`, cada agarre admite `max_power_w`, `capture_radius_m`, `capture_window_s`, `break_distance_m` y `slip_after_s`, todos finitos y positivos. La distancia de rotura debe superar la de captura; `release_s` debe ser posterior a `engage_s`. Se rechazan controles físicos que se ignorarían en el modo histórico.
 - La grabación detallada añade adquisición/suelta, reacción, trabajos de ambos extremos, COM/velocidad, momento angular, cargas y pares. Tori declara su asistencia externa. El reproductor conserva los estados discretos entre muestras.
+
+## Extensión: dos humanoides articulados
+
+Se admiten dos actores humanoides con colocación inicial independiente y agarres entre sus sitios físicos. El segundo requiere `placement: {xy_m: [x,y], heading_deg}`; no se combina con `scenario.tori`. Los nombres de sitio de los efectores siguen sin prefijo y se resuelven por `actor`. Especificación, límites y ejemplos: [ARTICULATED_ACTORS.md](ARTICULATED_ACTORS.md).

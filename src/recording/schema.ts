@@ -9,6 +9,8 @@ import type { Outcome, Vec3 } from "../scenario/schema";
 export const RECORDING_SCHEMA_ID = "hpl.recording.v1";
 
 export interface RecordingMeta {
+  /** Actual articulated actors; their roots remain free and controllers command hinges only. */
+  humanoid_actors?: Array<{ id: string; prefix: string; root_body: string; control: "joint_torques" }>;
   /** Explicitly assisted Tori: external bounded tracking on independent free segments. */
   tori_assist?: "independent_segment_tracking";
   tori_grip_model?: "target" | "coupled";
@@ -82,7 +84,20 @@ export interface ContactSample {
   force_n: Vec3;
 }
 
+export interface ActorSample {
+  com: Vec3;
+  com_velocity_mps: Vec3;
+  angular_momentum_nms: Vec3;
+  joint_torques_nm: Record<string, number>;
+  ground_reaction_n: { left: Vec3; right: Vec3 };
+  xcom: [number, number];
+  support_polygon: Array<[number, number]>;
+  capture_margin_m: number | null;
+}
+
 export interface RecordingSample {
+  /** Per-actor measurements in a scene with two articulated humanoids. */
+  actors?: Record<string, ActorSample>;
   /** Tiempo del escenario en s (0 = fin del asentamiento). */
   t: number;
   qpos: number[];
@@ -225,6 +240,8 @@ export interface PeakAt {
  * detector lo marca como no evaluado): por ejemplo, sin articulaciones internas no hay `joint_speed`.
  */
 export interface RecordingDiagnostics {
+  /** In paired scenes, energy is a single world ledger including both actors and both grip works. */
+  energy_scope?: "world";
   /** Masa del actor, en kg. */
   actor_mass_kg: number;
   /** Penetración máxima de una geometría del actor en el suelo, en m (`-dist` del contacto). */
@@ -277,7 +294,16 @@ export interface UkeSummary {
   unbalance?: UnbalanceInfo | null;
 }
 
+export interface ActorSummary extends UkeSummary {
+  outcome: Outcome;
+  t_outcome_s: number;
+  diagnostics: RecordingDiagnostics;
+  artifacts?: ArtifactFinding[];
+  artifacts_not_evaluated?: ArtifactNotEvaluated[];
+}
+
 export interface RecordingSummary {
+  actors?: Record<string, ActorSummary>;
   outcome: Outcome;
   /**
    * Dirección de caída en grados (0 = +X, 90 = +Y): la del eje del actor cuando su inclinación supera 60 grados

@@ -19,10 +19,10 @@ export class FallReflex {
   private direction = 0;
   private maxRatio = 0;
   private readonly joints;
-  constructor(actor: HumanoidActor, model: StandingModel) {
+  constructor(actor: HumanoidActor, model: StandingModel, prefix = "") {
     const gains = scaledGains(actor.mass_kg, actor.height_m, actor.strength);
     this.joints = UKE_HINGE_JOINTS.map(name => {
-      const id = model.jnt(name).id;
+      const id = model.jnt(prefix + name).id;
       return { name, q: model.jnt_qposadr[id]!, v: model.jnt_dofadr[id]!,
         gain: gains.groups[jointGroupOf(name)], range: jointRangeRad(name) };
     });

@@ -5,6 +5,7 @@
  */
 import { appendToWorldbody, buildObstacleMjcf, resolveObstacleParams, type ObstacleParams } from "../effectors/obstacle";
 import { buildToriBodyMjcf, resolveToriBodyParams, toriBodyNames, type ToriBodyParams } from "../effectors/toriBody";
+import { appendArticulatedHumanoid } from "../uke/actorModel";
 import { generateHumanoidMJCF } from "../uke/generate";
 import { attitudeJointDamping } from "../uke/damping";
 import { ACTOR_BODIES, type HumanoidActor, type Scenario } from "./schema";
@@ -26,6 +27,7 @@ const COLLISION_ATTRS = `ccd_tolerance="1e-14" ccd_iterations="100"`;
 const SPAWN_CLEARANCE_M = 0.001;
 
 export interface ScenarioModel {
+  humanoids?: Array<{ actor: HumanoidActor; prefix: string; rootBody: string }>;
   mjcf: string;
   /** Nombres de los cuerpos en el orden de índices de MuJoCo (`world` primero). */
   bodies: string[];
@@ -94,6 +96,15 @@ function num(x: number): string {
  * los props son cajas fijas, cada una un cuerpo estático llamado como su `id`.
  */
 export function buildScenarioModel(scenario: Scenario): ScenarioModel {
+  if (scenario.actors.length === 2) {
+    const [first,second] = scenario.actors;
+    if(first?.kind!=="humanoid" || second?.kind!=="humanoid" || !second.placement || scenario.tori) throw new Error("La escena doble requiere humanoides independientes y colocación explícita");
+    const base = buildScenarioModel({...scenario,actors:[first]});
+    const prefix = second.id + "_";
+    const mjcf = appendArticulatedHumanoid(base.mjcf, second, prefix, second.placement, scenario.ground.friction);
+    return {...base,mjcf,bodies:["world",...namesInOrder(mjcf,["body"])],joints:namesInOrder(mjcf,["joint","freejoint"]),
+      humanoids:[{actor:first,prefix:"",rootBody:"pelvis"},{actor:second,prefix,rootBody:prefix+"pelvis"}]};
+  }
   if (scenario.actors.length !== 1) {
     throw new Error(`Esta fase admite exactamente un actor, no ${scenario.actors.length}`);
   }
@@ -147,7 +158,7 @@ ${propBlocks.join("\n")}
 
 /** Nombres en el orden de aparición en el MJCF (el de MuJoCo): cuerpos tras `world` y articulaciones. */
 function namesInOrder(mjcf: string, tags: readonly string[]): string[] {
-  const re = new RegExp(`<(?:${tags.join("|")})\\s+name="([^"]+)"`, "g");
+  const re = new RegExp(`<(?:${tags.join("|")})\\b[^>]*\\bname="([^"]+)"`, "g");
   return Array.from(mjcf.matchAll(re), (m) => m[1]!);
 }
 
@@ -166,7 +177,7 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
             rgba="0.68 0.43 0.24 1" friction="${friction}" ${GEOM_CONTACT}/>
     </body>`;
   });
-  const mjcf = generateHumanoidMJCF({
+  let mjcf = generateHumanoidMJCF({
     mass_kg: actor.mass_kg,
     height_m: actor.height_m,
     ...(actor.build !== undefined ? { build: actor.build } : {}),
@@ -179,6 +190,10 @@ function buildHumanoidModel(scenario: Scenario, actor: HumanoidActor, friction: 
     ...(actor.joint_limit_timeconst_s !== undefined ? { jointLimitTimeconstS: actor.joint_limit_timeconst_s } : {}),
     jointDampingByName: attitudeJointDamping(actor.attitude, actor.mass_kg, actor.height_m, actor.strength),
   });
+  if(actor.placement) {
+    const yaw=(actor.placement.heading_deg%360)*Math.PI/180;
+    mjcf=mjcf.replace(/(<body name="pelvis" pos=")([^"]+)"/,(_all,start:string,xyz:string)=>`${start}${actor.placement!.xy_m[0]} ${actor.placement!.xy_m[1]} ${xyz.split(/\s+/)[2]}" quat="${Math.cos(yaw/2)} 0 0 ${Math.sin(yaw/2)}"`);
+  }
   return {
     mjcf,
     bodies: ["world", ...namesInOrder(mjcf, ["body"])],

@@ -4,6 +4,7 @@
  * rangos articulares de `rangeOfMotion.ts` y sitios de agarre e impacto. Reglas y aproximaciones: `docs/UKE_MODEL.md`.
  * Sin dependencias de `src/control/` ni de `src/physics/`.
  */
+import { namespaceHumanoidXML } from "./modelNamespace";
 import { worldOptionTag } from "../scenario/worldOptions";
 import { rangeAttr } from "./rangeOfMotion";
 
@@ -42,6 +43,8 @@ export interface HumanoidParams {
 }
 
 export interface GenerateOptions {
+  /** Namespaces only this actor, preserving the shared world and floor. */
+  namePrefix?: string;
   /** Rozamiento deslizante de las geometrías y del suelo. Por defecto 1,0 (v2). */
   friction?: number;
   /** XML adicional dentro de `<worldbody>`, tras el suelo (props, etc.). */
@@ -255,7 +258,7 @@ export function generateHumanoidMJCF(params: HumanoidParams, options: GenerateOp
   }
   const limitSolver = options.jointLimitTimeconstS !== undefined ? ` solreflimit="${f(options.jointLimitTimeconstS)} 1"` : "";
   const name = options.modelName ?? "humanoid_generated";
-  return `<mujoco model="${name}">
+  const xml = `<mujoco model="${name}">
   <!-- Generado por src/uke/generate.ts: ${f(params.mass_kg)} kg, ${f(params.height_m)} m. Reproduce humanoid_step_v2 con 75 kg y 1.76 m. -->
   <compiler angle="radian"/>
   ${worldOptionTag(options.optionAttrs)}
@@ -316,4 +319,5 @@ ${leg("right", -1)}
   </contact>
 </mujoco>
 `;
+  return namespaceHumanoidXML(xml, options.namePrefix ?? "");
 }

@@ -33,6 +33,9 @@ export interface ProbeContext {
   /** Amplitud mínima del temblor; por defecto la del detector (parámetro solo para medir sensibilidad). */
   tremorAmplitudeRad?: number;
   measureJointLimits?: boolean;
+  prefix?: string;
+  energyScope?: "world";
+  rootDof?: number;
 }
 
 interface JointTrack {
@@ -122,7 +125,8 @@ export class ArtifactProbe {
       this.joints.push({ name, dof: dofAdr[j]!, qposAdr: qAdr[j]!, dir: 0, cand: 0, started: false, reversals: [] });
     });
     if (ctx.humanoid) {
-      for (const name of FOOT_BODIES) {
+      for (const semanticName of FOOT_BODIES) {
+        const name = (ctx.prefix ?? "") + semanticName;
         this.feet.push({
           name, bodyId: ctx.bodies.indexOf(name), dx: 0, dy: 0, load: 0, weightedVx: 0, weightedVy: 0, saturated: false, seenContact: false,
         });
@@ -173,7 +177,7 @@ export class ArtifactProbe {
     this.qvelBefore.set(this.data.qvel as Float64Array);
     this.qfrcBefore.set(this.data.qfrc_applied as Float64Array);
     if (this.ctx.humanoid) {
-      for (let k = 0; k < 6; k++) this.rootForce = Math.max(this.rootForce, Math.abs(this.qfrcBefore[k]!));
+      for (let k = 0; k < 6; k++) this.rootForce = Math.max(this.rootForce, Math.abs(this.qfrcBefore[(this.ctx.rootDof ?? 0) + k]!));
     }
     this.armed = true;
   }
@@ -293,7 +297,7 @@ export class ArtifactProbe {
       const xipos = this.data.xipos as Float64Array;
       const mass = this.model.body_mass as Float64Array;
       let mz = 0;
-      for (let b = 0; b < this.isActor.length; b++) if (this.isActor[b]) mz += mass[b]! * xipos[3 * b + 2]!;
+      for (let b = 0; b < this.isActor.length; b++) if (this.ctx.energyScope === "world" || this.isActor[b]) mz += mass[b]! * xipos[3 * b + 2]!;
       this.energyScaleJ = GRAVITY * mz;
     }
     const excess = (total - this.energy0) - (this.torqueWorkJ + effectorWorkJ);
@@ -303,6 +307,7 @@ export class ArtifactProbe {
 
   diagnostics(): RecordingDiagnostics {
     const d: RecordingDiagnostics = {
+      ...(this.ctx.energyScope ? { energy_scope: this.ctx.energyScope } : {}),
       actor_mass_kg: this.massKg,
       ground_penetration: this.groundPen,
       contact_force: this.contactForce,

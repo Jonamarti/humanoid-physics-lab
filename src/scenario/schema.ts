@@ -104,6 +104,8 @@ export interface RigidCylinderActor {
 }
 
 export interface HumanoidActor {
+  /** Initial placement only; never drives the free pelvis during simulation. */
+  placement?: { xy_m: readonly [number, number]; heading_deg: number };
   /** Optional experimental protection; changes only bounded joint torques. */
   fall?: "none" | "instinctive";
   /** Optional soft-limit response time, seconds; never changes the anatomical ranges. */
@@ -370,7 +372,23 @@ export interface ExpectSpec {
   tolerance_deg?: number;
 }
 
+export interface ActorGripSpec {
+  max_force_n: number;
+  max_power_w?: number;
+  capture_radius_m?: number;
+  capture_window_s?: number;
+  break_distance_m?: number;
+  slip_after_s?: number;
+  id: string;
+  source: { actor: string; site: string };
+  target: { actor: string; site: string };
+  engage_s: number;
+  release_s?: number;
+}
+
 export interface Scenario {
+  /** Compliant connections between sites of two genuinely simulated actors. */
+  actor_grips?: ActorGripSpec[];
   schema: typeof SCENARIO_SCHEMA_ID;
   /** Solo `[a-z0-9_]`; igual al nombre del fichero sin extensión. */
   id: string;

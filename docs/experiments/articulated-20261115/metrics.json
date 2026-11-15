@@ -1,0 +1,2490 @@
+{
+  "metadata": {
+    "physics_hz": 500,
+    "node": "v23.7.0",
+    "mujoco": "3.17.0",
+    "cases": 12
+  },
+  "rows": [
+    {
+      "id": "two_standing",
+      "duration_s": 10,
+      "elapsed_ms": 3648.0615999999995,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026817,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 5251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.0709239599700259,
+            "final_com_speed_mps": 1.0262469740439524e-7,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394609999e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631757,
+              "t_s": 0.68,
+              "where": "left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668028679e-7,
+              "t_s": 1.436,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "max_trunk_tilt_deg": 0.15746500642018155,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.0015279850745996439,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 5251,
+            "max_torque_ratio": 0.0063903735590481545,
+            "max_torque_nm": 0.2541625847348698,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.0705215964782917,
+            "final_capture_margin_m": 0.07092395997834433,
+            "final_com_speed_mps": 1.0262683449540481e-7,
+            "max_foot_displacement_m": {
+              "left": 9.271449392667108e-7,
+              "right": 9.271449391556885e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631697,
+              "t_s": 0.68,
+              "where": "tori_left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668084995e-7,
+              "t_s": 1.436,
+              "where": "tori_left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941302415,
+              "t_s": 0.068,
+              "where": "tori_left_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {}
+    },
+    {
+      "id": "wrist_load",
+      "duration_s": 4,
+      "elapsed_ms": 1501.0265,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.7635282070570275,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838093788304748,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.028417069939490194,
+            "max_torque_nm": 4.52089749037344,
+            "max_torque_joint": "right_ankle_roll",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091748522154485,
+            "final_com_speed_mps": 0.000029904936013426273,
+            "max_foot_displacement_m": {
+              "left": 0.000022741285889827743,
+              "right": 0.00002306250842665025
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0007490221108682263,
+              "t_s": 1.3800000000000001,
+              "where": "right_foot"
+            },
+            "contact_force": {
+              "value": 178.66794397980001,
+              "t_s": 1.3860000000000001,
+              "where": "right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 0.000026835743185393193,
+              "t_s": 1.4060000000000001,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0.000790356263846978,
+              "t_s": 1.304,
+              "where": "left_upperarm|tori_right_upperarm"
+            },
+            "joint_speed": {
+              "value": 0.14561086270115534,
+              "t_s": 1.302,
+              "where": "neck_roll"
+            },
+            "tremor": {
+              "value": 1,
+              "t_s": 1.1340000000000001,
+              "where": "left_shoulder_roll",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": [
+            {
+              "type": "effector_over_limit",
+              "reason": "sin tope declarado: load"
+            }
+          ]
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 1.24,
+          "max_trunk_tilt_deg": 6.724643325450414,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.983531287611622,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.001527985074600439,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.2481100796486517,
+            "max_torque_nm": 39.47205812592186,
+            "max_torque_joint": "left_ankle_roll",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.030341294655026083,
+            "final_capture_margin_m": 0.07094058988016669,
+            "final_com_speed_mps": 0.000011176003890364636,
+            "max_foot_displacement_m": {
+              "left": 0.0005849174119616576,
+              "right": 0.0006948511922675416
+            },
+            "stable_since_s": 1.24
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0017466757025143137,
+              "t_s": 0.724,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 464.79686318778295,
+              "t_s": 0.7020000000000001,
+              "where": "tori_left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0.00023532856730354434,
+              "t_s": 0.466,
+              "where": "tori_left_forearm|tori_left_thigh"
+            },
+            "foot_slip": {
+              "value": 0.000681316865285867,
+              "t_s": 1.02,
+              "where": "tori_left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0.00007209260118087308,
+              "t_s": 0.39,
+              "where": "tori_right_elbow"
+            },
+            "interbody_penetration_m": {
+              "value": 0.000790356263846978,
+              "t_s": 1.304,
+              "where": "left_upperarm|tori_right_upperarm"
+            },
+            "joint_speed": {
+              "value": 0.43973556849545364,
+              "t_s": 1.02,
+              "where": "tori_left_ankle_roll"
+            },
+            "tremor": {
+              "value": 3,
+              "t_s": 1.716,
+              "where": "tori_right_shoulder_roll",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": [
+            {
+              "type": "effector_over_limit",
+              "reason": "sin tope declarado: load"
+            }
+          ]
+        }
+      },
+      "grips": {
+        "load": {
+          "max_force_n": 99.99451693655121,
+          "impulse_ns": [
+            0,
+            19.098942241343828,
+            0
+          ],
+          "work_j": 4.46451857494627
+        },
+        "wrist": {
+          "max_force_n": 11.035118215506962,
+          "impulse_ns": [
+            0.0017618938464501026,
+            0.24565696272656426,
+            0.04531857751113612
+          ],
+          "work_j": 0.011645451954737754,
+          "reaction_work_j": -0.0177563761575941,
+          "limit_n": 200,
+          "max_power_w": 0.24158428563458315,
+          "grip_events": [
+            {
+              "t_s": 0,
+              "status": "held"
+            },
+            {
+              "t_s": 2,
+              "status": "released"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wrist_miss",
+      "duration_s": 4,
+      "elapsed_ms": 1459.0491000000002,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 1.6454404645244527,
+          "initial_pelvis_height_m": 0.9752665006748447,
+          "min_pelvis_height_m": 0.9739186582520262,
+          "settle_com_speed_mps": 0.011873601379970027,
+          "initial_com_height_m": 1.025434823693395,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "natural_grip",
+            "steps": 2251,
+            "max_torque_ratio": 0.10347991414901737,
+            "max_torque_nm": 16.4627136146164,
+            "max_torque_joint": "lumbar_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.0787176415396142,
+            "final_capture_margin_m": 0.08823902246476635,
+            "final_com_speed_mps": 0.000038545476835608065,
+            "max_foot_displacement_m": {
+              "left": 0.0000058769198504615705,
+              "right": 0.0000058769198505309594
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006113847547061929,
+              "t_s": 0.888,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 126.53364984286627,
+              "t_s": 0.874,
+              "where": "left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 0.000005646583539338419,
+              "t_s": 1.694,
+              "where": "left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.032853339505981405,
+              "t_s": 0.124,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 1,
+              "t_s": 1.79,
+              "where": "left_knee",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1508.9273430648313
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "max_trunk_tilt_deg": 1.6454404645245164,
+          "initial_pelvis_height_m": 0.9752665006748447,
+          "min_pelvis_height_m": 0.9739186582520262,
+          "initial_com_height_m": 1.025434823693395,
+          "settle_com_speed_mps": 0.011873601379970034,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "natural_grip",
+            "steps": 2251,
+            "max_torque_ratio": 0.103479914149018,
+            "max_torque_nm": 16.4627136146165,
+            "max_torque_joint": "lumbar_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.013575221871318106,
+            "final_capture_margin_m": 0.08823902246476423,
+            "final_com_speed_mps": 0.000038545476835691217,
+            "max_foot_displacement_m": {
+              "left": 0.000005876919850433815,
+              "right": 0.000005876919851099949
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006113847547062623,
+              "t_s": 0.888,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 126.5336498428643,
+              "t_s": 0.874,
+              "where": "tori_left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 0.000005646583539331728,
+              "t_s": 1.694,
+              "where": "tori_left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.03285333950598141,
+              "t_s": 0.124,
+              "where": "tori_right_knee"
+            },
+            "tremor": {
+              "value": 1,
+              "t_s": 1.79,
+              "where": "tori_left_knee",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1508.9273430648313
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {
+        "wrist": {
+          "max_force_n": 0,
+          "impulse_ns": [
+            0,
+            0,
+            0
+          ],
+          "work_j": 0,
+          "reaction_work_j": 0,
+          "limit_n": 200,
+          "max_power_w": 0,
+          "grip_events": [
+            {
+              "t_s": 0.35000000000000003,
+              "status": "missed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "secondary_passive",
+      "duration_s": 4,
+      "elapsed_ms": 1638.6561000000002,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026795,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447272,
+            "final_com_speed_mps": 0.000021674694924349753,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394748776e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631774,
+              "t_s": 0.68,
+              "where": "right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668118035e-7,
+              "t_s": 1.436,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "fall",
+          "t_outcome_s": 0.84,
+          "max_trunk_tilt_deg": 103.18506294676104,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.1254328921117552,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.0015279850745999449,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "relaxed",
+            "stance": "neutral",
+            "steps": 2001
+          },
+          "balance": {
+            "min_capture_margin_m": -0.7982162489397875,
+            "final_capture_margin_m": -0.5103998443471706,
+            "final_com_speed_mps": 0.0000963397861191982,
+            "max_foot_displacement_m": {
+              "left": 0.08452376517986838,
+              "right": 0.08452376653879345
+            },
+            "stable_since_s": null
+          },
+          "fall": {
+            "t_s": 0.84,
+            "trigger": "pelvis_height",
+            "direction_deg": 2.2737367544323206e-13,
+            "direction_world_deg": -179.9999999999998,
+            "direction_name": "front",
+            "first_part": "left_forearm",
+            "first_part_t_s": 1.044,
+            "contact_order": [
+              {
+                "body": "left_forearm",
+                "t_s": 1.044
+              },
+              {
+                "body": "right_forearm",
+                "t_s": 1.044
+              },
+              {
+                "body": "left_thigh",
+                "t_s": 1.194
+              },
+              {
+                "body": "right_thigh",
+                "t_s": 1.194
+              },
+              {
+                "body": "pelvis",
+                "t_s": 1.222
+              },
+              {
+                "body": "chest",
+                "t_s": 1.456
+              },
+              {
+                "body": "head",
+                "t_s": 1.562
+              },
+              {
+                "body": "left_upperarm",
+                "t_s": 1.678
+              },
+              {
+                "body": "right_upperarm",
+                "t_s": 1.678
+              }
+            ],
+            "impact": {
+              "head": {
+                "t_s": 1.562,
+                "speed_mps": 0.873102159625762,
+                "normal_speed_mps": 0.63502168121334
+              },
+              "chest": {
+                "t_s": 1.456,
+                "speed_mps": 2.7217616565535985,
+                "normal_speed_mps": 2.687558176428171
+              },
+              "pelvis": {
+                "t_s": 1.222,
+                "speed_mps": 0.4438109142895196,
+                "normal_speed_mps": 0.351210732707496
+              }
+            }
+          },
+          "step": {
+            "t_s": 1.28,
+            "foot": "left"
+          },
+          "unbalance": {
+            "t_s": 0.52,
+            "direction_deg": 180,
+            "direction": "back",
+            "min_margin_m": -0.7982162489397875,
+            "recovered": false
+          },
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.012840715311610795,
+              "t_s": 1.468,
+              "where": "tori_chest"
+            },
+            "contact_force": {
+              "value": 10939.40125944632,
+              "t_s": 1.456,
+              "where": "tori_chest|world"
+            },
+            "segment_penetration": {
+              "value": 0.01658756231445882,
+              "t_s": 1.022,
+              "where": "tori_chest|tori_right_thigh"
+            },
+            "foot_slip": {
+              "value": 0.0006698245296443253,
+              "t_s": 0.968,
+              "where": "tori_right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0.01659892872492641,
+              "t_s": 0.836,
+              "where": "tori_right_knee"
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 13.632553008173756,
+              "t_s": 0.844,
+              "where": "tori_thorax_pitch"
+            },
+            "tremor": {
+              "value": 9,
+              "t_s": 1.352,
+              "where": "tori_left_knee",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [
+            {
+              "type": "contact_force",
+              "t_s": 1.456,
+              "where": "tori_chest|world",
+              "value": 10939.40125944632,
+              "threshold": 10000,
+              "detail": "fuerza de contacto de 10.9 kN en tori_chest|world"
+            },
+            {
+              "type": "ground_penetration",
+              "t_s": 1.468,
+              "where": "tori_chest",
+              "value": 0.012840715311610795,
+              "threshold": 0.01,
+              "detail": "penetración en el suelo de 1.28 cm en tori_chest"
+            }
+          ],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {}
+    },
+    {
+      "id": "heavy_second",
+      "duration_s": 4,
+      "elapsed_ms": 1391.3937999999998,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026817,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447272,
+            "final_com_speed_mps": 0.000021674694924355117,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394609999e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631757,
+              "t_s": 0.68,
+              "where": "left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668028679e-7,
+              "t_s": 1.436,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1952.9768581012459
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "max_trunk_tilt_deg": 0.1450207982676112,
+          "initial_pelvis_height_m": 0.9837439766235743,
+          "min_pelvis_height_m": 0.9837426695610022,
+          "initial_com_height_m": 1.0242113451479495,
+          "settle_com_speed_mps": 0.001446183490746811,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.00606485301053794,
+            "max_torque_nm": 0.3299784971683973,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 217.63330230430688
+          },
+          "balance": {
+            "min_capture_margin_m": 0.0702340480571716,
+            "final_capture_margin_m": 0.07060647217020277,
+            "final_com_speed_mps": 0.00002240017022852461,
+            "max_foot_displacement_m": {
+              "left": 8.09474131391319e-7,
+              "right": 8.09474131391319e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 120.00000000000003,
+            "ground_penetration": {
+              "value": 0.0007155509548410002,
+              "t_s": 0.644,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 217.47265816960785,
+              "t_s": 0.636,
+              "where": "tori_right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 7.907603192212613e-7,
+              "t_s": 1.3960000000000001,
+              "where": "tori_right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0035919588638805345,
+              "t_s": 0.046,
+              "where": "tori_right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1952.9768581012459
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {}
+    },
+    {
+      "id": "tall_second",
+      "duration_s": 4,
+      "elapsed_ms": 1388.506300000001,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026817,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447272,
+            "final_com_speed_mps": 0.000021674694924355117,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394609999e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631757,
+              "t_s": 0.68,
+              "where": "left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668028679e-7,
+              "t_s": 1.436,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1579.989643474888
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "max_trunk_tilt_deg": 0.14921570705667903,
+          "initial_pelvis_height_m": 1.0963035600373796,
+          "min_pelvis_height_m": 1.0963021647193418,
+          "initial_com_height_m": 1.1317898482933175,
+          "settle_com_speed_mps": 0.0015645791492425755,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006382156511651344,
+            "max_torque_nm": 0.28284557267545724,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 177.27272727272725
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07081619741084595,
+            "final_capture_margin_m": 0.07907328794227897,
+            "final_com_speed_mps": 0.000006489873241987272,
+            "max_foot_displacement_m": {
+              "left": 8.445445860427725e-7,
+              "right": 8.445445860427725e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006494749669586977,
+              "t_s": 0.754,
+              "where": "tori_right_foot"
+            },
+            "contact_force": {
+              "value": 135.6764354016601,
+              "t_s": 0.744,
+              "where": "tori_right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 8.224643905000624e-7,
+              "t_s": 1.554,
+              "where": "tori_right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.003379419611480311,
+              "t_s": 0.1,
+              "where": "tori_left_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1579.989643474888
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {}
+    },
+    {
+      "id": "rotated_second",
+      "duration_s": 4,
+      "elapsed_ms": 1403.2700000000004,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026817,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447272,
+            "final_com_speed_mps": 0.000021674694924355117,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394609999e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631757,
+              "t_s": 0.68,
+              "where": "left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668028679e-7,
+              "t_s": 1.436,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.5505251861578
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "max_trunk_tilt_deg": 0.15746500642022834,
+          "initial_pelvis_height_m": 0.9838179900942308,
+          "min_pelvis_height_m": 0.9838166565939671,
+          "initial_com_height_m": 1.0156646450466582,
+          "settle_com_speed_mps": 0.0015279850746003885,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048147,
+            "max_torque_nm": 0.25416258473486947,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829136,
+            "final_capture_margin_m": 0.07091670361447251,
+            "final_com_speed_mps": 0.00002167469492370011,
+            "max_foot_displacement_m": {
+              "left": 9.271449395720222e-7,
+              "right": 9.271449395442666e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673476387,
+              "t_s": 0.6880000000000001,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 135.7313942563376,
+              "t_s": 0.68,
+              "where": "tori_left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668031301e-7,
+              "t_s": 1.436,
+              "where": "tori_left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941383162,
+              "t_s": 0.068,
+              "where": "tori_left_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.5505251861578
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {}
+    },
+    {
+      "id": "slippery",
+      "duration_s": 4,
+      "elapsed_ms": 1402.9436999999998,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.1574650064202673,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004382,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.0063903735590481545,
+            "max_torque_nm": 0.2541625847348698,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829107,
+            "final_capture_margin_m": 0.07091670361447275,
+            "final_com_speed_mps": 0.00002167469492435563,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394887554e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631769,
+              "t_s": 0.68,
+              "where": "right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668124747e-7,
+              "t_s": 1.436,
+              "where": "left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941322772,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "max_trunk_tilt_deg": 0.15746500642021408,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.0015279850745997978,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829126,
+            "final_capture_margin_m": 0.07091670361447433,
+            "final_com_speed_mps": 0.000021674694923668807,
+            "max_foot_displacement_m": {
+              "left": 9.271449391556885e-7,
+              "right": 9.271449391556885e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 135.7313942563172,
+              "t_s": 0.68,
+              "where": "tori_left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668134955e-7,
+              "t_s": 1.436,
+              "where": "tori_right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.00370910469413037,
+              "t_s": 0.068,
+              "where": "tori_right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {}
+    },
+    {
+      "id": "load_no_grip",
+      "duration_s": 4,
+      "elapsed_ms": 1390.5951999999997,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.7733240385131632,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838093722044386,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.0274395815255496,
+            "max_torque_nm": 4.3653879699738,
+            "max_torque_joint": "right_ankle_roll",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.0709173365432468,
+            "final_com_speed_mps": 0.000029836990636815357,
+            "max_foot_displacement_m": {
+              "left": 0.000025368716055210543,
+              "right": 0.000023244895848806798
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0007452693826605905,
+              "t_s": 1.3840000000000001,
+              "where": "right_foot"
+            },
+            "contact_force": {
+              "value": 177.13730877397572,
+              "t_s": 1.3900000000000001,
+              "where": "right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 0.000026112747584502085,
+              "t_s": 1.334,
+              "where": "left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0.0007601091132780208,
+              "t_s": 1.308,
+              "where": "left_upperarm|tori_right_upperarm"
+            },
+            "joint_speed": {
+              "value": 0.13750554690346165,
+              "t_s": 1.306,
+              "where": "neck_roll"
+            },
+            "tremor": {
+              "value": 1,
+              "t_s": 1.748,
+              "where": "lumbar_roll",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": [
+            {
+              "type": "effector_over_limit",
+              "reason": "sin tope declarado: load"
+            }
+          ]
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 1.24,
+          "max_trunk_tilt_deg": 6.724643325450414,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9835314527495999,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.001527985074600439,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.2481100796486517,
+            "max_torque_nm": 39.47205812592186,
+            "max_torque_joint": "left_ankle_roll",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.03128316373807251,
+            "final_capture_margin_m": 0.0709405468792252,
+            "final_com_speed_mps": 0.000012278003038574963,
+            "max_foot_displacement_m": {
+              "left": 0.0005759496244105041,
+              "right": 0.0006948511922675416
+            },
+            "stable_since_s": 1.24
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0017466757025143137,
+              "t_s": 0.724,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 464.79686318778295,
+              "t_s": 0.7020000000000001,
+              "where": "tori_left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0.00023532856730354434,
+              "t_s": 0.466,
+              "where": "tori_left_forearm|tori_left_thigh"
+            },
+            "foot_slip": {
+              "value": 0.0006735188062119799,
+              "t_s": 1.024,
+              "where": "tori_left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0.00007209260118087308,
+              "t_s": 0.39,
+              "where": "tori_right_elbow"
+            },
+            "interbody_penetration_m": {
+              "value": 0.0007601091132780208,
+              "t_s": 1.308,
+              "where": "left_upperarm|tori_right_upperarm"
+            },
+            "joint_speed": {
+              "value": 0.4362249418359419,
+              "t_s": 1.024,
+              "where": "tori_left_ankle_roll"
+            },
+            "tremor": {
+              "value": 3,
+              "t_s": 1.736,
+              "where": "tori_right_shoulder_roll",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": [
+            {
+              "type": "effector_over_limit",
+              "reason": "sin tope declarado: load"
+            }
+          ]
+        }
+      },
+      "grips": {
+        "load": {
+          "max_force_n": 99.99451693655121,
+          "impulse_ns": [
+            0,
+            19.098942241343828,
+            0
+          ],
+          "work_j": 4.46451857494627
+        }
+      }
+    },
+    {
+      "id": "grip_no_load",
+      "duration_s": 4,
+      "elapsed_ms": 1428.0923000000003,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026817,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447272,
+            "final_com_speed_mps": 0.000021674694924355117,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394609999e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631757,
+              "t_s": 0.68,
+              "where": "left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668028679e-7,
+              "t_s": 1.436,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "max_trunk_tilt_deg": 0.15746500642026995,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.001527985074600439,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048151,
+            "max_torque_nm": 0.25416258473486963,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447272,
+            "final_com_speed_mps": 0.000021674694924351444,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394887554e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 135.7313942563177,
+              "t_s": 0.68,
+              "where": "tori_right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668082726e-7,
+              "t_s": 1.436,
+              "where": "tori_right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321176,
+              "t_s": 0.068,
+              "where": "tori_left_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {
+        "wrist": {
+          "max_force_n": 0,
+          "impulse_ns": [
+            0,
+            0,
+            0
+          ],
+          "work_j": 0,
+          "reaction_work_j": 0,
+          "limit_n": 200,
+          "max_power_w": 0,
+          "grip_events": [
+            {
+              "t_s": 0,
+              "status": "held"
+            },
+            {
+              "t_s": 2,
+              "status": "released"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "grip_out_of_reach",
+      "duration_s": 4,
+      "elapsed_ms": 1518.0770999999986,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026817,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447272,
+            "final_com_speed_mps": 0.000021674694924355117,
+            "max_foot_displacement_m": {
+              "left": 9.271449394748776e-7,
+              "right": 9.271449394609999e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631757,
+              "t_s": 0.68,
+              "where": "left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668028679e-7,
+              "t_s": 1.436,
+              "where": "right_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": [
+            {
+              "type": "effector_over_limit",
+              "reason": "sin tope declarado: load"
+            }
+          ]
+        },
+        "tori": {
+          "outcome": "standing",
+          "t_outcome_s": 1.24,
+          "max_trunk_tilt_deg": 6.724643325450412,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9835314527495999,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.0015279850746004262,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.2481100796486514,
+            "max_torque_nm": 39.47205812592181,
+            "max_torque_joint": "left_ankle_roll",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.0312831637380729,
+            "final_capture_margin_m": 0.07094131079946753,
+            "final_com_speed_mps": 0.000029276695897204647,
+            "max_foot_displacement_m": {
+              "left": 0.0005759496244099491,
+              "right": 0.0006948511922668215
+            },
+            "stable_since_s": 1.24
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.001746675702514279,
+              "t_s": 0.724,
+              "where": "tori_left_foot"
+            },
+            "contact_force": {
+              "value": 464.7968631877868,
+              "t_s": 0.7020000000000001,
+              "where": "tori_left_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0.00023532856730341944,
+              "t_s": 0.466,
+              "where": "tori_left_forearm|tori_left_thigh"
+            },
+            "foot_slip": {
+              "value": 0.0006735188062121945,
+              "t_s": 1.024,
+              "where": "tori_left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0.00007209260118087209,
+              "t_s": 0.39,
+              "where": "tori_right_elbow"
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.43622494183593197,
+              "t_s": 1.024,
+              "where": "tori_left_ankle_roll"
+            },
+            "tremor": {
+              "value": 2,
+              "t_s": 0.746,
+              "where": "tori_right_shoulder_pitch",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": [
+            {
+              "type": "effector_over_limit",
+              "reason": "sin tope declarado: load"
+            }
+          ]
+        }
+      },
+      "grips": {
+        "load": {
+          "max_force_n": 99.99451693655121,
+          "impulse_ns": [
+            0,
+            19.098942241343828,
+            0
+          ],
+          "work_j": 4.464518574946281
+        },
+        "wrist": {
+          "max_force_n": 0,
+          "impulse_ns": [
+            0,
+            0,
+            0
+          ],
+          "work_j": 0,
+          "reaction_work_j": 0,
+          "limit_n": 200,
+          "max_power_w": 0,
+          "grip_events": [
+            {
+              "t_s": 0.35000000000000003,
+              "status": "missed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "secondary_protective",
+      "duration_s": 4,
+      "elapsed_ms": 1775.2580000000016,
+      "actors": {
+        "uke": {
+          "max_trunk_tilt_deg": 0.15746500642026795,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.9838166565939673,
+          "settle_com_speed_mps": 0.0015279850746004375,
+          "initial_com_height_m": 1.0156646450466593,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "tense",
+            "stance": "neutral",
+            "steps": 2251,
+            "max_torque_ratio": 0.006390373559048154,
+            "max_torque_nm": 0.25416258473486975,
+            "max_torque_joint": "neck_pitch",
+            "saturated_steps": 0,
+            "ankle_limit_nm": 159.0909090909091
+          },
+          "balance": {
+            "min_capture_margin_m": 0.07052159647829104,
+            "final_capture_margin_m": 0.07091670361447275,
+            "final_com_speed_mps": 0.000021674694924348547,
+            "max_foot_displacement_m": {
+              "left": 9.271449394887554e-7,
+              "right": 9.271449394748776e-7
+            },
+            "stable_since_s": 0
+          },
+          "fall": null,
+          "step": null,
+          "unbalance": null,
+          "outcome": "standing",
+          "t_outcome_s": 0,
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.0006351279673483673,
+              "t_s": 0.6880000000000001,
+              "where": "left_foot"
+            },
+            "contact_force": {
+              "value": 135.73139425631774,
+              "t_s": 0.68,
+              "where": "right_foot|world"
+            },
+            "segment_penetration": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "foot_slip": {
+              "value": 9.064718668155513e-7,
+              "t_s": 1.436,
+              "where": "left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 0.0037091046941321805,
+              "t_s": 0.068,
+              "where": "right_knee"
+            },
+            "tremor": {
+              "value": 0,
+              "t_s": 0,
+              "where": "",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [],
+          "artifacts_not_evaluated": []
+        },
+        "tori": {
+          "outcome": "fall",
+          "t_outcome_s": 0.84,
+          "max_trunk_tilt_deg": 122.0321016001309,
+          "initial_pelvis_height_m": 0.983817990094232,
+          "min_pelvis_height_m": 0.13448041486918538,
+          "initial_com_height_m": 1.0156646450466593,
+          "settle_com_speed_mps": 0.0015279850745999449,
+          "max_root_generalized_force": 0,
+          "controller": {
+            "attitude": "relaxed",
+            "stance": "neutral",
+            "steps": 2001,
+            "fall_response": {
+              "phase": "settle",
+              "activated_s": 0.984,
+              "impact_s": 1.062,
+              "max_torque_ratio": 1
+            }
+          },
+          "balance": {
+            "min_capture_margin_m": -1.2545868680629675,
+            "final_capture_margin_m": null,
+            "final_com_speed_mps": 0.000027149326736987794,
+            "max_foot_displacement_m": {
+              "left": 0.82658560451293,
+              "right": 0.8265856081129215
+            },
+            "stable_since_s": null
+          },
+          "fall": {
+            "t_s": 0.84,
+            "trigger": "pelvis_height",
+            "direction_deg": 2.2737367544323206e-13,
+            "direction_world_deg": -179.9999999999998,
+            "direction_name": "front",
+            "first_part": "left_forearm",
+            "first_part_t_s": 1.06,
+            "contact_order": [
+              {
+                "body": "left_forearm",
+                "t_s": 1.06
+              },
+              {
+                "body": "right_forearm",
+                "t_s": 1.06
+              },
+              {
+                "body": "head",
+                "t_s": 1.512
+              },
+              {
+                "body": "abdomen",
+                "t_s": 1.588
+              },
+              {
+                "body": "pelvis",
+                "t_s": 1.598
+              },
+              {
+                "body": "chest",
+                "t_s": 1.762
+              }
+            ],
+            "impact": {
+              "head": {
+                "t_s": 1.512,
+                "speed_mps": 4.291221220046759,
+                "normal_speed_mps": 2.069064652767443
+              },
+              "chest": {
+                "t_s": 1.762,
+                "speed_mps": 0.8924041190350781,
+                "normal_speed_mps": 0.4797367778432806
+              },
+              "pelvis": {
+                "t_s": 1.598,
+                "speed_mps": 2.901401731543737,
+                "normal_speed_mps": 1.430147339541275
+              }
+            }
+          },
+          "step": {
+            "t_s": 1.26,
+            "foot": "left"
+          },
+          "unbalance": {
+            "t_s": 0.52,
+            "direction_deg": 180,
+            "direction": "back",
+            "min_margin_m": -1.2545868680629675,
+            "recovered": false
+          },
+          "diagnostics": {
+            "energy_scope": "world",
+            "actor_mass_kg": 75,
+            "ground_penetration": {
+              "value": 0.018609534367229577,
+              "t_s": 1.67,
+              "where": "tori_left_forearm"
+            },
+            "contact_force": {
+              "value": 31206.607582686913,
+              "t_s": 1.534,
+              "where": "tori_head|world"
+            },
+            "segment_penetration": {
+              "value": 0.012329747314347307,
+              "t_s": 1.022,
+              "where": "tori_chest|tori_left_thigh"
+            },
+            "foot_slip": {
+              "value": 0.003628613049890358,
+              "t_s": 1.1420000000000001,
+              "where": "tori_left_foot"
+            },
+            "root_generalized_force": 0,
+            "joint_limit_excursion_rad": {
+              "value": 0.03182937820967424,
+              "t_s": 1.536,
+              "where": "tori_neck_pitch"
+            },
+            "interbody_penetration_m": {
+              "value": 0,
+              "t_s": 0,
+              "where": ""
+            },
+            "joint_speed": {
+              "value": 36.273873588165216,
+              "t_s": 1.526,
+              "where": "tori_neck_pitch"
+            },
+            "tremor": {
+              "value": 13,
+              "t_s": 2.066,
+              "where": "tori_left_ankle_pitch",
+              "amplitude_rad": 0.005
+            },
+            "energy": {
+              "max_excess_j": 0,
+              "t_s": 0,
+              "scale_j": 1494.550525186159
+            }
+          },
+          "artifacts": [
+            {
+              "type": "joint_speed",
+              "t_s": 1.526,
+              "where": "tori_neck_pitch",
+              "value": 36.273873588165216,
+              "threshold": 25,
+              "detail": "velocidad articular de 36.3 rad/s en tori_neck_pitch"
+            },
+            {
+              "type": "contact_force",
+              "t_s": 1.534,
+              "where": "tori_head|world",
+              "value": 31206.607582686913,
+              "threshold": 10000,
+              "detail": "fuerza de contacto de 31.2 kN en tori_head|world"
+            },
+            {
+              "type": "ground_penetration",
+              "t_s": 1.67,
+              "where": "tori_left_forearm",
+              "value": 0.018609534367229577,
+              "threshold": 0.01,
+              "detail": "penetración en el suelo de 1.86 cm en tori_left_forearm"
+            },
+            {
+              "type": "tremor",
+              "t_s": 2.066,
+              "where": "tori_left_ankle_pitch",
+              "value": 13,
+              "threshold": 10,
+              "detail": "13 cambios de sentido en 1 s (amplitud >= 0.005 rad) en tori_left_ankle_pitch"
+            }
+          ],
+          "artifacts_not_evaluated": []
+        }
+      },
+      "grips": {}
+    }
+  ]
+}

@@ -42,6 +42,7 @@ export class ReplayView {
   private readonly timeText = el("span", { className: "muted" });
   private readonly playButton = el("button", { type: "button" }, "Reproducir");
   private readonly speedButtons = new Map<number, HTMLButtonElement>();
+  private readonly actorSelect = el("select", { ariaLabel: "Actor medido" });
   private readonly diagnosticText = el("pre", { className: "replay-diagnostics" });
   private readonly showContacts = el("input", { type: "checkbox", checked: false });
   private readonly showReactions = el("input", { type: "checkbox", checked: false });
@@ -86,7 +87,9 @@ export class ReplayView {
       const label = el("label"); label.append(input, document.createTextNode(text)); diagnostics.append(label);
       input.addEventListener("change", () => this.refresh());
     }
-    this.panel.append(diagnostics);
+    this.actorSelect.hidden = true;
+    this.actorSelect.addEventListener("change", () => this.refresh());
+    this.panel.append(this.actorSelect, diagnostics);
 
     const row = el("div", { className: "button-row" });
     row.append(loadButton, this.fileInput);
@@ -129,8 +132,12 @@ export class ReplayView {
       this.player = new RecordingPlayer(recording, this.kin.jointTypes());
       this.recording = recording;
       viewer.showArticulated(this.kin.geomSpecs());
+      this.actorSelect.replaceChildren();
+      for (const actor of recording.meta.humanoid_actors ?? []) this.actorSelect.append(el("option", {value:actor.id}, `Medir ${actor.id}`));
+      this.actorSelect.hidden = !recording.meta.humanoid_actors;
       const s = recording.summary;
       this.info.textContent = `Escenario ${recording.meta.scenario_id} · resultado ${s.outcome}` +
+        (s.actors ? ` · ${Object.entries(s.actors).map(([id,a])=>`${id}: ${a.outcome}`).join(" · ")}` : "") +
         (s.direction_deg === null ? "" : ` hacia ${Math.round(s.direction_deg) || 0}°`) + ` · ${recording.samples.length} muestras`;
       this.timeBar.max = String(Math.round(this.player.duration * 1000));
       this.panel.hidden = false;
@@ -192,7 +199,8 @@ export class ReplayView {
     kin.setQpos(frame.qpos);
     viewer.setArticulatedPoses(kin.geomPoses());
     const forces = frame.effectors.filter((e) => Math.hypot(...e.force_n) > 0);
-    const observation = recording.samples[frame.index]!;
+    const recordedSample = recording.samples[frame.index]!;
+    const observation = recordedSample.actors?.[this.actorSelect.value] ?? recordedSample;
     if (observation.com) viewer.setBalanceProjection(observation.com, observation.support_polygon ?? []);
     else viewer.clearBalanceProjection();
     const reactions = frame.effectors.filter(e => this.showReactions.checked && e.coupled_grip && Math.hypot(...e.coupled_grip.reaction_n) > 0);
@@ -203,7 +211,8 @@ export class ReplayView {
         point: c.point_m, force: c.force_n, active: true })),
     ]);
     this.overlay.hidden = false;
-    const lines = forces.map(e => `${e.id}: ${fmtN(Math.hypot(...e.force_n))}`);
+    const lines = this.actorSelect.hidden ? [] : [`Actor medido: ${this.actorSelect.value} · control articular · pelvis libre`];
+    lines.push(...forces.map(e => `${e.id}: ${fmtN(Math.hypot(...e.force_n))}`));
     for (const e of frame.effectors) if (e.coupled_grip) lines.push(`${e.id}: ${e.coupled_grip.status}, separación ${(100*e.coupled_grip.distance_m).toFixed(1)} cm`);
     if (observation.capture_margin_m != null) lines.push(`Margen dinámico: ${(100*observation.capture_margin_m).toFixed(1)} cm (no decide la caída)`);
     if (observation.com_velocity_mps) lines.push(`Velocidad COM: ${Math.hypot(...observation.com_velocity_mps).toFixed(2)} m/s`);

@@ -1,0 +1,13 @@
+{
+  "errors": [],
+  "overflow": false,
+  "info": "tori_left_hand: 74.8 N\ntori_right_hand: 40.4 N\ntori_left_hand: held, separación 16.6 cm\ntori_right_hand: held, separación 14.3 cm\nMargen dinámico: -29.2 cm (no decide la caída)\nVelocidad COM: 0.83 m/s\nApoyo vertical izq/der: 509 / 579 N\nTori: seguimiento asistido de segmentos; no tiene equilibrio propio\nArtefactos pendientes: contact_force, ground_penetration",
+  "controls": [
+    "pause",
+    "seek",
+    "step",
+    "contacts",
+    "reactions"
+  ],
+  "mobile_emulated": true
+}

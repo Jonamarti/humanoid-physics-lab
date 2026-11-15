@@ -32,6 +32,7 @@ export interface ProbeContext {
   dt: number;
   /** Amplitud mínima del temblor; por defecto la del detector (parámetro solo para medir sensibilidad). */
   tremorAmplitudeRad?: number;
+  measureJointLimits?: boolean;
 }
 
 interface JointTrack {
@@ -83,7 +84,9 @@ export class ArtifactProbe {
   private readonly feet: FootTrack[] = [];
   private readonly groundPen = peak();
   private readonly segmentPen = peak();
+  private readonly interbodyPen = peak();
   private readonly jointSpeed = peak();
+  private readonly jointLimitExcursion = peak();
   private readonly contactForce = peak();
   private readonly footSlip = peak();
   private readonly tremor = peak();
@@ -135,6 +138,12 @@ export class ArtifactProbe {
     const qvel = this.data.qvel as Float64Array;
     const qpos = this.data.qpos as Float64Array;
     for (const j of this.joints) {
+      if (this.ctx.measureJointLimits) {
+        const id = this.ctx.joints.indexOf(j.name);
+        const range = this.model.jnt_range as Float64Array;
+        const angle = qpos[j.qposAdr]!;
+        raise(this.jointLimitExcursion, Math.max(0, range[2*id]! - angle, angle - range[2*id+1]!), t, j.name);
+      }
       raise(this.jointSpeed, Math.abs(qvel[j.dof]!), t, j.name);
       this.trackTremor(j, qpos[j.qposAdr]!, t);
     }
@@ -222,6 +231,8 @@ export class ArtifactProbe {
           else if (a1 && a2 && b1 !== b2) {
             const [lo, hi] = b1 < b2 ? [b1, b2] : [b2, b1];
             raise(this.segmentPen, penetration, t, `${this.ctx.bodies[lo]}|${this.ctx.bodies[hi]}`);
+          } else if (this.ctx.measureJointLimits && b1 > 0 && b2 > 0) {
+            raise(this.interbodyPen, penetration, t, `${this.ctx.bodies[b1]}|${this.ctx.bodies[b2]}`);
           }
           if (!hasCompleteSolvedContactRows(contact.efc_address, contact.dim, this.pyramidal, this.data.nefc, efcForce.length)) continue;
           const solved = decodeSolvedContactForce({
@@ -300,6 +311,10 @@ export class ArtifactProbe {
       d.segment_penetration = this.segmentPen;
       d.foot_slip = this.footSlip;
       d.root_generalized_force = this.rootForce;
+    }
+    if (this.ctx.measureJointLimits) {
+      d.joint_limit_excursion_rad = this.jointLimitExcursion;
+      d.interbody_penetration_m = this.interbodyPen;
     }
     if (this.joints.length > 0) {
       d.joint_speed = this.jointSpeed;

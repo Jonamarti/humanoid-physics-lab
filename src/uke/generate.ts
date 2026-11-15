@@ -55,6 +55,7 @@ export interface GenerateOptions {
   jointDampingByName?: Readonly<Record<string, number>>;
   /** Armadura de las articulaciones (v2: 0,015). */
   jointArmature?: number;
+  jointLimitTimeconstS?: number;
 }
 
 /** Masas de v2 por segmento, en kg (una unidad; los pares se duplican). */
@@ -249,13 +250,17 @@ export function generateHumanoidMJCF(params: HumanoidParams, options: GenerateOp
         </body>
       </body>`;
 
+  if (options.jointLimitTimeconstS !== undefined && (!Number.isFinite(options.jointLimitTimeconstS) || options.jointLimitTimeconstS < 0.004 || options.jointLimitTimeconstS > 0.05)) {
+    throw new RangeError("jointLimitTimeconstS debe estar entre 0.004 y 0.05 s");
+  }
+  const limitSolver = options.jointLimitTimeconstS !== undefined ? ` solreflimit="${f(options.jointLimitTimeconstS)} 1"` : "";
   const name = options.modelName ?? "humanoid_generated";
   return `<mujoco model="${name}">
   <!-- Generado por src/uke/generate.ts: ${f(params.mass_kg)} kg, ${f(params.height_m)} m. Reproduce humanoid_step_v2 con 75 kg y 1.76 m. -->
   <compiler angle="radian"/>
   ${worldOptionTag(options.optionAttrs)}
   <default>
-    <joint limited="true" damping="${f(options.jointDamping ?? 1.6)}" armature="${f(options.jointArmature ?? 0.015)}"/>
+    <joint limited="true" damping="${f(options.jointDamping ?? 1.6)}" armature="${f(options.jointArmature ?? 0.015)}"${limitSolver}/>
     <geom friction="${fr}" condim="3" solref="0.015 1" solimp="0.9 0.95 0.001"/>
   </default>
   <worldbody>

@@ -9,6 +9,9 @@ import type { Outcome, Vec3 } from "../scenario/schema";
 export const RECORDING_SCHEMA_ID = "hpl.recording.v1";
 
 export interface RecordingMeta {
+  /** Explicitly assisted Tori: external bounded tracking on independent free segments. */
+  tori_assist?: "independent_segment_tracking";
+  tori_grip_model?: "target" | "coupled";
   scenario_id: string;
   /** SHA-256 (hex) del escenario validado, serializado con el orden de claves del validador. */
   scenario_sha256: string;
@@ -50,6 +53,14 @@ export interface HandSampleData {
 }
 
 export interface EffectorSample {
+  coupled_grip?: {
+    status: import("../effectors/coupledGrip").GripStateName;
+    hand_point_m: Vec3;
+    distance_m: number;
+    reaction_n: Vec3;
+    force_limited: boolean;
+    power_limited: boolean;
+  };
   id: string;
   /** Punto de aplicación en el mundo, en m (en una mano, el punto de agarre). */
   point_m: Vec3;
@@ -80,6 +91,10 @@ export interface RecordingSample {
   contacts: ContactSample[];
   /** Centro de masas del actor, en m. Solo con actor humanoide: las grabaciones anteriores no traen estos cuatro campos. */
   com?: Vec3;
+  com_velocity_mps?: Vec3;
+  angular_momentum_nms?: Vec3;
+  joint_torques_nm?: Record<string, number>;
+  ground_reaction_n?: { left: Vec3; right: Vec3 };
   /** Punto de captura `c + v / w0` en el plano horizontal `[x, y]`, en m. */
   xcom?: [number, number];
   /** Polígono de apoyo: envolvente convexa antihoraria de los contactos de los pies con carga > 20 N, `[x, y]` en m; vacío sin apoyo. */
@@ -103,6 +118,9 @@ export interface HandPeaks {
 }
 
 export interface EffectorPeaks {
+  grip_events?: Array<{ t_s: number; status: import("../effectors/coupledGrip").GripStateName }>;
+  max_power_w?: number;
+  reaction_work_j?: number;
   /** Solo en tirones guiados (`kind: "pull"`): máximo de `F · v` (W) y tiempo con el tope de potencia actuando (s). */
   pull?: { max_power_w: number; time_power_limited_s: number };
   /** Máximo del módulo de la fuerza, muestreado a 500 Hz, en N. */
@@ -213,8 +231,12 @@ export interface RecordingDiagnostics {
   ground_penetration: PeakAt;
   /** Penetración máxima entre dos cuerpos distintos del actor, en m. Solo humanoide. */
   segment_penetration?: PeakAt;
+  /** Actor versus Tori/props, excluding the floor; detailed runs only. */
+  interbody_penetration_m?: PeakAt;
   /** Mayor |velocidad| de una articulación interna (bisagra), en rad/s. */
   joint_speed?: PeakAt;
+  /** Largest excursion beyond the solver's soft joint limits, radians (detailed runs only). */
+  joint_limit_excursion_rad?: PeakAt;
   /** Mayor fuerza normal de un contacto del actor (suelo, props o él mismo), en N. */
   contact_force: PeakAt;
   /** Mayor deslizamiento neto de un pie cargado y sin rozamiento saturado en un tramo continuo, en m. Solo humanoide. */

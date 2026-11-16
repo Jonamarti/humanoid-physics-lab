@@ -1,0 +1,1828 @@
+[
+  {
+    "case": "pull_38",
+    "controller": "pd",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.783822500001406,
+    "max_normal_force_n": 1786.8823694726516,
+    "peak": {
+      "time_s": 1.6145833333333217,
+      "normal_n": 1786.8823694726516,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.022661142778696266,
+    "max_body_penetration_m": 0.009990870943019314,
+    "positive_work_j": 121.4649887218868,
+    "negative_work_j": -309.05337899721076,
+    "external_work_j": -56.735212392413466,
+    "external_impulse_ns": [
+      -38.399999999999984,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 13.406773587890743,
+    "max_loaded_foot_slip_m": 0.03782833838241935,
+    "max_airborne_time_s": 0.024999999999999998,
+    "min_root_height_m": 0.25905129044157726,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.7415358153094603,
+    "foot_delta_m": [
+      [
+        0.12992207902417618,
+        0.2975293673656836,
+        -0.01747800915852578
+      ],
+      [
+        0.1282297429954724,
+        0.3158212462654433,
+        -0.0074315336257585185
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.169975555767046,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "5a2f6fc91bb08557e07f5c30c8ffe3cf6e9bd08a96779253ce7cb1c85e9f28ad",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_25",
+    "controller": "pd",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.349496899987571,
+    "max_normal_force_n": 1545.889877985566,
+    "peak": {
+      "time_s": 1.6041666666666556,
+      "normal_n": 1545.889877985566,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.0226611427787037,
+    "max_body_penetration_m": 0.010031617328684683,
+    "positive_work_j": 177.071183615718,
+    "negative_work_j": -384.14201086197306,
+    "external_work_j": 53.42399982911976,
+    "external_impulse_ns": [
+      24.99999999999996,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 15.576206119255987,
+    "max_loaded_foot_slip_m": 0.046120919248152745,
+    "max_airborne_time_s": 0.4083333333333322,
+    "min_root_height_m": 0.05542113551588863,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.9451659702351489,
+    "foot_delta_m": [
+      [
+        0.6449067001190372,
+        0.8552851228880627,
+        -0.019121450982553384
+      ],
+      [
+        0.7157488108473729,
+        1.1172177376623154,
+        -0.03048355464694401
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.2329399987938814,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "21413dbeb424282841e67eb9703754c78b19f55d8eb827681cd2085d0f37abeb",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_38",
+    "controller": "pd",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.405380099982722,
+    "max_normal_force_n": 1375.7756957605936,
+    "peak": {
+      "time_s": 1.6052083333333222,
+      "normal_n": 1375.7756957605936,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.022661142778702677,
+    "max_body_penetration_m": 0.010259572509440245,
+    "positive_work_j": 176.27994268892675,
+    "negative_work_j": -393.69629499226915,
+    "external_work_j": 86.93038885194841,
+    "external_impulse_ns": [
+      38.399999999999984,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 15.85588258828985,
+    "max_loaded_foot_slip_m": 0.04562748483234067,
+    "max_airborne_time_s": 0.48645833333333194,
+    "min_root_height_m": 0.04640799311631162,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.954179112634726,
+    "foot_delta_m": [
+      [
+        0.7750503822532266,
+        0.9001557418703499,
+        -0.030942363716392043
+      ],
+      [
+        0.8625846241426416,
+        1.1595743882969032,
+        -0.034173551481808645
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.235900555549758,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6d485112cae85c910502e4ca70f9a0415b620b52474ce6a97b3a1c9c299e9e3e",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_80",
+    "controller": "pd",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 8.920825800014427,
+    "max_normal_force_n": 1787.9401278314854,
+    "peak": {
+      "time_s": 1.7499999999999807,
+      "normal_n": 1787.9401278314854,
+      "bodies": [
+        "world",
+        "Neck1"
+      ]
+    },
+    "max_floor_penetration_m": 0.022661142778645976,
+    "max_body_penetration_m": 0.00999087094304843,
+    "positive_work_j": 174.23212866525085,
+    "negative_work_j": -423.7447407908,
+    "external_work_j": 217.18954382482207,
+    "external_impulse_ns": [
+      79.99999999999964,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 15.020157593436357,
+    "max_loaded_foot_slip_m": 0.03701073240837866,
+    "max_airborne_time_s": 0.7447916666666774,
+    "min_root_height_m": 0.04585855931075211,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.9547285464402855,
+    "foot_delta_m": [
+      [
+        1.0503195192863188,
+        0.9522976661419023,
+        -0.03476318052594727
+      ],
+      [
+        1.1481415432861297,
+        1.2074139267747341,
+        -0.03709309889225625
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.010162221914571,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6674ff2a61f6631eea804966a8370f27cfa330d14b0ad0619a9f09b305f8c961",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "side_38",
+    "controller": "pd",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 8.812260400009109,
+    "max_normal_force_n": 1792.4991327745593,
+    "peak": {
+      "time_s": 1.6072916666666555,
+      "normal_n": 1792.4991327745593,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.022661142778669686,
+    "max_body_penetration_m": 0.00999087094304453,
+    "positive_work_j": 143.57938727459756,
+    "negative_work_j": -350.51202429817744,
+    "external_work_j": 23.520634047539176,
+    "external_impulse_ns": [
+      0.0,
+      38.399999999999984,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 12.515929144201554,
+    "max_loaded_foot_slip_m": 0.03999363081643508,
+    "max_airborne_time_s": 0.20312499999999958,
+    "min_root_height_m": 0.24271647795437265,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.7578706277966649,
+    "foot_delta_m": [
+      [
+        0.18207645163457187,
+        0.2804117565608806,
+        -0.018582832716824003
+      ],
+      [
+        0.18627713002368296,
+        0.436558629603482,
+        0.07053055533527058
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.0284627769595116,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "798a54c2db7fae97811ae9572b5daa9037102cc133503bb5c24acecc30290afd",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "squat",
+    "controller": "pd",
+    "kind": "squat",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.831405000004452,
+    "max_normal_force_n": 1994.9436678912793,
+    "peak": {
+      "time_s": 1.5520833333333253,
+      "normal_n": 1994.9436678912793,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.024217712738305128,
+    "max_body_penetration_m": 0.01136539760631887,
+    "positive_work_j": 123.02118194528354,
+    "negative_work_j": -306.22084403305684,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 13.923193326278897,
+    "max_loaded_foot_slip_m": 0.053980073494374885,
+    "max_airborne_time_s": 0.22083333333333285,
+    "min_root_height_m": 0.2646382410280407,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.7359488647229969,
+    "foot_delta_m": [
+      [
+        0.19564230615216616,
+        -0.6683153236287183,
+        0.07784070639478044
+      ],
+      [
+        0.19570078864461493,
+        -0.4484100857869464,
+        -0.019119980008167108
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.2663822218116065,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "82afd6892eab93d066a66bdd9e976035bef1d7a3df3d18f227742a4265dd9f2f",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "stand",
+    "controller": "pd",
+    "kind": "posture",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.545274000003701,
+    "max_normal_force_n": 1588.3946120552841,
+    "peak": {
+      "time_s": 1.6072916666666555,
+      "normal_n": 1588.3946120552841,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.02266114277870311,
+    "max_body_penetration_m": 0.010053362011477496,
+    "positive_work_j": 138.89089473807965,
+    "negative_work_j": -339.10074151391,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 14.696314710959431,
+    "max_loaded_foot_slip_m": 0.04272007697178232,
+    "max_airborne_time_s": 0.1520833333333331,
+    "min_root_height_m": 0.2581447586756509,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.7424423470753867,
+    "foot_delta_m": [
+      [
+        0.2599458014761922,
+        0.39149651185221046,
+        -0.01849867780258011
+      ],
+      [
+        0.257170507768933,
+        0.5832382209501361,
+        0.07694467458744483
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.1721272229721458,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "26bc8ec5c675700804eb5a53ccecda75fe0e0ca0534e65264a8bbc023f94f31f",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "step_left",
+    "controller": "pd",
+    "kind": "step",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.935542299994268,
+    "max_normal_force_n": 1751.501772350804,
+    "peak": {
+      "time_s": 1.5833333333333235,
+      "normal_n": 1751.501772350804,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.023070666622646643,
+    "max_body_penetration_m": 0.010886790796365786,
+    "positive_work_j": 123.29207142865222,
+    "negative_work_j": -325.77543042744486,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 13.881166999957923,
+    "max_loaded_foot_slip_m": 0.07138250195907919,
+    "max_airborne_time_s": 0.39895833333333225,
+    "min_root_height_m": 0.26397196214534246,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.7366151436056951,
+    "foot_delta_m": [
+      [
+        0.2057946156893138,
+        -0.5726262199502514,
+        0.08369353796533555
+      ],
+      [
+        0.2225205668183321,
+        -0.4362191549005132,
+        -0.006978959991233706
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.2893344441803896,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "4882a6dd255649ce38e71255f44552ffdedd6d21af5a7dddecf16d033d765270",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "transfer",
+    "controller": "pd",
+    "kind": "transfer",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.814029900007881,
+    "max_normal_force_n": 1488.2810054094987,
+    "peak": {
+      "time_s": 1.608333333333322,
+      "normal_n": 1488.2810054094987,
+      "bodies": [
+        "Hips",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.022037011799100163,
+    "max_body_penetration_m": 0.009990870943015373,
+    "positive_work_j": 142.88167199951675,
+    "negative_work_j": -339.033097341183,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 13.216085035044701,
+    "max_loaded_foot_slip_m": 0.03913019414549695,
+    "max_airborne_time_s": 0.12812499999999985,
+    "min_root_height_m": 0.2532417412512884,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.7473453644997492,
+    "foot_delta_m": [
+      [
+        0.3058011264152469,
+        0.5161812019833292,
+        -0.018441582193080175
+      ],
+      [
+        0.30573251172378946,
+        0.7138696511392766,
+        0.07722433545462962
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 2.2741450003296553,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6a9b61a47e964601f9bf9219d1539ba643cdaab9bb2f4c86b3118f24ffa2a180",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "pull_38",
+    "controller": "mjpc",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 22.88222329999553,
+    "max_normal_force_n": 2199.918933040748,
+    "peak": {
+      "time_s": 1.6760416666666516,
+      "normal_n": 2199.918933040748,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.022578075345233956,
+    "max_body_penetration_m": 0.011402082415849765,
+    "positive_work_j": 390.94561319398,
+    "negative_work_j": -489.12366285005464,
+    "external_work_j": -42.35960156165374,
+    "external_impulse_ns": [
+      -38.399999999999984,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 14.880203240152698,
+    "max_loaded_foot_slip_m": 0.17998595214214186,
+    "max_airborne_time_s": 0.46666666666666534,
+    "min_root_height_m": 0.12339876156249394,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8771883441885436,
+    "foot_delta_m": [
+      [
+        -0.5011371532848017,
+        0.16548250825255195,
+        0.07166629305782812
+      ],
+      [
+        -0.3657028968350957,
+        0.22481237718071156,
+        0.08368689225099019
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 83.38716833273388,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "5a2f6fc91bb08557e07f5c30c8ffe3cf6e9bd08a96779253ce7cb1c85e9f28ad",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_25",
+    "controller": "mjpc",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 24.549356700008502,
+    "max_normal_force_n": 2699.895936539801,
+    "peak": {
+      "time_s": 1.6635416666666523,
+      "normal_n": 2699.895936539801,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.023551804433893736,
+    "max_body_penetration_m": 0.012026171124710841,
+    "positive_work_j": 505.63994367789,
+    "negative_work_j": -661.7993152658426,
+    "external_work_j": 58.63880058833676,
+    "external_impulse_ns": [
+      24.99999999999996,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 26.190233795123767,
+    "max_loaded_foot_slip_m": 0.06764719568258826,
+    "max_airborne_time_s": 0.5906250000000031,
+    "min_root_height_m": 0.13954506187527643,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8610420438757611,
+    "foot_delta_m": [
+      [
+        0.04308362713740621,
+        0.015919320301208018,
+        0.06187746374447142
+      ],
+      [
+        0.12098733631032133,
+        0.2641800775113552,
+        0.14263742134709584
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 91.6398911103089,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "21413dbeb424282841e67eb9703754c78b19f55d8eb827681cd2085d0f37abeb",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_38",
+    "controller": "mjpc",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 24.55001859998447,
+    "max_normal_force_n": 2850.037388187129,
+    "peak": {
+      "time_s": 1.6593749999999858,
+      "normal_n": 2850.037388187129,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.022653110893547906,
+    "max_body_penetration_m": 0.012003490365466163,
+    "positive_work_j": 392.4397175172249,
+    "negative_work_j": -580.5459017591506,
+    "external_work_j": 99.34174811572163,
+    "external_impulse_ns": [
+      38.399999999999984,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 28.23997242547258,
+    "max_loaded_foot_slip_m": 0.07211213629428942,
+    "max_airborne_time_s": 0.1854166666666663,
+    "min_root_height_m": 0.15114374151481505,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8494433642362226,
+    "foot_delta_m": [
+      [
+        0.3528886198373016,
+        -0.11729860421576177,
+        0.032231833716735575
+      ],
+      [
+        0.5334338567606665,
+        -0.590783838093671,
+        0.1131472787260156
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 91.7592533338595,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6d485112cae85c910502e4ca70f9a0415b620b52474ce6a97b3a1c9c299e9e3e",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_80",
+    "controller": "mjpc",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 23.997417800012045,
+    "max_normal_force_n": 3861.929762472282,
+    "peak": {
+      "time_s": 1.6531249999999862,
+      "normal_n": 3861.929762472282,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.020780095910373386,
+    "max_body_penetration_m": 0.011402082415764347,
+    "positive_work_j": 372.02898683036705,
+    "negative_work_j": -610.9177826031616,
+    "external_work_j": 265.3411828182749,
+    "external_impulse_ns": [
+      79.99999999999964,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 19.776858607141218,
+    "max_loaded_foot_slip_m": 0.0803060613014136,
+    "max_airborne_time_s": 0.2333333333333328,
+    "min_root_height_m": 0.10436864050366472,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8962184652473729,
+    "foot_delta_m": [
+      [
+        0.36857834411166834,
+        -0.12195952173004798,
+        -0.020069478189774365
+      ],
+      [
+        0.5197073017334901,
+        -0.3317820998216945,
+        -0.00010107229885875091
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 89.16775666649401,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6674ff2a61f6631eea804966a8370f27cfa330d14b0ad0619a9f09b305f8c961",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "side_38",
+    "controller": "mjpc",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 23.380866599996807,
+    "max_normal_force_n": 2818.0404439984068,
+    "peak": {
+      "time_s": 1.6687499999999853,
+      "normal_n": 2818.0404439984068,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.025725818927386086,
+    "max_body_penetration_m": 0.01348021280662294,
+    "positive_work_j": 417.2601341628709,
+    "negative_work_j": -556.7309616603512,
+    "external_work_j": 46.56643369212758,
+    "external_impulse_ns": [
+      0.0,
+      38.399999999999984,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 14.711588382101125,
+    "max_loaded_foot_slip_m": 0.10998063489184681,
+    "max_airborne_time_s": 0.20624999999999957,
+    "min_root_height_m": 0.10941618563716192,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8911709201138757,
+    "foot_delta_m": [
+      [
+        -0.016652268809565385,
+        -0.14308531951552084,
+        -0.014787666484360348
+      ],
+      [
+        -0.0326051904713438,
+        0.07570344092660264,
+        0.25682352766834854
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 85.91239388948048,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "798a54c2db7fae97811ae9572b5daa9037102cc133503bb5c24acecc30290afd",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "squat",
+    "controller": "mjpc",
+    "kind": "squat",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 26.821492799994303,
+    "max_normal_force_n": 2313.29735039986,
+    "peak": {
+      "time_s": 1.6833333333333178,
+      "normal_n": 2313.29735039986,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.025391377862867073,
+    "max_body_penetration_m": 0.010787095790169704,
+    "positive_work_j": 440.21472063453996,
+    "negative_work_j": -553.8079080079009,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 12.979668255387228,
+    "max_loaded_foot_slip_m": 0.1795787716283966,
+    "max_airborne_time_s": 0.1489583333333331,
+    "min_root_height_m": 0.1114469176642057,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8891401880868319,
+    "foot_delta_m": [
+      [
+        0.36877368553388123,
+        0.15625561747776828,
+        0.825990913097594
+      ],
+      [
+        -0.2484505622166182,
+        0.058989311577050785,
+        0.11490490173220463
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 100.9999516652897,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "82afd6892eab93d066a66bdd9e976035bef1d7a3df3d18f227742a4265dd9f2f",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "stand",
+    "controller": "mjpc",
+    "kind": "posture",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 26.176276699989103,
+    "max_normal_force_n": 1690.5350131303544,
+    "peak": {
+      "time_s": 1.6739583333333183,
+      "normal_n": 1690.5350131303544,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.021452001690661714,
+    "max_body_penetration_m": 0.011402082415843798,
+    "positive_work_j": 415.5445502986977,
+    "negative_work_j": -563.3908442056506,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 20.431195062613686,
+    "max_loaded_foot_slip_m": 0.10390063825501634,
+    "max_airborne_time_s": 0.02395833333333333,
+    "min_root_height_m": 0.12327757593348197,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8773095298175556,
+    "foot_delta_m": [
+      [
+        0.0686601991932605,
+        -0.2483201811664344,
+        -0.0015837477100868191
+      ],
+      [
+        0.26901160601744323,
+        -0.4754788279168167,
+        -0.02054845886486288
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 97.5464505567086,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "26bc8ec5c675700804eb5a53ccecda75fe0e0ca0534e65264a8bbc023f94f31f",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "step_left",
+    "controller": "mjpc",
+    "kind": "step",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 25.06709349999437,
+    "max_normal_force_n": 2007.8284300186856,
+    "peak": {
+      "time_s": 1.7458333333333143,
+      "normal_n": 2007.8284300186856,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.025324808347377045,
+    "max_body_penetration_m": 0.010787095790169732,
+    "positive_work_j": 359.35394946749983,
+    "negative_work_j": -492.17492085676366,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 17.60269635418325,
+    "max_loaded_foot_slip_m": 0.07911237036797168,
+    "max_airborne_time_s": 0.22395833333333284,
+    "min_root_height_m": 0.11892852145057653,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8816585843004611,
+    "foot_delta_m": [
+      [
+        -0.1920513382058857,
+        0.0775736159343694,
+        0.07157075073779443
+      ],
+      [
+        -0.1945181597233443,
+        0.1895664475114529,
+        0.10066695273888343
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 93.68673722379349,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "4882a6dd255649ce38e71255f44552ffdedd6d21af5a7dddecf16d033d765270",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "transfer",
+    "controller": "mjpc",
+    "kind": "transfer",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 26.945204400020884,
+    "max_normal_force_n": 2184.870749855432,
+    "peak": {
+      "time_s": 1.6874999999999842,
+      "normal_n": 2184.870749855432,
+      "bodies": [
+        "world",
+        "Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.02155094415549945,
+    "max_body_penetration_m": 0.011402082415843798,
+    "positive_work_j": 377.86013918433315,
+    "negative_work_j": -512.3051219596899,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 19.004642674751263,
+    "max_loaded_foot_slip_m": 0.1308536866438578,
+    "max_airborne_time_s": 0.6781250000000074,
+    "min_root_height_m": 0.13302093477721758,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.86756617097382,
+    "foot_delta_m": [
+      [
+        0.05161221385048975,
+        -0.14306458772969677,
+        0.015511897130562918
+      ],
+      [
+        0.11612101798894514,
+        -0.0861299910783373,
+        0.045141773843648675
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 102.1160527782437,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6a9b61a47e964601f9bf9219d1539ba643cdaab9bb2f4c86b3118f24ffa2a180",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "pull_38",
+    "controller": "protomotions",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 10.055739800009178,
+    "max_normal_force_n": 1887.8274791280458,
+    "peak": {
+      "time_s": 2.1020833333332942,
+      "normal_n": 1887.8274791280458,
+      "bodies": [
+        "world",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.031488938385454114,
+    "max_body_penetration_m": 0.02524173404108258,
+    "positive_work_j": 2284.7581182710483,
+    "negative_work_j": -1869.4065576100177,
+    "external_work_j": 21.335762488558515,
+    "external_impulse_ns": [
+      -38.399999999999984,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 40.582603698370235,
+    "max_loaded_foot_slip_m": 0.06458181341544349,
+    "max_airborne_time_s": 2.0374999999999646,
+    "min_root_height_m": 0.043617453836385066,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.9569696519146526,
+    "foot_delta_m": [
+      [
+        -0.37443702606082496,
+        -0.10000215865855466,
+        0.1328747713373199
+      ],
+      [
+        -0.3290694160363401,
+        0.1846683366143509,
+        0.15856812344151922
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": true,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "body_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 6.75335888873734,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "5a2f6fc91bb08557e07f5c30c8ffe3cf6e9bd08a96779253ce7cb1c85e9f28ad",
+    "supported_clearance": [
+      false,
+      true
+    ],
+    "supported_landing": [
+      false,
+      true
+    ]
+  },
+  {
+    "case": "push_25",
+    "controller": "protomotions",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 10.53100980000454,
+    "max_normal_force_n": 1663.4138794983396,
+    "peak": {
+      "time_s": 2.602083333333266,
+      "normal_n": 1663.4138794983396,
+      "bodies": [
+        "world",
+        "LeftFoot"
+      ]
+    },
+    "max_floor_penetration_m": 0.026280818037319763,
+    "max_body_penetration_m": 0.0041748641275531455,
+    "positive_work_j": 849.1536946670806,
+    "negative_work_j": -614.4296644015467,
+    "external_work_j": 12.685500982781074,
+    "external_impulse_ns": [
+      24.99999999999996,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 22.339510123950134,
+    "max_loaded_foot_slip_m": 0.05810543274008721,
+    "max_airborne_time_s": 0.0447916666666667,
+    "min_root_height_m": 0.9094160715857209,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "incomplete",
+    "task_achieved": false,
+    "root_excursion_m": 0.09117103416531669,
+    "foot_delta_m": [
+      [
+        -0.0497207529810737,
+        -0.04711716967551638,
+        -0.021383407325473558
+      ],
+      [
+        -0.015423055368785299,
+        -0.042869489561752516,
+        -0.021678170290819754
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 6.66074277687585,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "21413dbeb424282841e67eb9703754c78b19f55d8eb827681cd2085d0f37abeb",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_38",
+    "controller": "protomotions",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 10.054835899994941,
+    "max_normal_force_n": 3607.98692524606,
+    "peak": {
+      "time_s": 2.091666666666628,
+      "normal_n": 3607.98692524606,
+      "bodies": [
+        "world",
+        "RightShin"
+      ]
+    },
+    "max_floor_penetration_m": 0.02565845324161295,
+    "max_body_penetration_m": 0.024848136788137548,
+    "positive_work_j": 1486.815785266665,
+    "negative_work_j": -1244.542372454424,
+    "external_work_j": 30.58899115270442,
+    "external_impulse_ns": [
+      38.399999999999984,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 15.11686898208257,
+    "max_loaded_foot_slip_m": 0.26376508003845683,
+    "max_airborne_time_s": 2.4885416666666056,
+    "min_root_height_m": 0.04640558115759947,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.9541815245934381,
+    "foot_delta_m": [
+      [
+        -0.8499499038101135,
+        0.5021482553281942,
+        0.0069230911553705005
+      ],
+      [
+        -0.7636177166962455,
+        0.8007151915007,
+        0.1730280031628526
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "body_penetration",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 6.690954445447359,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6d485112cae85c910502e4ca70f9a0415b620b52474ce6a97b3a1c9c299e9e3e",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "push_80",
+    "controller": "protomotions",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.930972200003453,
+    "max_normal_force_n": 2595.192222989825,
+    "peak": {
+      "time_s": 0.776041666666679,
+      "normal_n": 2595.192222989825,
+      "bodies": [
+        "world",
+        "Hips"
+      ]
+    },
+    "max_floor_penetration_m": 0.033629634196823716,
+    "max_body_penetration_m": 0.0350786886534084,
+    "positive_work_j": 4455.2338244279745,
+    "negative_work_j": -3150.110462393918,
+    "external_work_j": 50.20924859832921,
+    "external_impulse_ns": [
+      79.99999999999964,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 66.020880957117,
+    "max_loaded_foot_slip_m": 0.09397580484324959,
+    "max_airborne_time_s": 2.211458333333288,
+    "min_root_height_m": 0.040873587144512245,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.9699648471076943,
+    "foot_delta_m": [
+      [
+        0.017012593819671906,
+        0.3096486040292774,
+        -0.01621459144672366
+      ],
+      [
+        -0.037543928623620104,
+        0.020026654757032247,
+        -0.015365258942592441
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "body_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 6.821622221387871,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6674ff2a61f6631eea804966a8370f27cfa330d14b0ad0619a9f09b305f8c961",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "side_38",
+    "controller": "protomotions",
+    "kind": "recovery",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.824014800018631,
+    "max_normal_force_n": 2767.5157400187145,
+    "peak": {
+      "time_s": 1.6197916666666548,
+      "normal_n": 2767.5157400187145,
+      "bodies": [
+        "world",
+        "Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.027222140085996764,
+    "max_body_penetration_m": 0.034373060399930155,
+    "positive_work_j": 3446.34049979841,
+    "negative_work_j": -2586.859871289957,
+    "external_work_j": 36.5682002955183,
+    "external_impulse_ns": [
+      0.0,
+      38.399999999999984,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 53.053056202396824,
+    "max_loaded_foot_slip_m": 0.04156108838204872,
+    "max_airborne_time_s": 4.621874999999818,
+    "min_root_height_m": 0.03939372468111535,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.9611948034956099,
+    "foot_delta_m": [
+      [
+        0.09771766195143528,
+        0.1488670759524524,
+        0.1457736112296566
+      ],
+      [
+        -0.008327474135995772,
+        0.21082938722503286,
+        0.23029883570099985
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "body_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ],
+    "mean_control_latency_ms": 6.757364999147184,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "798a54c2db7fae97811ae9572b5daa9037102cc133503bb5c24acecc30290afd",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "squat",
+    "controller": "protomotions",
+    "kind": "squat",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 10.27024280000478,
+    "max_normal_force_n": 579.3821617955991,
+    "peak": {
+      "time_s": 0.0677083333333334,
+      "normal_n": 579.3821617955991,
+      "bodies": [
+        "world",
+        "LeftFoot"
+      ]
+    },
+    "max_floor_penetration_m": 0.00664692701285753,
+    "max_body_penetration_m": 0.0018261170009619028,
+    "positive_work_j": 87.26750557230932,
+    "negative_work_j": -87.58130647548069,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 4.2471876125107,
+    "max_loaded_foot_slip_m": 0.019334859483919588,
+    "max_airborne_time_s": 0.011458333333333333,
+    "min_root_height_m": 0.8373163658980356,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "complete",
+    "task_achieved": true,
+    "root_excursion_m": 0.163270739853002,
+    "foot_delta_m": [
+      [
+        -0.006458606087846874,
+        0.01849025415586425,
+        -0.021425911032575073
+      ],
+      [
+        0.0001701512048839504,
+        -0.01923583809592344,
+        -0.021777192230266362
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [],
+    "mean_control_latency_ms": 6.562691666961958,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "82afd6892eab93d066a66bdd9e976035bef1d7a3df3d18f227742a4265dd9f2f",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "stand",
+    "controller": "protomotions",
+    "kind": "posture",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 9.85751979998895,
+    "max_normal_force_n": 545.8914310143778,
+    "peak": {
+      "time_s": 0.06666666666666674,
+      "normal_n": 545.8914310143778,
+      "bodies": [
+        "world",
+        "LeftFoot"
+      ]
+    },
+    "max_floor_penetration_m": 0.007026275114348276,
+    "max_body_penetration_m": 0.0022494451094275704,
+    "positive_work_j": 19.91185464160226,
+    "negative_work_j": -20.58494580484934,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 4.2009843518280485,
+    "max_loaded_foot_slip_m": 0.019462171989001437,
+    "max_airborne_time_s": 0.010416666666666666,
+    "min_root_height_m": 0.9782132487160143,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "complete",
+    "task_achieved": true,
+    "root_excursion_m": 0.02237385703502326,
+    "foot_delta_m": [
+      [
+        -0.007498835229540646,
+        0.018095035899307277,
+        -0.021433772805472318
+      ],
+      [
+        0.0009466879912167769,
+        -0.017098644592152823,
+        -0.021747249052434303
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [],
+    "mean_control_latency_ms": 6.118724999962271,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "26bc8ec5c675700804eb5a53ccecda75fe0e0ca0534e65264a8bbc023f94f31f",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "step_left",
+    "controller": "protomotions",
+    "kind": "step",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 10.861378399975365,
+    "max_normal_force_n": 672.6731659377908,
+    "peak": {
+      "time_s": 0.06875000000000006,
+      "normal_n": 672.6731659377908,
+      "bodies": [
+        "world",
+        "RightFoot"
+      ]
+    },
+    "max_floor_penetration_m": 0.006632364500309115,
+    "max_body_penetration_m": 0.0013021515112171672,
+    "positive_work_j": 67.44991447033622,
+    "negative_work_j": -74.40677329532896,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 4.470221800538441,
+    "max_loaded_foot_slip_m": 0.019596525988783052,
+    "max_airborne_time_s": 0.010416666666666666,
+    "min_root_height_m": 0.9271291200995507,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "incomplete",
+    "task_achieved": false,
+    "root_excursion_m": 0.07345798565148687,
+    "foot_delta_m": [
+      [
+        0.07056755256760994,
+        0.033632542889165506,
+        -0.021343583609663763
+      ],
+      [
+        -0.006781368935349974,
+        -0.018985695320708373,
+        -0.02172424662590028
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [],
+    "mean_control_latency_ms": 6.8586833330401635,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "4882a6dd255649ce38e71255f44552ffdedd6d21af5a7dddecf16d033d765270",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  },
+  {
+    "case": "transfer",
+    "controller": "protomotions",
+    "kind": "transfer",
+    "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 5.99999999999974,
+    "wall_s": 10.72915009999997,
+    "max_normal_force_n": 577.8940724249476,
+    "peak": {
+      "time_s": 0.06979166666666672,
+      "normal_n": 577.8940724249476,
+      "bodies": [
+        "world",
+        "LeftFoot"
+      ]
+    },
+    "max_floor_penetration_m": 0.007031621464858138,
+    "max_body_penetration_m": 0.0015441108661149727,
+    "positive_work_j": 23.662033299235084,
+    "negative_work_j": -24.83943169235613,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 4.2154195757951065,
+    "max_loaded_foot_slip_m": 0.015332138193374499,
+    "max_airborne_time_s": 0.010416666666666666,
+    "min_root_height_m": 0.9785086531442785,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "incomplete",
+    "task_achieved": false,
+    "root_excursion_m": 0.022078452606759114,
+    "foot_delta_m": [
+      [
+        -0.007058593741135155,
+        0.013461985361999496,
+        -0.021446896881003263
+      ],
+      [
+        0.0008690820600065763,
+        -0.013458826837108973,
+        -0.021756491926822497
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [],
+    "mean_control_latency_ms": 6.761104999006623,
+    "reference_sha256": "10fac8d71da1e89c5312fd4be5393c68ad6f98968741c368ea3d56b6f68de91c",
+    "initial_state_sha256": "6a9b61a47e964601f9bf9219d1539ba643cdaab9bb2f4c86b3118f24ffa2a180",
+    "supported_clearance": [
+      false,
+      false
+    ],
+    "supported_landing": [
+      false,
+      false
+    ]
+  }
+]

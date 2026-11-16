@@ -1,0 +1,27 @@
+{
+  "pairs_checked": 18,
+  "identity": [
+    "case",
+    "model_sha256",
+    "reference_sha256",
+    "initial_state_sha256",
+    "mujoco",
+    "duration_s"
+  ],
+  "external_impulse_tolerance_ns": 1e-08,
+  "all_comparable": true,
+  "controllers": {
+    "pd": {
+      "complete": 0,
+      "total": 9
+    },
+    "mjpc": {
+      "complete": 0,
+      "total": 9
+    },
+    "protomotions": {
+      "complete": 2,
+      "total": 9
+    }
+  }
+}

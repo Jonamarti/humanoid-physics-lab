@@ -1,0 +1,1493 @@
+[
+  {
+    "case": "arm_push",
+    "controller": "hybrid_learned_balance_and_limb_IK",
+    "kind": "contact",
+    "model_sha256": "0b3f31b61a00a00069f7399798e2de45d672214b3a6ea4fd670d899964f0308e",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 3.000009600000198,
+    "wall_s": 9.680772200023057,
+    "max_normal_force_n": 545.6344024617449,
+    "peak": {
+      "time_s": 0.06666688000000004,
+      "normal_n": 545.6344024617449,
+      "bodies": [
+        "world",
+        "b_LeftFoot"
+      ]
+    },
+    "max_floor_penetration_m": 0.007024688921200525,
+    "max_body_penetration_m": 0.00455992133909601,
+    "positive_work_j": 76.68186493383158,
+    "negative_work_j": -95.14314949705464,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 4.200344520339612,
+    "max_loaded_foot_slip_m": 0.027329449377840726,
+    "max_airborne_time_s": 0.011458369999999999,
+    "min_root_height_m": 0.969994280347154,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "incomplete",
+    "task_achieved": false,
+    "root_excursion_m": 0.03059282540388364,
+    "foot_delta_m": [
+      [
+        -0.012563226555028895,
+        0.024507574332719634,
+        -0.0215784721091416
+      ],
+      [
+        -0.008461569930564183,
+        -0.026081533769666154,
+        -0.021129124043291037
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "loaded_foot_slip"
+    ],
+    "events": [
+      {
+        "t": 0.013541709999999998,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.036458450000000024,
+        "foot": 1,
+        "event": "loaded"
+      }
+    ],
+    "mean_control_latency_ms": null,
+    "contacts_enabled": true,
+    "cross_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "contact_pairs_normal_impulse_ns": {},
+    "receiver_com_delta_m": [
+      -0.0010740337085126117,
+      -0.003996383797213871,
+      -0.01623653020760396
+    ],
+    "initial_cross_penetration_m": 0,
+    "planned_hand_or_foot_error_m": 9.806796823228159e-05,
+    "intent_only": true,
+    "note": "Shared dynamic bodies; learned balance plus limb goals. Not a validated technique.",
+    "geometry_goal_reachable": true
+  },
+  {
+    "case": "arm_push",
+    "controller": "identical_target_replay",
+    "kind": "contact",
+    "model_sha256": "2bea78020453c70256c7190725d54882cde8c8ec63651e170eea18ff403f6e5d",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 3.000009600000198,
+    "wall_s": 3.3797126999998,
+    "max_normal_force_n": 545.6344024617449,
+    "peak": {
+      "time_s": 0.06666688000000004,
+      "normal_n": 545.6344024617449,
+      "bodies": [
+        "world",
+        "b_LeftFoot"
+      ]
+    },
+    "max_floor_penetration_m": 0.007024688921200525,
+    "max_body_penetration_m": 0.00455992133909601,
+    "positive_work_j": 76.68186493383158,
+    "negative_work_j": -95.14314949705464,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 4.200344520339612,
+    "max_loaded_foot_slip_m": 0.027329449377840726,
+    "max_airborne_time_s": 0.011458369999999999,
+    "min_root_height_m": 0.969994280347154,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "incomplete",
+    "task_achieved": false,
+    "root_excursion_m": 0.03059282540388364,
+    "foot_delta_m": [
+      [
+        -0.012563226555028895,
+        0.024507574332719634,
+        -0.0215784721091416
+      ],
+      [
+        -0.008461569930564183,
+        -0.026081533769666154,
+        -0.021129124043291037
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "loaded_foot_slip"
+    ],
+    "events": [
+      {
+        "t": 0.013541709999999998,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.036458450000000024,
+        "foot": 1,
+        "event": "loaded"
+      }
+    ],
+    "mean_control_latency_ms": null,
+    "contacts_enabled": false,
+    "cross_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "contact_pairs_normal_impulse_ns": {},
+    "receiver_com_delta_m": [
+      -0.0010740337085126117,
+      -0.003996383797213871,
+      -0.01623653020760396
+    ],
+    "initial_cross_penetration_m": 0,
+    "planned_hand_or_foot_error_m": 9.806796823228159e-05,
+    "intent_only": true,
+    "note": "Shared dynamic bodies; learned balance plus limb goals. Not a validated technique.",
+    "geometry_goal_reachable": true
+  },
+  {
+    "case": "leg_push",
+    "controller": "hybrid_learned_balance_and_limb_IK",
+    "kind": "contact",
+    "model_sha256": "0b3f31b61a00a00069f7399798e2de45d672214b3a6ea4fd670d899964f0308e",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 3.000009600000198,
+    "wall_s": 9.64429569998174,
+    "max_normal_force_n": 1881.7294310496718,
+    "peak": {
+      "time_s": 1.8697976499999907,
+      "normal_n": 1881.7294310496718,
+      "bodies": [
+        "world",
+        "a_RightLeg"
+      ]
+    },
+    "max_floor_penetration_m": 0.0335418264326244,
+    "max_body_penetration_m": 0.004456958810970302,
+    "positive_work_j": 274.1516243878102,
+    "negative_work_j": -499.9338308250507,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 10.762518835190642,
+    "max_loaded_foot_slip_m": 0.07033519370658323,
+    "max_airborne_time_s": 0.5197933299999977,
+    "min_root_height_m": 0.1758651941687925,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8247219115822451,
+    "foot_delta_m": [
+      [
+        0.27651509270315816,
+        -0.2816964031715531,
+        0.014447772417919252
+      ],
+      [
+        0.0049687776071365986,
+        0.008667019011310423,
+        -0.010652584862548858
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "events": [
+      {
+        "t": 0.0104167,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.06250020000000006,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.434379589999993,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4593796699999928,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4666713599999928,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4854214199999927,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4947964499999926,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5000047999999926,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5062548199999926,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5208381999999925,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5333382399999924,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5510466299999923,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5583383199999923,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5666716799999922,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5729216999999922,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5791717199999922,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5843800699999921,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5906300899999921,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.594796769999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.600005119999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.604171799999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.607296809999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.610421819999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.614588499999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.616671839999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.622921859999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.629171879999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6354218999999919,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6406302499999919,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6458385999999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6500052799999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6520886199999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6562552999999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6635469899999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6697970099999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6718803499999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6750053599999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6791720399999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6812553799999916,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6833387199999916,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6864637299999916,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7010471099999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7041721199999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7062554599999915,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7072971299999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7104221399999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7156304899999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7187554999999914,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7312555399999914,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7343805499999914,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7406305699999913,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7500055999999913,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7572972899999912,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7656306499999912,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7812556999999911,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8875060399999906,
+        "foot": 0,
+        "event": "clearance_3cm"
+      }
+    ],
+    "mean_control_latency_ms": null,
+    "contacts_enabled": true,
+    "cross_impulse_ns": [
+      0.689803689473865,
+      -0.30591657831788716,
+      -0.3740113167312838
+    ],
+    "contact_pairs_normal_impulse_ns": {
+      "a_LeftToeBase / b_LeftShin": 0.6862128720215334
+    },
+    "receiver_com_delta_m": [
+      -0.0017934900027666567,
+      -0.004105348173350084,
+      -0.016927483678493394
+    ],
+    "initial_cross_penetration_m": 0,
+    "planned_hand_or_foot_error_m": 9.200764583257422e-05,
+    "intent_only": true,
+    "note": "Shared dynamic bodies; learned balance plus limb goals. Not a validated technique.",
+    "geometry_goal_reachable": true
+  },
+  {
+    "case": "leg_push",
+    "controller": "identical_target_replay",
+    "kind": "contact",
+    "model_sha256": "2bea78020453c70256c7190725d54882cde8c8ec63651e170eea18ff403f6e5d",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 3.000009600000198,
+    "wall_s": 3.305125399987446,
+    "max_normal_force_n": 1881.7294310496718,
+    "peak": {
+      "time_s": 1.8697976499999907,
+      "normal_n": 1881.7294310496718,
+      "bodies": [
+        "world",
+        "a_RightLeg"
+      ]
+    },
+    "max_floor_penetration_m": 0.0335418264326244,
+    "max_body_penetration_m": 0.004456958810970302,
+    "positive_work_j": 273.7645008990203,
+    "negative_work_j": -500.5224964745743,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 10.762518835190642,
+    "max_loaded_foot_slip_m": 0.07033519370658323,
+    "max_airborne_time_s": 0.5197933299999977,
+    "min_root_height_m": 0.1758651941687925,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.8247219115822451,
+    "foot_delta_m": [
+      [
+        0.2937736724693861,
+        -0.316638883329885,
+        -0.004609969213477005
+      ],
+      [
+        0.0054760866174344835,
+        0.008449999752231235,
+        -0.010385589520238193
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": false,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "events": [
+      {
+        "t": 0.0104167,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.06250020000000006,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.434379589999993,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4593796699999928,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4666713599999928,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4854214199999927,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4947964499999926,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5000047999999926,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5062548199999926,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5208381999999925,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5333382399999924,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5510466299999923,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5583383199999923,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5666716799999922,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5729216999999922,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5791717199999922,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5843800699999921,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5906300899999921,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.594796769999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.600005119999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.604171799999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.607296809999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.610421819999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.614588499999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.616671839999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.622921859999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.629171879999992,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6354218999999919,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6406302499999919,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6458385999999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6500052799999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6520886199999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6562552999999918,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6635469899999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6697970099999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6718803499999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6750053599999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6791720399999917,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6812553799999916,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6833387199999916,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.6864637299999916,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7010471099999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7041721199999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7062554599999915,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7072971299999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7104221399999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7156304899999915,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7187554999999914,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7312555399999914,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7343805499999914,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7406305699999913,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7500055999999913,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7572972899999912,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7656306499999912,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7812556999999911,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8875060399999906,
+        "foot": 0,
+        "event": "clearance_3cm"
+      }
+    ],
+    "mean_control_latency_ms": null,
+    "contacts_enabled": false,
+    "cross_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "contact_pairs_normal_impulse_ns": {},
+    "receiver_com_delta_m": [
+      -0.002794255737932849,
+      -0.0037212758803883365,
+      -0.01705030463310042
+    ],
+    "initial_cross_penetration_m": 0,
+    "planned_hand_or_foot_error_m": 9.200764583257422e-05,
+    "intent_only": true,
+    "note": "Shared dynamic bodies; learned balance plus limb goals. Not a validated technique.",
+    "geometry_goal_reachable": true
+  },
+  {
+    "case": "body_support",
+    "controller": "hybrid_learned_balance_and_limb_IK",
+    "kind": "contact",
+    "model_sha256": "0b3f31b61a00a00069f7399798e2de45d672214b3a6ea4fd670d899964f0308e",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 3.000009600000198,
+    "wall_s": 9.370833299995866,
+    "max_normal_force_n": 1737.6362119231128,
+    "peak": {
+      "time_s": 2.304174040000053,
+      "normal_n": 1737.6362119231128,
+      "bodies": [
+        "world",
+        "b_Head"
+      ]
+    },
+    "max_floor_penetration_m": 0.02076283387114638,
+    "max_body_penetration_m": 0.011587286075038186,
+    "positive_work_j": 482.7861614201019,
+    "negative_work_j": -618.8201325781134,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 18.284180562153058,
+    "max_loaded_foot_slip_m": 0.020660034400431106,
+    "max_airborne_time_s": 0.03125010000000002,
+    "min_root_height_m": 0.8567803192086234,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "incomplete",
+    "task_achieved": false,
+    "root_excursion_m": 0.1438067865424142,
+    "foot_delta_m": [
+      [
+        -0.16458930679691408,
+        0.04869376674867966,
+        -0.02073904858165826
+      ],
+      [
+        -0.1832450409917843,
+        -0.06815405509860784,
+        -0.021525975114176532
+      ]
+    ],
+    "stable_final_second": true,
+    "physical_step": true,
+    "recovered_with_step": false,
+    "artifacts": [
+      "floor_penetration",
+      "loaded_foot_slip"
+    ],
+    "events": [
+      {
+        "t": 0.00937503,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.04270847000000003,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 0.9072945699999957,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.9375029999999955,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.0645867399999949,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.1083368799999946,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.1229202599999946,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.1302119499999945,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.2072955299999941,
+        "foot": 1,
+        "event": "clearance_3cm"
+      },
+      {
+        "t": 1.3385459499999934,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.3645876999999933,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.3666710399999933,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.3833377599999932,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.3927127899999932,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4000044799999931,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4427129499999929,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5479216199999923,
+        "foot": 0,
+        "event": "loaded"
+      }
+    ],
+    "mean_control_latency_ms": null,
+    "contacts_enabled": true,
+    "cross_impulse_ns": [
+      41.123206635697045,
+      -26.896558407742212,
+      63.83338600238606
+    ],
+    "contact_pairs_normal_impulse_ns": {
+      "a_Head / b_Head": 3.062524387565351,
+      "a_Chest / b_Head": 17.800139087500284,
+      "a_Chest / b_Neck1": 1.510996577968584,
+      "a_Hips / b_Head": 7.1638065491998875,
+      "a_RightLeg / b_Head": 5.0799933346159305,
+      "a_RightShin / b_RightArm": 9.507782101795694,
+      "a_RightLeg / b_RightLeg": 8.893814088314503,
+      "a_RightShin / b_RightShin": 14.070294697571047,
+      "a_RightToeBase / b_RightShin": 12.722203863065989,
+      "a_RightFoot / b_RightShin": 0.6142229045084093
+    },
+    "receiver_com_delta_m": [
+      -0.7767250843038593,
+      -0.5590303643737167,
+      -0.895919007397175
+    ],
+    "initial_cross_penetration_m": 0,
+    "planned_hand_or_foot_error_m": 0.26114339904485123,
+    "intent_only": true,
+    "note": "Shared dynamic bodies; learned balance plus limb goals. Not a validated technique.",
+    "geometry_goal_reachable": false
+  },
+  {
+    "case": "body_support",
+    "controller": "identical_target_replay",
+    "kind": "contact",
+    "model_sha256": "2bea78020453c70256c7190725d54882cde8c8ec63651e170eea18ff403f6e5d",
+    "mujoco": "3.5.0",
+    "mass_kg": 42.466827,
+    "duration_s": 3.000009600000198,
+    "wall_s": 2.5596692000108305,
+    "max_normal_force_n": 3859.098059823964,
+    "peak": {
+      "time_s": 1.7000054399999915,
+      "normal_n": 3859.098059823964,
+      "bodies": [
+        "world",
+        "b_Chest"
+      ]
+    },
+    "max_floor_penetration_m": 0.03152683181315978,
+    "max_body_penetration_m": 0.010158464641839539,
+    "positive_work_j": 616.0215406182622,
+    "negative_work_j": -869.8607468507863,
+    "external_work_j": 0.0,
+    "external_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_joint_speed_rad_s": 26.528722597250372,
+    "max_loaded_foot_slip_m": 0.10647266939985894,
+    "max_airborne_time_s": 0.08541693999999994,
+    "min_root_height_m": 0.0984320714316837,
+    "initial_root_height_m": 1.0005871057510376,
+    "outcome": "fall",
+    "task_achieved": false,
+    "root_excursion_m": 0.9021550343193538,
+    "foot_delta_m": [
+      [
+        0.13052707133058106,
+        0.03171650461970772,
+        0.06916612630161634
+      ],
+      [
+        0.0631829529444447,
+        -0.0951733212880694,
+        0.06995199804077495
+      ]
+    ],
+    "stable_final_second": false,
+    "physical_step": true,
+    "recovered_with_step": false,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ],
+    "events": [
+      {
+        "t": 0.00937503,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.04270847000000003,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 0.9072945699999957,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 0.9375029999999955,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.0802117899999948,
+        "foot": 0,
+        "event": "clearance_3cm"
+      },
+      {
+        "t": 1.1375036399999945,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.2031288499999941,
+        "foot": 1,
+        "event": "clearance_3cm"
+      },
+      {
+        "t": 1.3166708799999935,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.403129489999993,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.4479212999999929,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.5031298099999926,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.7812556999999911,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.792714069999991,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.797922419999991,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.804172439999991,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.813547469999991,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.820839159999991,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8322975299999908,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8375058799999908,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8489642499999908,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8489642499999908,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8614642899999907,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8614642899999907,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8739643299999906,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8791726799999906,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8833393599999906,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8937560599999905,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.8958393999999905,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 1.9062560999999905,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.9125061199999904,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.9156311299999904,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 1.9156311299999904,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.111465090000013,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.114590100000014,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1166734400000142,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1218817900000153,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1281318100000166,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.129173480000017,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1322984900000175,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.135423500000018,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1375068400000186,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.140631850000019,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1416735200000194,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.14375686000002,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.148965210000021,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1520902200000216,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1562569000000225,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1614652500000235,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.167715270000025,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1708402800000255,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1812569800000277,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.1843819900000283,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.2093820700000335,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.211465410000034,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.284382310000049,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.5020913400000944,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.538549790000102,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.548966490000104,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.563549870000107,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.5708415600001087,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.57709158000011,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.5833416000001113,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.5906332900001128,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.5989666500001145,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.620841720000119,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.620841720000119,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.640633450000123,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.6604251800001273,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.67396689000013,
+        "foot": 0,
+        "event": "loaded"
+      },
+      {
+        "t": 2.712508680000138,
+        "foot": 1,
+        "event": "loaded"
+      },
+      {
+        "t": 2.7395921000001437,
+        "foot": 1,
+        "event": "loaded"
+      }
+    ],
+    "mean_control_latency_ms": null,
+    "contacts_enabled": false,
+    "cross_impulse_ns": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "contact_pairs_normal_impulse_ns": {},
+    "receiver_com_delta_m": [
+      -1.2307965596636492,
+      0.2497851129485006,
+      -0.901206863887563
+    ],
+    "initial_cross_penetration_m": 0,
+    "planned_hand_or_foot_error_m": 0.26114339904485123,
+    "intent_only": true,
+    "note": "Shared dynamic bodies; learned balance plus limb goals. Not a validated technique.",
+    "geometry_goal_reachable": false
+  }
+]

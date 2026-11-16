@@ -1,0 +1,32 @@
+{
+  "case": "natural_step_left",
+  "measurement": "minimum floor distance over all foot/toe colliders, replay at 120Hz",
+  "max_sole_clearance_m": [
+    0.03674262179028272,
+    0.020544126725602647
+  ],
+  "supported_lift_time_s": [
+    2.3010416666666162,
+    null
+  ],
+  "loaded_landing_time_s": [
+    2.442708333333275,
+    null
+  ],
+  "actual_foot_advance_m": 0.26689375657315395,
+  "requested_foot_advance_m": 0.28,
+  "stable_final_second": true,
+  "artifacts": [],
+  "legacy_centroid_pass": false,
+  "physical_step_observed": true,
+  "mean_hand_height_relative_pelvis_m": [
+    -0.12496287846738849,
+    -0.11464597488779071
+  ],
+  "mean_hand_lateral_distance_m": [
+    0.24055829843461854,
+    0.26036247434934096
+  ],
+  "stable_final_two_seconds": true,
+  "full_requested_distance_achieved": false
+}

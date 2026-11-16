@@ -1,0 +1,92 @@
+{
+  "case": "natural_step_left",
+  "controller": "protomotions",
+  "kind": "step",
+  "model_sha256": "83617bf09807354ca970b15379ac4d1caff90c4efdf472f0e76da168ebdb19a5",
+  "mujoco": "3.5.0",
+  "mass_kg": 42.466827,
+  "duration_s": 5.99999999999974,
+  "wall_s": 9.541230100003304,
+  "max_normal_force_n": 641.0598779309639,
+  "peak": {
+    "time_s": 0.06979166666666672,
+    "normal_n": 641.0598779309639,
+    "bodies": [
+      "world",
+      "RightFoot"
+    ]
+  },
+  "max_floor_penetration_m": 0.005916572925010221,
+  "max_body_penetration_m": 0.0021621238935858704,
+  "positive_work_j": 70.0719190536378,
+  "negative_work_j": -67.63103996779401,
+  "external_work_j": 0.0,
+  "external_impulse_ns": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "max_joint_speed_rad_s": 5.18237688233636,
+  "max_loaded_foot_slip_m": 0.015684223428287052,
+  "max_airborne_time_s": 0.009375,
+  "min_root_height_m": 0.9447666133341875,
+  "initial_root_height_m": 1.0005871057510376,
+  "desired_advance_m": 0.28,
+  "outcome": "incomplete",
+  "task_achieved": false,
+  "root_excursion_m": 0.055820492416850054,
+  "foot_delta_m": [
+    [
+      0.26689375657315395,
+      0.05199840631325969,
+      -0.021493395564971263
+    ],
+    [
+      -0.004749227154093205,
+      -0.017496630163805094,
+      -0.0216708034111584
+    ]
+  ],
+  "stable_final_second": true,
+  "physical_step": true,
+  "recovered_with_step": false,
+  "artifacts": [],
+  "events": [
+    {
+      "t": 0.010416666666666666,
+      "foot": 0,
+      "event": "loaded"
+    },
+    {
+      "t": 0.03750000000000001,
+      "foot": 1,
+      "event": "loaded"
+    },
+    {
+      "t": 2.208333333333288,
+      "foot": 0,
+      "event": "clearance_3cm"
+    },
+    {
+      "t": 2.437499999999942,
+      "foot": 0,
+      "event": "loaded"
+    },
+    {
+      "t": 2.6614583333332624,
+      "foot": 0,
+      "event": "loaded"
+    }
+  ],
+  "mean_control_latency_ms": 6.20056833383084,
+  "reference_sha256": "8b1120a01bca49dcdc1dcb5c8bc131c1e3fb60aac60dc1012c9ebb2ddc5a9650",
+  "initial_state_sha256": "2c0186e395ac0b38b23c9452290637bb678d52a64e19f80d0bcacedd179c3ec0",
+  "supported_clearance": [
+    true,
+    false
+  ],
+  "supported_landing": [
+    true,
+    false
+  ]
+}

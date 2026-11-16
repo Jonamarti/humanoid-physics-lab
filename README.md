@@ -1,5 +1,12 @@
 # Humanoid Physics Lab
 
+
+## Propósito de producción (decisión 16-11-2026)
+
+**Motor público de simulación física offline para generar animaciones, no motor de física para juegos Unity.** HPL calcula respuestas a impactos, equilibrio, pasos, caídas y mecánicas de derribo con modelos genéricos, entrega grabaciones y formatos de poses neutrales; AnimSpec/Blender (privado) define técnicas, adapta a rigs y exporta clips. Los juegos reproducen los clips ya calculados. No incluir nombres, medidas, modelos ni recursos privados del consumidor en HPL.
+
+**Leer:** [propósito y límites](docs/OBJETIVO_GENERADOR_ANIMACIONES.md) · [ADR](docs/ARCHITECTURE_BOUNDARY.md) · [plan por fases](docs/PLAN_DERRIBOS.md). El README no certifica como terminadas las fases/PR en borrador.
+
 [![CI](https://github.com/Jonamarti/humanoid-physics-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Jonamarti/humanoid-physics-lab/actions/workflows/ci.yml)
 
 Laboratorio público para desarrollar **control clásico** de equilibrio, pasos y caídas articuladas en un humanoide físico, sin aprendizaje automático.

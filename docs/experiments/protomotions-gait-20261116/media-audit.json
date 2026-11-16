@@ -1,0 +1,122 @@
+{
+  "physics_steps": 0,
+  "real_time_fps": 30,
+  "slow_motion_source_sampling_hz": 120,
+  "files": {
+    "cuatro-velocidades.mp4": {
+      "bytes": 1855312,
+      "sha256": "71aa5886c7498c4c9677b3c53a13fdc13ded5a8b87963c25557b139cadee8fe2",
+      "decoded": true
+    },
+    "impactos-antes-despues.mp4": {
+      "bytes": 2401427,
+      "sha256": "537679e42deb3a95d94780447ac68c2bf97a14a72cd75bf15f0bb6043727b508",
+      "decoded": true
+    },
+    "kick_forward_36-pareja.mp4": {
+      "bytes": 602971,
+      "sha256": "dc8b229f56fc8ae9d75aba650999db435910e2498d2bf6d8d9c0b99403a11b50",
+      "decoded": true
+    },
+    "kick_forward_36_baseline.mp4": {
+      "bytes": 612384,
+      "sha256": "5b34d14fd1adfaa314a98f14cb463a5cfa52c0167c931b2913809491a5936c5e",
+      "decoded": true
+    },
+    "kick_forward_36_reactive.mp4": {
+      "bytes": 633539,
+      "sha256": "40e222e77339663a2e27c5d3f9dc8a86f5bfc1c40811f8d637919fb7a40ded79",
+      "decoded": true
+    },
+    "marcha-anterior.mp4": {
+      "bytes": 1631697,
+      "sha256": "5b792942353c2f1e05ee5c2a2a5803c670cf8d6b49d6a56c49b1de6c02c3f421",
+      "decoded": true
+    },
+    "marcha-antes-despues.mp4": {
+      "bytes": 1482213,
+      "sha256": "bb8b9c049a59ec531039bba9e951a6429f208eca07c196b0f7e35ba6b2b77f1f",
+      "decoded": true
+    },
+    "marcha-fast.mp4": {
+      "bytes": 1520698,
+      "sha256": "7ec8c2040b483240646256529a53bd4556fd6261df8d30410dc8afc6cc2b27b9",
+      "decoded": true
+    },
+    "marcha-higher-x025.mp4": {
+      "bytes": 3592626,
+      "sha256": "5da2c0c2a083c08fb9341982969bfa31e3f574cee9729ba02a5259977746a1ed",
+      "decoded": true
+    },
+    "marcha-higher.mp4": {
+      "bytes": 1271082,
+      "sha256": "e33f07deea4c69d4df80261a14ecd12de3fe23fdc48c9bca44550905c0de5b8b",
+      "decoded": true
+    },
+    "marcha-intermedia-diagnostico.mp4": {
+      "bytes": 1802401,
+      "sha256": "4c59866bd3492d4a4cce70e39d19026123ea959675b056f35f950b4c745a3ce2",
+      "decoded": true
+    },
+    "marcha-medium.mp4": {
+      "bytes": 1895836,
+      "sha256": "830b3e8bf847c758ea517f40226f3f0921dfddc82d9ac8d4234266586e5369ff",
+      "decoded": true
+    },
+    "marcha-slow.mp4": {
+      "bytes": 2705430,
+      "sha256": "4dd400b0a8731a3cb189d336521bf85d921b665449fe84ed65f3a37b597a9a08",
+      "decoded": true
+    },
+    "probe-v1.mp4": {
+      "bytes": 1957334,
+      "sha256": "1b4beb7ad901368554c60eaab994b4e70621b61adb214e8a0315e2fe78b53af0",
+      "decoded": true
+    },
+    "punch_backward_36-pareja.mp4": {
+      "bytes": 937931,
+      "sha256": "1694af36372d714b63ab9453762b2010f03ec887eff0eba7182ee0963fa8dae2",
+      "decoded": true
+    },
+    "punch_backward_36_baseline.mp4": {
+      "bytes": 1043139,
+      "sha256": "c9e74119318735364358e491ee3b6cb28334e2ae923c930f07a86e4c77297e23",
+      "decoded": true
+    },
+    "punch_backward_36_reactive.mp4": {
+      "bytes": 885785,
+      "sha256": "58d6c8dd391bb71c358e5659a600d227326099e8953ab932dfd297d3c8f6c8e3",
+      "decoded": true
+    },
+    "punch_forward_8-pareja.mp4": {
+      "bytes": 395600,
+      "sha256": "ab7d3de06cad7ce4d1f5e4ee4a3ce7c4ed16ae48a3ebf5033da888d61fee3064",
+      "decoded": true
+    },
+    "punch_forward_8_baseline.mp4": {
+      "bytes": 403943,
+      "sha256": "e4d129917c0b6a6a5b5e1b24e00cd982b9739c36c0b08e5444218430cddc9181",
+      "decoded": true
+    },
+    "punch_forward_8_reactive.mp4": {
+      "bytes": 405850,
+      "sha256": "be46a4a73a248416baace7cc315b6363f9bc9df5d207fc8f86fb96a4fefc7872",
+      "decoded": true
+    },
+    "punch_left_20-pareja.mp4": {
+      "bytes": 444963,
+      "sha256": "5cca26873e5b8de61d2f92682a66dfb4baefebbf23c5eb53b4d2aa783975d87b",
+      "decoded": true
+    },
+    "punch_left_20_baseline.mp4": {
+      "bytes": 441697,
+      "sha256": "4c5878d44d0cbd09328665e0f9d003dfd84becedb5023357c65f7c7101915edc",
+      "decoded": true
+    },
+    "punch_left_20_reactive.mp4": {
+      "bytes": 442458,
+      "sha256": "91d23cad75966b8a26bff78c5336b1feeacb5209603a5fab3d9145712097fd11",
+      "decoded": true
+    }
+  }
+}

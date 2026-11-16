@@ -160,7 +160,7 @@ def save_pack(chunks,path):
         length_starts=torch.tensor(np.cumsum([0]+n[:-1])),lrs=None)
     path.parent.mkdir(parents=True,exist_ok=True);torch.save(pack,path)
 
-def run(root,pack,out,cases,planner_factory=None,same_initial=False,warmup=0.):
+def run(root,pack,out,cases,planner_factory=None,same_initial=False,warmup=0.,telemetry_factory=Telemetry,model_configurator=None,action_filter_factory=None):
     import torch
     agent=create_agent(root,pack);env=agent.env;sim=env.simulator;m=sim.model;d=sim.data
     original=mujoco.mj_step;results=[];base_solref=m.geom_solref.copy();base_noslip=m.opt.noslip_iterations;base_cone=m.opt.cone
@@ -209,11 +209,13 @@ def run(root,pack,out,cases,planner_factory=None,same_initial=False,warmup=0.):
                         env.reference.assign(torch.tensor([0]),ids=torch.tensor([case["clip"]]),times=torch.zeros(1))
                         env.observe(torch.tensor([0]))
                     obs=env.get_obs()
+            model_notes=model_configurator(case,m,d) if model_configurator else None
             initial_observations={k:v.detach().numpy().copy() for k,v in obs.items()}
             planner=planner_factory(env,case) if planner_factory else None
+            action_filter=action_filter_factory(env,case) if action_filter_factory else None
             from support_feedback import SupportFeedback
             support=SupportFeedback(env) if case.get("support_feedback") else None
-            tel=Telemetry(m,d);qvels=[];forces=[];loads=[];started=time.perf_counter()
+            tel=telemetry_factory(m,d);qvels=[];forces=[];loads=[];started=time.perf_counter()
             def measured(model,data,*args,**kwargs):
                 if model is not m:return original(model,data,*args,**kwargs)
                 data.xfrc_applied[:]=0
@@ -232,6 +234,7 @@ def run(root,pack,out,cases,planner_factory=None,same_initial=False,warmup=0.):
                     env.observe(torch.tensor([0]));obs=env.get_obs()
                 a=action(agent,obs,k)
                 if support:a=support.apply(a,tel)
+                if action_filter:a=action_filter.apply(a,tel)
                 tel.control_latencies.append(time.perf_counter()-tick)
                 with torch.no_grad():obs,*_=env.step(a)
                 if not np.isfinite(d.qpos).all():raise RuntimeError("Nonfinite physical state")
@@ -239,7 +242,7 @@ def run(root,pack,out,cases,planner_factory=None,same_initial=False,warmup=0.):
             result=tel.finish(dict(case,id=case["id"],kind=case.get("kind","gait")),"protomotions",p,time.perf_counter()-started)
             np.savez_compressed(p/"initial-observations.npz",**initial_observations)
             np.savez_compressed(p/"dynamics.npz",qvel=np.array(qvels),chest_force=np.array(forces),joint_torque=np.array(loads))
-            result.update(physical_preparation_s=warmup,network_evaluation_mode=True,supplementary_stance_force_bound_n=60 if support else 0,supplementary_stance_force_max_n=support.max_force if support else 0,planner_events=planner.events if planner else [],scenario=case,physical_model_sha256=physical_fingerprint(m),
+            result.update(landing_residual_max_torque_nm=action_filter.maximum_requested_torque.tolist() if action_filter else None,model_intervention=model_notes,physical_preparation_s=warmup,network_evaluation_mode=True,supplementary_stance_force_bound_n=60 if support else 0,supplementary_stance_force_max_n=support.max_force if support else 0,planner_events=planner.events if planner else [],scenario=case,physical_model_sha256=physical_fingerprint(m),
                 reference_sha256=hashlib.sha256(pack.read_bytes()).hexdigest(),
                 initial_state_sha256=hashlib.sha256(tel.initial_state.tobytes()).hexdigest())
             (p/"summary.json").write_text(json.dumps(result,indent=2),encoding="utf-8")

@@ -1,0 +1,30 @@
+{
+  "flat_baseline_tag": "codex/protomotions-flat-foot-baseline-20261116",
+  "flat_baseline_commit": "2b8d963",
+  "native_tests_passed": 37,
+  "typescript_tests_passed": 706,
+  "physics_certified": false,
+  "videos": {
+    "comparacion-amortiguada-x025.mp4": {
+      "bytes": 7173735,
+      "sha256": "41e3ccb5f958fd0bca9e05478508f8f98cfeceed7eec01bf7208c387387f9592"
+    },
+    "comparacion-amortiguada-x1.mp4": {
+      "bytes": 2656529,
+      "sha256": "ede501d4dbdc2c280f57a6b3b31707d22ea85e517a9d40ab634e9f9ea943b7e7"
+    },
+    "comparacion-amortiguada.mp4": {
+      "bytes": 4762813,
+      "sha256": "cb1a75e67bb6d8b1f45334e5b249f2c96e18cf82fe3fc3613b195dd98358558f"
+    },
+    "talon-claro-diagnostico.mp4": {
+      "bytes": 2596124,
+      "sha256": "7dd0158887c3e520f9474328745ac3f466713ebf9f6d7ea049eb1344334a5563"
+    },
+    "talon-marcado-diagnostico.mp4": {
+      "bytes": 2621992,
+      "sha256": "8878b323cce5a393cd1391b379190cd95156526ae380a86361337fc257ef45ee"
+    }
+  },
+  "purpose": "Preserve the heel-toe/posture experiments before adding contact-driven loading response. Raw recordings remain in out/heel-toe; no overwrite."
+}

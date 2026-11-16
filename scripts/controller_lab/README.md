@@ -54,3 +54,9 @@ Ensayos de contacto, no técnicas completas. En el caso con contactos, el equili
 Se guarda un modelo binario exacto para reproducir el estado compilado. `mj_saveLastXML` por sí solo perdía el enum del sesgo PD modificado en ejecución; el exportador conserva también un XML con esos tipos explícitos y comprueba la recarga. El render nunca vuelve a simular.
 
 52 articulaciones y 42,47 kg en el modelo publicado, con motores de ingeniería. No es intercambiable con Uke, ni valida anatomía o impactos. Ver [resultados y licencias](../../docs/CONTROLLER_COMPARISON_20261116.md). Las muestras del dataset de entrenamiento tienen condiciones propias y no forman parte del laboratorio reproducible.
+
+## Marcha alterna y recuperación (16/11/2026)
+
+Ver [informe de marcha](../../docs/PROTOMOTIONS_GAIT_20261116.md) y `gait_suite.py`. El adaptador ahora fuerza `agent.eval()`; las comparaciones anteriores son históricas y no deben mezclarse numéricamente con esta inferencia. Las nuevas referencias pasan una puerta de alcance IK antes de ejecutarse.
+
+El mejor caso encadena seis pasos a 0,51 m/s y termina estable; quedan 2,38 cm de traslación de pie cargado y marcha muy lenta irregular. La batería de 48 impactos analíticos no valida todavía ninguna recuperación con paso sin artefactos. El planificador de recuperación y los residuos de apoyo son experimentales, no valores por defecto del núcleo. Los vídeos son diagnósticos para revisión humana.

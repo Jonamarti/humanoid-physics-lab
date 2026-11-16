@@ -1,0 +1,21 @@
+{
+  "cadence_period_s": 0.8,
+  "identical_full_initial_state": true,
+  "identical_physical_model": true,
+  "duration_equal": true,
+  "before": {
+    "positive_work_j": 432.44816046655325,
+    "max_loaded_foot_slip_m": 0.05826780826545745,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  "after": {
+    "positive_work_j": 269.5409161976515,
+    "max_loaded_foot_slip_m": 0.024146376305302926,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  "note": "Reference generator is the intended intervention; checkpoint, model, cadence and full initial state are identical."
+}

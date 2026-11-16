@@ -1,0 +1,13 @@
+{
+  "native_tests": 23,
+  "native_passed": true,
+  "typescript_tests_passed": 706,
+  "typescript_skipped": 9,
+  "typescript_todo": 3,
+  "typescript_test_files_passed": 87,
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "physics_not_certified": true,
+  "all_24_impact_pairs_valid": true
+}

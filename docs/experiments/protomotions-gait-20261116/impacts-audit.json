@@ -1,0 +1,228 @@
+{
+  "cases": 50,
+  "fell": 4,
+  "stable": 45,
+  "with_qualified_steps": 6,
+  "stable_with_step": 6,
+  "artifact_free": 4,
+  "validated_recovery_with_step": 0,
+  "pairs": [
+    {
+      "case": "kick_backward_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_backward_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_backward_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_forward_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_forward_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_forward_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_left_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_left_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_left_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_right_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_right_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "kick_right_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_backward_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_backward_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_backward_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_forward_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_forward_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_forward_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_left_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_left_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_left_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_right_20_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_right_36_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    },
+    {
+      "case": "punch_right_8_reactive",
+      "model_equal": true,
+      "initial_equal": true,
+      "input_reference_equal": true,
+      "prehit_execution_equal": true,
+      "impulse_equal": true,
+      "valid": true
+    }
+  ],
+  "all_pairs_valid": true
+}

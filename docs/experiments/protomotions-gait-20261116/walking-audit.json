@@ -1,0 +1,11 @@
+{
+  "cases": 4,
+  "fell": 0,
+  "stable": 4,
+  "with_qualified_steps": 4,
+  "stable_with_step": 4,
+  "artifact_free": 0,
+  "validated_recovery_with_step": 0,
+  "pairs": [],
+  "all_pairs_valid": true
+}

@@ -76,6 +76,7 @@ def create_agent(root: Path, motion_file: Path | None = None):
             root_dir=checkpoint.parent)
         agent.setup(training=False)
         agent.load(str(checkpoint), load_env=False, load_training_state=False, for_inference=True)
+        agent.eval()
         env.set_perturbations_enabled(False)
         return agent
     finally:

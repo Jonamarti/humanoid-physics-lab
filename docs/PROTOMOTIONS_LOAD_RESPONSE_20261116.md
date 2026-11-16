@@ -54,7 +54,7 @@ La rodilla llega más flexionada: 22–27 grados frente a 16–21 grados. La ene
 
 Ambos ensayos conservan la bandera de desplazamiento del origen de pie cargado (>2 cm). La integración adicional de velocidad material en los contactos también llega a unos 2,1 cm en el pie derecho: la rodadura no explica todo. El mayor hundimiento del suelo aumenta de 5,65 a 7,12 mm, por debajo del límite de 1 cm; no se ha cambiado ningún umbral.
 
-La oscilación lateral del pecho mejora, pero el cabeceo lento de la cabeza aumenta (desviación típica de inclinación: aproximadamente 1,4 a 1,75 grados). La cabeza no queda inmovilizada ni se han filtrado sus movimientos. La naturalidad visual debe valorarse con el vídeo; la reducción en 4–15 Hz no es una puntuación universal de marcha humana.
+La oscilación lateral del pecho mejora, pero el cabeceo lento de la cabeza aumenta (desviación típica de inclinación: aproximadamente 1,46 a 1,75 grados). La cabeza no queda inmovilizada ni se han filtrado sus movimientos. La naturalidad visual debe valorarse con el vídeo; la reducción en 4–15 Hz no es una puntuación universal de marcha humana.
 
 No se han repetido todavía otras cadencias ni impactos durante esta marcha. No se deduce una mejora de recuperación ante golpes de este ensayo sin perturbación. Antes de extenderlo: reducir patinaje y trabajo de la recuperación de altura, comprobar el cabeceo lento y después repetir velocidades/golpes desde estados comparables.
 
@@ -79,4 +79,3 @@ Para reproducir, usar carpetas nuevas: los ejecutores rechazan sobrescribir expe
 ~~~
 
 Los experimentos reactivos se reproducen con load_response.py --output <nueva>, weight_acceptance.py --output <nueva> y weight_acceptance.py --damping --output <nueva>. La preparación que empeoró los máximos se conserva como prepared_acceptance.py sin --early. La auditoría del paquete reúne los resultados originales preservados, no descubre automáticamente una carpeta de reproducción.
-

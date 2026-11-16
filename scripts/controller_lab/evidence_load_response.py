@@ -61,4 +61,3 @@ def collect(root):
 if __name__=="__main__":
     p=argparse.ArgumentParser();p.add_argument("root",type=Path,nargs="?",default=Path(__file__).resolve().parents[2])
     collect(p.parse_args().root.resolve())
-

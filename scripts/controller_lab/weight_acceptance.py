@@ -155,4 +155,3 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser();parser.add_argument("--output");parser.add_argument("--damping",action="store_true")
     args=parser.parse_args()
     main_damping(args.output) if args.damping else main(args.output)
-

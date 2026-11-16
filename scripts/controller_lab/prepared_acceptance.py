@@ -40,4 +40,3 @@ if __name__=="__main__":
     import argparse
     parser=argparse.ArgumentParser();parser.add_argument("--output");parser.add_argument("--early",action="store_true")
     args=parser.parse_args();main(.18 if args.early else 0.,args.output)
-

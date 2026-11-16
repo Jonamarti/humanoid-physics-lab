@@ -1,0 +1,149 @@
+[
+  {
+    "case": "no_attack_tracker",
+    "fell": false,
+    "stable": true,
+    "steps": 0,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "no_attack_reactive",
+    "fell": false,
+    "stable": true,
+    "steps": 0,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "punch_forward20_tracker",
+    "fell": false,
+    "stable": true,
+    "steps": 0,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "punch_forward20_reactive",
+    "fell": false,
+    "stable": true,
+    "steps": 0,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "punch_backward20_tracker",
+    "fell": false,
+    "stable": true,
+    "steps": 0,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "punch_backward20_reactive",
+    "fell": false,
+    "stable": true,
+    "steps": 0,
+    "artifacts": [
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "kick_left36_tracker",
+    "fell": false,
+    "stable": true,
+    "steps": 0,
+    "artifacts": [
+      "unintended_flight",
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "kick_left36_reactive",
+    "fell": false,
+    "stable": true,
+    "steps": 1,
+    "artifacts": [
+      "unintended_flight",
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "kick_backward36_tracker",
+    "fell": true,
+    "stable": false,
+    "steps": 0,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "kick_backward36_reactive",
+    "fell": true,
+    "stable": false,
+    "steps": 0,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "outer_reap_tracker",
+    "fell": true,
+    "stable": false,
+    "steps": 0,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "body_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "outer_reap_reactive",
+    "fell": true,
+    "stable": false,
+    "steps": 1,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "body_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "leg_drive_tracker",
+    "fell": true,
+    "stable": false,
+    "steps": 0,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "loaded_foot_slip"
+    ]
+  },
+  {
+    "case": "leg_drive_reactive",
+    "fell": true,
+    "stable": false,
+    "steps": 0,
+    "artifacts": [
+      "unintended_flight",
+      "floor_penetration",
+      "joint_speed",
+      "loaded_foot_slip"
+    ]
+  }
+]

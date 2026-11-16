@@ -1,0 +1,111 @@
+[
+  {
+    "case": "no_attack",
+    "model_equivalent_at_float64_roundoff": true,
+    "model_parameter_differences": [
+      {
+        "array": "model.actuator_biasprm",
+        "max_difference": 3.552713678800501e-15
+      }
+    ],
+    "full_initial_state_equal": true,
+    "initial_observations_equal": true,
+    "model_equal": false,
+    "reference_equal": true,
+    "pre_intervention_commands_equal": true,
+    "pre_intervention_state_max_difference": 4.3934300641979007e-13,
+    "pre_intervention_until_s": 2.0
+  },
+  {
+    "case": "punch_forward20",
+    "model_equivalent_at_float64_roundoff": true,
+    "model_parameter_differences": [
+      {
+        "array": "model.actuator_biasprm",
+        "max_difference": 3.552713678800501e-15
+      }
+    ],
+    "full_initial_state_equal": true,
+    "initial_observations_equal": true,
+    "model_equal": false,
+    "reference_equal": true,
+    "pre_intervention_commands_equal": true,
+    "pre_intervention_state_max_difference": 4.3934300641979007e-13,
+    "pre_intervention_until_s": 2.0
+  },
+  {
+    "case": "punch_backward20",
+    "model_equivalent_at_float64_roundoff": true,
+    "model_parameter_differences": [
+      {
+        "array": "model.actuator_biasprm",
+        "max_difference": 3.552713678800501e-15
+      }
+    ],
+    "full_initial_state_equal": true,
+    "initial_observations_equal": true,
+    "model_equal": false,
+    "reference_equal": true,
+    "pre_intervention_commands_equal": true,
+    "pre_intervention_state_max_difference": 4.3934300641979007e-13,
+    "pre_intervention_until_s": 2.0
+  },
+  {
+    "case": "kick_left36",
+    "model_equivalent_at_float64_roundoff": true,
+    "model_parameter_differences": [
+      {
+        "array": "model.actuator_biasprm",
+        "max_difference": 3.552713678800501e-15
+      }
+    ],
+    "full_initial_state_equal": true,
+    "initial_observations_equal": true,
+    "model_equal": false,
+    "reference_equal": true,
+    "pre_intervention_commands_equal": true,
+    "pre_intervention_state_max_difference": 4.3934300641979007e-13,
+    "pre_intervention_until_s": 2.0
+  },
+  {
+    "case": "kick_backward36",
+    "model_equivalent_at_float64_roundoff": true,
+    "model_parameter_differences": [
+      {
+        "array": "model.actuator_biasprm",
+        "max_difference": 3.552713678800501e-15
+      }
+    ],
+    "full_initial_state_equal": true,
+    "initial_observations_equal": true,
+    "model_equal": false,
+    "reference_equal": true,
+    "pre_intervention_commands_equal": true,
+    "pre_intervention_state_max_difference": 4.3934300641979007e-13,
+    "pre_intervention_until_s": 2.0
+  },
+  {
+    "case": "outer_reap",
+    "model_equivalent_at_float64_roundoff": true,
+    "model_parameter_differences": [],
+    "full_initial_state_equal": true,
+    "initial_observations_equal": true,
+    "model_equal": true,
+    "reference_equal": true,
+    "pre_intervention_commands_equal": true,
+    "pre_intervention_state_max_difference": 0.0,
+    "pre_intervention_until_s": 2.0
+  },
+  {
+    "case": "leg_drive",
+    "model_equivalent_at_float64_roundoff": true,
+    "model_parameter_differences": [],
+    "full_initial_state_equal": true,
+    "initial_observations_equal": true,
+    "model_equal": true,
+    "reference_equal": true,
+    "pre_intervention_commands_equal": true,
+    "pre_intervention_state_max_difference": 0.0,
+    "pre_intervention_until_s": 2.0
+  }
+]

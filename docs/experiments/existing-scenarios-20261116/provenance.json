@@ -1,0 +1,126 @@
+{
+  "trial_path": "out/existing-scenarios/final-v3",
+  "cases": 14,
+  "pairs": 7,
+  "old_gait_branch": "codex/protomotions-heel-toe",
+  "old_gait_commit": "3fc4fe63e10f4fb0eaec6f69b604c543103eb02e",
+  "tori_tracks_source_commit": "1d10c0643a038534d82941c1cfeda7e1b01e87c8",
+  "source_track_hashes": {
+    "outer_reap.json": "aaf16fb72866c2f9b3ccb535f6e0760fc250f9f0bdcdf0a9c6e2d6a07aecb97d",
+    "leg_drive.json": "9ab6c077cb15974db5c4b1063cfcefd175d8c09f84da96139b578a804bfade7b"
+  },
+  "delivered_source_hashes": {
+    "existing_scenarios.py": "18084a6873ccfa17c9d0af2b9b432bb3fa1e62b265ff7bc4728551e517e56873",
+    "scene_forces.py": "7beecc7dbd3a399fdf67f1fc4ef601f46e635f2c531fbd555cfd09906fc98ccb",
+    "proto_adapter.py": "101b46ee4a048ce0beefb7c2a6b10cee3e943c7498aa39a4e5897754e98aaf87",
+    "export_scene.ts": "5f7cdd95fdfc8cc94ff1fef0d37ada34b026b99babb4308269f47f7f66b94ac9",
+    "render_existing_scenarios.py": "2ea5624c7514d0c2768cabd333af12007ce84e368cfce5529398f50fbe9491a4"
+  },
+  "physics_hz": 960,
+  "policy_hz": 30,
+  "recording_hz": 120,
+  "targets_hz": 960,
+  "physical_preparation_s": 3.0,
+  "actor_model": "published SOMA42.466827kg, not historical Uke75kg",
+  "attacker_model": "public existing Tori75kg independent finite-mass segments",
+  "hit_model": "analytical rectangular chest pulses80ms/180ms, not striking limbs",
+  "physics_certified": false,
+  "model_comparison_note": "Historical prepared-v2 recalculated damping: byte hashes differ solely by <=64eps rounding of velocity bias; pairs.json records actual deltas. Delivered runner freezes configuration once. Physical artifact thresholds unchanged.",
+  "preserved_preparation_without_warmup": "out/existing-scenarios/trials-v1",
+  "preliminary_resampled_tori": "out/existing-scenarios/prepared-v2",
+  "case_paths": {
+    "no_attack_tracker": "out/existing-scenarios/prepared-v2/no_attack_tracker",
+    "no_attack_reactive": "out/existing-scenarios/prepared-v2/no_attack_reactive",
+    "punch_forward20_tracker": "out/existing-scenarios/prepared-v2/punch_forward20_tracker",
+    "punch_forward20_reactive": "out/existing-scenarios/prepared-v2/punch_forward20_reactive",
+    "punch_backward20_tracker": "out/existing-scenarios/prepared-v2/punch_backward20_tracker",
+    "punch_backward20_reactive": "out/existing-scenarios/prepared-v2/punch_backward20_reactive",
+    "kick_left36_tracker": "out/existing-scenarios/prepared-v2/kick_left36_tracker",
+    "kick_left36_reactive": "out/existing-scenarios/prepared-v2/kick_left36_reactive",
+    "kick_backward36_tracker": "out/existing-scenarios/prepared-v2/kick_backward36_tracker",
+    "kick_backward36_reactive": "out/existing-scenarios/prepared-v2/kick_backward36_reactive",
+    "outer_reap_tracker": "out/existing-scenarios/native-targets-v3/outer_reap_tracker",
+    "outer_reap_reactive": "out/existing-scenarios/native-targets-v3/outer_reap_reactive",
+    "leg_drive_tracker": "out/existing-scenarios/native-targets-v3/leg_drive_tracker",
+    "leg_drive_reactive": "out/existing-scenarios/native-targets-v3/leg_drive_reactive"
+  },
+  "videos": {
+    "derribos-protomotions-960hz.json": {
+      "physics_steps": 0,
+      "decoded": true,
+      "kind": "throws",
+      "files": {
+        "derribos-protomotions-960hz-x1.mp4": {
+          "bytes": 3644443,
+          "sha256": "54d204a1ed8d237d6cd76af8125e8c475de333bc9963cd96eba1facf9df53451"
+        },
+        "derribos-protomotions-960hz-x025.mp4": {
+          "bytes": 10092751,
+          "sha256": "d58845365d4fdf1bf73012cd92362d5a0770f0a09c0d1fd5c6bfa66418ec3026"
+        },
+        "derribos-protomotions-960hz.mp4": {
+          "bytes": 6605424,
+          "sha256": "d9fca2d56538c7987e800362c30df4f843d3ec2387b42cbb93f4afa523f2af46"
+        }
+      }
+    },
+    "golpes-protomotions.json": {
+      "physics_steps": 0,
+      "decoded": true,
+      "kind": "hits",
+      "files": {
+        "golpes-protomotions-x1.mp4": {
+          "bytes": 1896521,
+          "sha256": "581ab4b3d1cd5c6062792d981c469f41131d3dd7e696d6ba49861bd49a04aaa0"
+        },
+        "golpes-protomotions-x025.mp4": {
+          "bytes": 5230239,
+          "sha256": "b34cd9fed710a3772924956d4da3f2e60d4792bd76d6f18cfa44c2e1476b48fd"
+        },
+        "golpes-protomotions.mp4": {
+          "bytes": 3573151,
+          "sha256": "867801bd5455f982c039f53e7fd75635f5e48790c1b21d93c98010b34c655b44"
+        }
+      }
+    }
+  },
+  "preliminary_videos": {
+    "derribos-protomotions.json": {
+      "physics_steps": 0,
+      "decoded": true,
+      "kind": "throws",
+      "files": {
+        "derribos-protomotions-x1.mp4": {
+          "bytes": 3556001,
+          "sha256": "bb566d955bd93d68f42445c3830e754f5f56c361b38c72a901c7d9d2e3e8383e"
+        },
+        "derribos-protomotions-x025.mp4": {
+          "bytes": 9875334,
+          "sha256": "d13e9f645103c67d60fdd25ef020ed1bdc23b0c8a7a3929416c39d3042409ae0"
+        },
+        "derribos-protomotions.mp4": {
+          "bytes": 6497752,
+          "sha256": "7bd7e54740ab45c088ec1c4c3cf8dc2b0d00ba83e4c12a2c15c3e72e1c54315a"
+        }
+      }
+    }
+  },
+  "target_fidelity": {
+    "outer_reap": {
+      "preliminary_targets_hz": 240,
+      "final_targets_hz": 960,
+      "preliminary_max_error_m": 0.12936681639403427,
+      "time_s": 1.340625,
+      "segment": "right_thigh",
+      "final_native_grid_error_m": 0
+    },
+    "leg_drive": {
+      "preliminary_targets_hz": 240,
+      "final_targets_hz": 960,
+      "preliminary_max_error_m": 0.011435097487597232,
+      "time_s": 1.7354166666666666,
+      "segment": "right_upperarm",
+      "final_native_grid_error_m": 0
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "outer_reap": {
+    "preliminary_targets_hz": 240,
+    "final_targets_hz": 960,
+    "preliminary_max_error_m": 0.12936681639403427,
+    "time_s": 1.340625,
+    "segment": "right_thigh",
+    "final_native_grid_error_m": 0
+  },
+  "leg_drive": {
+    "preliminary_targets_hz": 240,
+    "final_targets_hz": 960,
+    "preliminary_max_error_m": 0.011435097487597232,
+    "time_s": 1.7354166666666666,
+    "segment": "right_upperarm",
+    "final_native_grid_error_m": 0
+  }
+}

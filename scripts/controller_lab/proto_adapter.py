@@ -15,7 +15,7 @@ MPC_SHA = "ff572a21e7c2bf9fda62e1862a758da7e9a8719b"
 CHECKPOINT_SHA = "c13e56e85494f8c93fe9eed5b07cadef7281c2eb1188231755f858e1d0f340f0"
 SEED = 20261116
 
-def create_agent(root: Path, motion_file: Path | None = None):
+def create_agent(root: Path, motion_file: Path | None = None, scene_file: Path | None = None):
     """Use the published inference view, with single-device Fabric (no DDP)."""
     root = root.resolve()
     source = root / "out/external/protomotions"
@@ -62,6 +62,16 @@ def create_agent(root: Path, motion_file: Path | None = None):
             path = Path(tmp) / "model.xml"
             mujoco.mj_saveLastXML(str(path), model)
             tree = ET.parse(path)
+            if scene_file is not None:
+                import json
+                scene=json.loads(scene_file.read_text(encoding="utf-8"))
+                fragment=ET.fromstring("<worldbody>"+scene["mjcf"]+"</worldbody>")
+                for body in fragment:
+                    # Adapter-owned auxiliary bodies are excluded from the published
+                    # robot ordering, just like the existing parked projectile.
+                    for element in body.iter():
+                        if "name" in element.attrib:element.set("name","projectile_scene_"+element.get("name"))
+                    tree.getroot().find("worldbody").append(body)
             sensor = ET.SubElement(tree.getroot(), "sensor")
             ET.SubElement(sensor, "user", name="lab_cost", dim="1",
                 needstage="acc", user="-1 1 0 1")

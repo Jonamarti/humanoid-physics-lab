@@ -17,7 +17,7 @@ No se entrenan pesos nuevos. La red sigue siendo un **motion tracker con referen
 
 ## Velocidades físicas
 
-Física a 960 Hz, control a 30 Hz y grabación a 120 Hz. Cambiar la cadencia modifica posiciones futuras, velocidades lineales, angulares y articulares de referencia; el vídeo normal permanece a 30 fps y tiempo real. Todas estas velocidades siguen siendo bajas frente a una marcha adulta habitual.
+Física a 960 Hz, control a 30 Hz y grabación a 120 Hz. Cambiar la cadencia modifica posiciones futuras, velocidades lineales, angulares y articulares de referencia; el vídeo normal permanece a 30 fps y tiempo real. Estas velocidades corresponden a marchas lentas; como referencia experimental humana, se han medido 1,4 m/s de velocidad natural en [Escalona et al., 2021](https://pubmed.ncbi.nlm.nih.gov/33503586/).
 
 | Velocidad real | Cadencia objetivo | Pasos con planta completa >=3 cm | Alternancia | Estable 2 s al final | Trabajo motor positivo |
 |---|---:|---:|---|---|---:|
@@ -99,7 +99,7 @@ Desde la raíz de este worktree:
 .\out\native\.venv\Scripts\python.exe -m unittest discover -s scripts/controller_lab -p "test*.py" -v
 ~~~
 
-Vídeos locales en out/gait/delivery/: marcha-higher.mp4, marcha-higher-x025.mp4, cuatro-velocidades.mp4, marcha-antes-despues.mp4 e impactos-antes-despues.mp4. El último muestra cuatro escenarios representativos, tracker arriba y planificador debajo, ambos con frente/perfil. Son **diagnósticos**, incluidos fallos; no candidatos aprobados. El replay prohíbe mj_step y todos los MP4 se decodifican completos.
+Vídeos locales en out/gait/delivery/: marcha-higher.mp4, marcha-higher-x025.mp4, cuatro-velocidades.mp4, marcha-antes-despues.mp4 e impactos-antes-despues.mp4. El último muestra cuatro escenarios representativos, tracker arriba y planificador debajo, ambos con frente/perfil. Son **diagnósticos**, incluidos fallos; no candidatos aprobados. En la rejilla de velocidades, al finalizar cada grabación se mantiene su último fotograma; ese panel no añade tiempo físico simulado. El replay prohíbe mj_step y todos los MP4 se decodifican completos.
 
 Validación: **23 pruebas nativas**, incluidas inferencia congelada, impulso exacto, velocidad física, referencias estáticas y distinción entre rodadura/deslizamiento; typecheck, lint y build correctos; **706 pruebas TypeScript pasadas**, 9 omitidas y 3 pendientes. CI por sí sola no verifica esta física.
 

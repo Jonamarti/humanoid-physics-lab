@@ -240,6 +240,7 @@ def run(root,pack,out,cases,planner_factory=None,same_initial=False,warmup=0.,te
                 if not np.isfinite(d.qpos).all():raise RuntimeError("Nonfinite physical state")
             p=out/case["id"]
             result=tel.finish(dict(case,id=case["id"],kind=case.get("kind","gait")),"protomotions",p,time.perf_counter()-started)
+            if planner and hasattr(planner,"save"):planner.save(p)
             np.savez_compressed(p/"initial-observations.npz",**initial_observations)
             np.savez_compressed(p/"dynamics.npz",qvel=np.array(qvels),chest_force=np.array(forces),joint_torque=np.array(loads))
             result.update(landing_residual_max_torque_nm=action_filter.maximum_requested_torque.tolist() if action_filter else None,model_intervention=model_notes,physical_preparation_s=warmup,network_evaluation_mode=True,supplementary_stance_force_bound_n=60 if support else 0,supplementary_stance_force_max_n=support.max_force if support else 0,planner_events=planner.events if planner else [],scenario=case,physical_model_sha256=physical_fingerprint(m),

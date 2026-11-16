@@ -100,6 +100,12 @@ class ReferenceTests(unittest.TestCase):
     def test_initial_physical_pose_is_preserved(self):
         np.testing.assert_allclose(self.flat["dps"][0],self.lean["dps"][0],atol=1e-8)
         np.testing.assert_allclose(self.flat["gts"][0],self.lean["gts"][0],atol=1e-8)
+    def test_loading_yield_preserves_reachable_foot_goals(self):
+        from load_response import lower_reference,validate_blend
+        lowered,qbase,qlow,error=lower_reference(self.b,self.lean,.008)
+        self.assertLess(error,.002)
+        self.assertLess(validate_blend(self.b,self.lean,qbase,qlow),.002)
+        np.testing.assert_allclose(qlow[:,2],qbase[:,2]-.008,atol=1e-6)
     def test_counterrotation_keeps_head_reference_level(self):
         gaze,_=gaze_reference(self.b,self.lean,self.lm)
         i=list(self.b.robot.kinematic_info.body_names).index("Head")

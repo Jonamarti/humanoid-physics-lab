@@ -8,17 +8,29 @@ mujoco.mj_step=forbidden
 
 def load(path):
     m=mujoco.MjModel.from_binary_path(str(path/"model.mjb"))
-    return dict(path=path,m=m,d=mujoco.MjData(m),a=dict(np.load(path/"recording.npz")),
+    schedule={}
+    if (path/"impedance-plan.json").exists():
+        schedule["impedance"]=json.loads((path/"impedance-plan.json").read_text(encoding="utf-8"))
+        schedule["schedule"]=np.load(path/"impedance-schedule.npz")["rows"]
+    return dict(**schedule,path=path,m=m,d=mujoco.MjData(m),a=dict(np.load(path/"recording.npz")),
         dyn=dict(np.load(path/"dynamics.npz")),c=np.load(path/"rollover.npz")["contacts"],
         s=json.loads((path/"summary.json").read_text(encoding="utf-8")),
         events=json.loads((path/"review.json").read_text(encoding="utf-8"))["events"],
         r=json.loads((path/"rollover-review.json").read_text(encoding="utf-8")),
         body=mujoco.Renderer(m,height=420,width=300),foot=mujoco.Renderer(m,height=220,width=600))
 
+def apply_impedance(case,t):
+    if "schedule" not in case:return
+    row=case["schedule"][np.argmin(abs(case["schedule"][:,0]-t))]
+    ids=case["impedance"]["actuator_ids"];m=case["m"]
+    m.actuator_gainprm[ids,0]=row[1:5];m.actuator_biasprm[ids,1]=-row[1:5]
+    if "kd_left_hip" in case["impedance"]["columns"]:m.actuator_biasprm[ids,2]=-row[5:9]
+
 def draw_case(case,t,title,rate):
     m,d=case["m"],case["d"];a=case["a"]
     j=int(np.argmin(abs(a["frames"][:,0]-t)))
     d.qpos[:]=a["frames"][j,1:];d.qvel[:]=case["dyn"]["qvel"][j];d.ctrl[:]=a["controls"][j]
+    d.time=a["frames"][j,0];apply_impedance(case,d.time)
     mujoco.mj_forward(m,d)
     row=a["rows"][np.argmin(abs(a["rows"][:,0]-t))]
     contact=case["c"][np.argmin(abs(case["c"][:,0]-t))]
@@ -30,7 +42,16 @@ def draw_case(case,t,title,rate):
         cam.lookat[:]=[d.qpos[0],d.qpos[1],.88];cam.distance=2.9;cam.azimuth=az;cam.elevation=-12
         case["body"].update_scene(d,cam)
         add_marker(case["body"].scene,np.r_[row[1:3],.01],mujoco.mjtGeom.mjGEOM_SPHERE,[1,.85,.1,1])
+        for i,side in enumerate(("Left","Right")):
+            pos=d.xpos[m.body(side+"Foot").id].copy()
+            load=contact[1+i]
+            if load>5:
+                add_marker(case["body"].scene,pos,mujoco.mjtGeom.mjGEOM_ARROW,[.1,.9,.3,1.],
+                    pos+[0,0,min(.55,load*.00065)])
         canvas.paste(Image.fromarray(case["body"].render()),(col*300,58))
+    if case["s"]["artifacts"]:
+        draw.rectangle((0,454,599,477),fill="#7f1d1d")
+        draw.text((8,455),"DIAGNOSTICO: deslizamiento detectado | flechas: carga vertical",font=font(14),fill="white")
     cam=mujoco.MjvCamera();mujoco.mjv_defaultCamera(cam)
     cam.lookat[:]=[d.qpos[0]+.02,d.qpos[1],.13];cam.distance=1.25;cam.azimuth=90;cam.elevation=-7
     case["foot"].update_scene(d,cam)
@@ -63,7 +84,7 @@ def render_pair(before,after,output,rate=1.):
     try:
         for frame in range(n):
             t=frame/30*rate;canvas=Image.new("RGB",(1200,800))
-            for i,(case,title) in enumerate(zip(pair,("ANTES · version guardada","DESPUES · coordinacion y absorcion"))):
+            for i,(case,title) in enumerate(zip(pair,("ANTES · version guardada","DESPUES · recepcion amortiguada"))):
                 canvas.paste(draw_case(case,t,title,rate),(i*600,0))
             writer.send(np.asarray(canvas))
             if frame in keys:

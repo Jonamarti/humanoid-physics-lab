@@ -134,7 +134,7 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
               friction:ct.friction as Float64Array,adhesionN:ct.adhesion});
             if (solved.normalN<=0) continue;
             const f = ct.frame as Float64Array, [a,b] = solved.tangentN;
-            const force: Vec3 = [0,1,2].map(j=>solved.normalN*f[j]!+a*f[j+3]!+b*f[j+6]!) as Vec3;
+            const force: Vec3 = [solved.normalN*f[0]!+a*f[3]!+b*f[6]!, solved.normalN*f[1]!+a*f[4]!+b*f[7]!, solved.normalN*f[2]!+a*f[5]!+b*f[8]!];
             contacts.push({body_a:BODY_NAMES[b1]!,body_b:BODY_NAMES[b2]!,point_m:vec(ct.pos as Float64Array,0),force_n:force});
             for(let s=0;s<2;s++) if ((b1===0 && ct.geom2===feet[s]) || (b2===0 && ct.geom1===feet[s])) {
               loads[s]! += Math.max(0,b1===0?force[2]:-force[2]);

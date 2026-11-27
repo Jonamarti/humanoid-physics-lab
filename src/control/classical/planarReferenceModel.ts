@@ -78,14 +78,15 @@ const str=(v:readonly number[]):string=>v.join(" ");
  * MuJoCo inertia from geometry, contact friction .25, solver and zero joint
  * damping/armature are explicit approximations, not measured Bullet values.
  */
-export function planarModel(dt=referenceDt):string {
+export type ReferenceSpace="planar"|"free3d";
+export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string {
   if(!(dt>0)||!Number.isFinite(dt))throw new RangeError("Invalid timestep");
   function body(name:string,parent:Part|null,edge:Joint|null):string {
     const p=referenceParts.find(x=>x.name===name);
     if(!p)throw new Error("Missing segment "+name);
     const pos=convert(parent?sub(p.position,parent.position):p.position);
     let joint:string;
-    if(!edge)joint='<joint name="root_x" type="slide" axis="1 0 0"/><joint name="root_z" type="slide" axis="0 0 1"/><joint name="root_pitch" axis="0 1 0"/>';
+    if(!edge)joint=space==="free3d"?'<freejoint name="root"/>':'<joint name="root_x" type="slide" axis="1 0 0"/><joint name="root_z" type="slide" axis="0 0 1"/><joint name="root_pitch" axis="0 1 0"/>';
     else {
       const [lo,hi]=edge.range;
       // Original locked neck hinge has zero width; use a declared micro-range
@@ -99,7 +100,7 @@ export function planarModel(dt=referenceDt):string {
     return '<body name="'+name+'" pos="'+str(pos)+'">'+joint+geom+
       referenceJoints.filter(j=>j.parent===name).map(j=>body(j.child,p,j)).join("")+'</body>';
   }
-  return '<mujoco model="planar_reference"><compiler angle="radian" inertiafromgeom="true"/>'+
+  return '<mujoco model="'+(space==="planar"?"planar_reference":"free3d_sagittal_baseline")+'"><compiler angle="radian" inertiafromgeom="true"/>'+
     '<option timestep="'+dt+'" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" iterations="50"/>'+
     '<default><joint damping="0" armature="0"/><geom contype="2" conaffinity="1" friction=".25 .005 .0001" solref=".015 1" solimp=".9 .95 .001"/></default>'+
     '<worldbody><geom name="floor" type="box" pos="0 0 -.5" size="50 .5 .5" contype="1" conaffinity="2"/>'+

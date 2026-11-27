@@ -52,3 +52,22 @@ describe("Classical C0 MuJoCo experiment (diagnostic, not gait validation)",()=>
     expect(passive.metrics.firstFallS).not.toBeNull();
   },30000);
 });
+
+describe("C1 nominal standing endurance",()=>{
+  it("holds the free-root reduced body for sixty seconds without assistance",async()=>{
+    const result=await runClassical("balance",60);
+    const m=result.metrics;
+    console.log("CLASSICAL_C1 "+JSON.stringify(m));
+    expect(m.firstFallS).toBeNull();
+    expect(m.maxRootTorque).toBe(0);
+    expect(m.maxTorqueRatio).toBeLessThanOrEqual(1+1e-12);
+    expect(m.maxTiltDeg).toBeLessThan(5);
+    expect(m.minPelvisM).toBeGreaterThan(.85);
+    expect(m.finalComSpeedMps).toBeLessThan(.1);
+    expect(m.maxGroundPenetrationM).toBeLessThan(.005);
+    expect(m.maxLoadedMarkerDriftM).toBeLessThan(.02);
+    expect(result.recording.samples).toHaveLength(6001);
+    // Marker drift is a screening metric, not material-contact slip.
+    // Perturbation robustness and visual naturalness remain unvalidated.
+  },120000);
+});

@@ -35,7 +35,8 @@ describe("Classical C0 MuJoCo experiment (diagnostic, not gait validation)",()=>
     expect(serializeRecording(first.recording)).toBe(serializeRecording(second.recording));
     const passive=await runClassical("passive",3);
     const walk=await runClassical("walk",3);
-    for(const result of [first,passive,walk]){
+    const balance=await runClassical("balance",3);
+    for(const result of [first,passive,walk,balance]){
       console.log("CLASSICAL_C0 "+JSON.stringify(result.metrics));
       expect(result.metrics.maxRootTorque).toBe(0);
       expect(result.metrics.maxTorqueRatio).toBeLessThanOrEqual(1+1e-12);

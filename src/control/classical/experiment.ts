@@ -4,7 +4,7 @@
  * Initial gains are hypotheses, not a reproduction of the published gait.
  */
 import { advanceGait, initialGait, hipPair, pd, clamp, swingPitchTarget, type Side } from "./simbiconCore";
-import { advanceUnilateral, initialUnilateral, unilateralTargets, type UnilateralPhase } from "./unilateral";
+import { advanceUnilateral, initialUnilateral, unilateralTargets, lateralLoadTarget, kneeLoadCorrection, type UnilateralPhase } from "./unilateral";
 import { getMujoco } from "../../scenario/mujocoModule";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../../physics/contactForces";
 import { capturePoint, supportPolygon, signedMargin } from "../../metrics/balance";
@@ -12,7 +12,7 @@ import { sha256Hex } from "../../scenario/sha256";
 import { RECORDING_SCHEMA_ID, type ContactSample, type Recording, type RecordingSample } from "../../recording/schema";
 import type { Vec3 } from "../../scenario/schema";
 
-export type ClassicalMode = "passive" | "stand" | "walk" | "balance" | "shift-left" | "shift-right" | "lift-left" | "lift-right";
+export type ClassicalMode = "passive" | "stand" | "walk" | "balance" | "shift-left" | "shift-right" | "lift-left" | "lift-right" | "shift2-left" | "shift2-right" | "lift2-left" | "lift2-right";
 const DT = 0.002;
 const HZ = 500;
 const RECORD_HZ = 100;
@@ -50,6 +50,7 @@ export const CLASSICAL_MJCF = `<mujoco model="classical_c0">
   </worldbody>
 </mujoco>`;
 
+export interface LateralFrame {t:number;comY:number;velocityY:number;refY:number;desiredCopY:number;measuredCopY:number|null;loadsN:number[];desiredLoadsN:number[];kneeCorrectionNm:number[]}
 export interface ClassicalMetrics {
   mode: ClassicalMode; steps: number; phase: string; firstFallS: number | null;
   finalForwardM: number; minPelvisM: number; maxTiltDeg: number;
@@ -58,14 +59,14 @@ export interface ClassicalMetrics {
   maxGroundPenetrationM: number; diagnosticsOnly: true;
   unilateral?: { support: Side; phase: UnilateralPhase; reachedShift: boolean; reachedHold: boolean; completed: boolean;
     longestSupportS: number; maxSupportWeightRatio: number; maxSwingClearanceM: number;
-    maxComShiftM: number; finalLoadsN: number[]; transitions: Array<{t:number;phase:UnilateralPhase;loadsN:number[];comY:number;clearanceM:number[]}> };
+    maxComShiftM: number; finalLoadsN: number[]; trace: LateralFrame[]; transitions: Array<{t:number;phase:UnilateralPhase;loadsN:number[];comY:number;clearanceM:number[]}> };
 }
 export interface ClassicalResult { recording: Recording; metrics: ClassicalMetrics }
 const vec = (a: ArrayLike<number>, off: number): Vec3 => [a[off]!, a[off+1]!, a[off+2]!];
 const angularDiff = (a: number, b: number): number => Math.atan2(Math.sin(a-b), Math.cos(a-b));
 
 export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<ClassicalResult> {
-  if (!["passive", "stand", "walk", "balance", "shift-left", "shift-right", "lift-left", "lift-right"].includes(mode) || !Number.isFinite(durationS) || durationS <= 0 ||
+  if (!["passive", "stand", "walk", "balance", "shift-left", "shift-right", "lift-left", "lift-right", "shift2-left", "shift2-right", "lift2-left", "lift2-right"].includes(mode) || !Number.isFinite(durationS) || durationS <= 0 ||
       durationS > 60 || Math.abs(durationS * RECORD_HZ - Math.round(durationS * RECORD_HZ)) > 1e-8) {
     throw new RangeError("Invalid classical experiment");
   }
@@ -95,7 +96,8 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
     mj.mj_forward(model, data);
     const referenceCom = vec(data.subtree_com as Float64Array, 3);
     const mass = Array.from(model.body_mass as Float64Array).reduce((a,b)=>a+b,0);
-    const unilateralMode=mode.startsWith("shift-")||mode.startsWith("lift-");
+    const unilateralMode=mode.startsWith("shift")||mode.startsWith("lift");
+    const allocatedMode=mode.startsWith("shift2-")||mode.startsWith("lift2-");
     const support:Side=mode.endsWith("left")?"left":"right";
     const supportIndex=support==="left"?0:1, swingIndex=1-supportIndex;
     const supportY=(data.geom_xpos as Float64Array)[3*feet[supportIndex]!+1]!;
@@ -103,6 +105,7 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
     const transitions: NonNullable<ClassicalMetrics["unilateral"]>["transitions"]=[];
     let maxSupportWeightRatio=0,maxSwingClearanceM=0,maxComShiftM=0;
     let finalLoadsN:number[]=[0,0];
+    const lateralTrace:LateralFrame[]=[];
     const filteredLoads=[mass*9.81/2,mass*9.81/2];
     let gait = initialGait();
     let firstFallS: number | null = null, minPelvisM = Infinity, maxTiltDeg = 0, maxRootTorque = 0;
@@ -166,7 +169,7 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
         if(k>0) {
           const old=unilateral.phase;
           unilateral=advanceUnilateral(unilateral,{comY:com[1],velocityY:vel[1],loadN:[loads[0]!,loads[1]!],
-            clearanceM:[clear[0]!,clear[1]!],supportY,bodyWeightN:mass*9.81,fallen:firstFallS!==null},support,mode.startsWith("lift-"),DT);
+            clearanceM:[clear[0]!,clear[1]!],supportY,bodyWeightN:mass*9.81,fallen:firstFallS!==null},support,mode.startsWith("lift"),DT);
           if(old!==unilateral.phase) transitions.push({t,phase:unilateral.phase,loadsN:loads.slice(),comY:com[1],clearanceM:clear.slice()});
         }
       }
@@ -229,16 +232,32 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
           const weightSum=weights[0]!+weights[1]!;
           const shares=weights.map(w=>weightSum>0?w/weightSum:0);
           const centerY = nLoaded>0 ? shares[0]!*gx[3*feet[0]!+1]!+shares[1]!*gx[3*feet[1]!+1]! : com[1];
+          const centers=[gx[3*feet[0]!+1]!,gx[3*feet[1]!+1]!] as const;
+          const desiredShares=lateralLoadTarget(pY,centers,[loaded[0]!,loaded[1]!]);
+          const desiredCenterY=nLoaded>0?desiredShares[0]*centers[0]+desiredShares[1]*centers[1]:com[1];
+          const correctionNm=[0,0];
           for(let i=0;i<2;i++) {
             const knee=ix[i]![2]!;
             const swingActive=unilateralMode && i===swingIndex && target.flexion>0;
             const kneeTarget=.10+(swingActive?.65*target.flexion:0);
-            write(i,2,pd(kneeTarget,qpos[knee.q]!,qvel[knee.dof]!,260,24,LIMITS[2]));
+            // Desired normal load is derived from the requested global CoP.
+            // Apply the Jacobian-transpose correction at the knee, using the
+            // actual world knee axis and lever to the requested pressure point.
+            // Compare this policy against the unmodified C2a policy.
+            if(allocatedMode && nLoaded===2 && !swingActive) {
+              const thighId=i===0?2:5, shinId=thighId+1;
+              const anchor=vec(data.xpos as Float64Array,3*shinId);
+              const copX=clamp(pX,gx[3*feet[i]!]!-.11,gx[3*feet[i]!]!+.11);
+              const copY=centers[i]!+clamp(pY-desiredCenterY,-.045,.045);
+              const lever=xmat[9*thighId+1]!*(copY-anchor[1])-xmat[9*thighId+4]!*(copX-anchor[0]);
+              correctionNm[i]=kneeLoadCorrection(mass*9.81*desiredShares[i]!,mass*9.81*shares[i]!,lever);
+            }
+            write(i,2,clamp(pd(kneeTarget,qpos[knee.q]!,qvel[knee.dof]!,260,24,LIMITS[2])+correctionNm[i]!,-LIMITS[2],LIMITS[2]));
             const ankle=vec(data.xpos as Float64Array,3*(i===0?4:7));
             const fx=gx[3*feet[i]!]!, fy=gx[3*feet[i]!+1]!;
             const normal=mass*9.81*shares[i]!;
             const tx=clamp(pX,fx-.11,fx+.11);
-            const ty=fy+clamp(pY-centerY,-.045,.045);
+            const ty=fy+clamp(pY-(allocatedMode?desiredCenterY:centerY),-.045,.045);
             for(let axis=0;axis<2;axis++) {
               const j=axis+3, joint=ix[i]![j]!;
               const ankleTarget=swingActive?(axis===0?clamp(-angles[2+2*i]!-qpos[knee.q]!,-.65,.65):clamp(-angles[3+2*i]!,-.35,.35)):(axis===0?-.05:0);
@@ -246,6 +265,19 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
                 : pd(ankleTarget,qpos[joint.q]!,qvel[joint.dof]!,180,18,LIMITS[j]!);
               write(i,j,clamp(tau,-LIMITS[j]!,LIMITS[j]!));
             }
+          }
+          if(unilateralMode && k%100===0) {
+            let fz=0, weightedY=0;
+            for(const ct of contacts) {
+              const footGround=(ct.body_a==="world"&&(ct.body_b==="left_foot"||ct.body_b==="right_foot"))||
+                (ct.body_b==="world"&&(ct.body_a==="left_foot"||ct.body_a==="right_foot"));
+              if(!footGround) continue;
+              const normal=Math.max(0,ct.body_a==="world"?ct.force_n[2]:-ct.force_n[2]);
+              fz+=normal; weightedY+=normal*ct.point_m[1];
+            }
+            lateralTrace.push({t,comY:com[1],velocityY:vel[1],refY:target.refY,desiredCopY:pY,
+              measuredCopY:fz>1?weightedY/fz:null,loadsN:loads.slice(),
+              desiredLoadsN:desiredShares.map(w=>w*mass*9.81),kneeCorrectionNm:correctionNm});
           }
         } else {
         // One desired torso reaction, distributed over the two hips.
@@ -282,7 +314,7 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
       maxHipResidualNm,maxLoadedMarkerDriftM,maxGroundPenetrationM,diagnosticsOnly:true};
     if(unilateralMode) metrics.unilateral={support,phase:unilateral.phase,reachedShift:unilateral.reachedShift,
       reachedHold:unilateral.reachedHold,completed:unilateral.completed,longestSupportS:unilateral.longestSupportS,
-      maxSupportWeightRatio,maxSwingClearanceM,maxComShiftM,finalLoadsN,transitions};
+      maxSupportWeightRatio,maxSwingClearanceM,maxComShiftM,finalLoadsN,transitions,trace:lateralTrace};
     const last=samples[samples.length-1]!;
     // No claim of standing or stepping validation from this diagnostic.
     const recording: Recording={schema:RECORDING_SCHEMA_ID,meta:{scenario_id:"classical_c0_"+mode,

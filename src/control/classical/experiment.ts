@@ -3,7 +3,7 @@
  * SIMBICON-inspired sagittal and coronal virtual torso/swing-hip control.
  * Initial gains are hypotheses, not a reproduction of the published gait.
  */
-import { advanceGait, initialGait, hipPair, pd, swingPitchTarget, type Side } from "./simbiconCore";
+import { advanceGait, initialGait, hipPair, pd, clamp, swingPitchTarget, type Side } from "./simbiconCore";
 import { getMujoco } from "../../scenario/mujocoModule";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../../physics/contactForces";
 import { capturePoint, supportPolygon, signedMargin } from "../../metrics/balance";
@@ -11,7 +11,7 @@ import { sha256Hex } from "../../scenario/sha256";
 import { RECORDING_SCHEMA_ID, type ContactSample, type Recording, type RecordingSample } from "../../recording/schema";
 import type { Vec3 } from "../../scenario/schema";
 
-export type ClassicalMode = "passive" | "stand" | "walk";
+export type ClassicalMode = "passive" | "stand" | "walk" | "balance";
 const DT = 0.002;
 const HZ = 500;
 const RECORD_HZ = 100;
@@ -61,7 +61,7 @@ const vec = (a: ArrayLike<number>, off: number): Vec3 => [a[off]!, a[off+1]!, a[
 const angularDiff = (a: number, b: number): number => Math.atan2(Math.sin(a-b), Math.cos(a-b));
 
 export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<ClassicalResult> {
-  if (!["passive", "stand", "walk"].includes(mode) || !Number.isFinite(durationS) || durationS <= 0 ||
+  if (!["passive", "stand", "walk", "balance"].includes(mode) || !Number.isFinite(durationS) || durationS <= 0 ||
       durationS > 60 || Math.abs(durationS * RECORD_HZ - Math.round(durationS * RECORD_HZ)) > 1e-8) {
     throw new RangeError("Invalid classical experiment");
   }
@@ -89,6 +89,8 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
       qpos[joints[0]!.q] = -.05; qpos[joints[2]!.q] = .10; qpos[joints[3]!.q] = -.05;
     }
     mj.mj_forward(model, data);
+    const referenceCom = vec(data.subtree_com as Float64Array, 3);
+    const mass = Array.from(model.body_mass as Float64Array).reduce((a,b)=>a+b,0);
     let gait = initialGait();
     let firstFallS: number | null = null, minPelvisM = Infinity, maxTiltDeg = 0, maxRootTorque = 0;
     let maxTorqueRatio = 0, maxHipResidualNm = 0, maxLoadedMarkerDriftM = 0, maxGroundPenetrationM = 0;
@@ -167,6 +169,48 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
           applied[ix[i]![j]!.dof]=value;
           maxTorqueRatio=Math.max(maxTorqueRatio,Math.abs(value)/LIMITS[j]!);
         };
+        if (mode==="balance") {
+          // C0b hypothesis: independent hip posture is not enough. Regulate
+          // centroidal acceleration through the feet, not the floating base.
+          // LIPM: xddot = g/h (x - p). Desired acceleration = -4 e - 4 v.
+          // Approximate desired CoP per loaded foot, respecting its sole bounds.
+          // Fixed initial COM reference; no chasing an already drifting COM.
+          const h = Math.max(.3, com[2]);
+          const pX = com[0] + h/9.81*(4*(com[0]-referenceCom[0])+4*vel[0]);
+          const pY = com[1] + h/9.81*(4*(com[1]-referenceCom[1])+4*vel[1]);
+          const loaded = loads.map(n=>n>20);
+          const nLoaded=loaded.filter(Boolean).length;
+          for(let axis=0;axis<2;axis++) {
+            const torso = pd(0,angles[axis]!,rates[axis]!,axis===0?260:240,35,axis===0?180:150);
+            // Equal torso reaction in bilateral stance; opposite differential
+            // correction keeps thighs symmetric without changing the total.
+            const differential = pd(0,angularDiff(angles[2+axis]!,angles[4+axis]!),
+              rates[2+axis]!-rates[4+axis]!,100,12,LIMITS[axis]!);
+            const pair=hipPair(torso,-torso/2+differential,LIMITS[axis]!);
+            write(0,axis,pair.swingNm); write(1,axis,pair.stanceNm);
+            maxHipResidualNm=Math.max(maxHipResidualNm,Math.abs(pair.residualNm));
+          }
+          // Distribution uses observed support state, nominal weight to avoid
+          // feeding high-frequency impact-force noise back into the actuators.
+          // For this symmetric reduced model only. Not a general WBC.
+          const centerY = nLoaded===2 ? (gx[3*feet[0]!+1]!+gx[3*feet[1]!+1]!)/2
+            : nLoaded===1 ? gx[3*feet[loaded[0]?0:1]!+1]! : com[1];
+          for(let i=0;i<2;i++) {
+            const knee=ix[i]![2]!;
+            write(i,2,pd(.10,qpos[knee.q]!,qvel[knee.dof]!,260,24,LIMITS[2]));
+            const ankle=vec(data.xpos as Float64Array,3*(i===0?4:7));
+            const fx=gx[3*feet[i]!]!, fy=gx[3*feet[i]!+1]!;
+            const normal=loaded[i]?mass*9.81/nLoaded:0;
+            const tx=clamp(pX,fx-.11,fx+.11);
+            const ty=fy+clamp(pY-centerY,-.045,.045);
+            for(let axis=0;axis<2;axis++) {
+              const j=axis+3, joint=ix[i]![j]!;
+              const tau=loaded[i] ? (axis===0?normal*(tx-ankle[0]):-normal*(ty-ankle[1]))-5*qvel[joint.dof]!
+                : pd(axis===0?-.05:0,qpos[joint.q]!,qvel[joint.dof]!,180,18,LIMITS[j]!);
+              write(i,j,clamp(tau,-LIMITS[j]!,LIMITS[j]!));
+            }
+          }
+        } else {
         // One desired torso reaction, distributed over the two hips.
         const torsoPitch=pd(0,angles[0]!,rates[0]!,260,35,180);
         const torsoRoll=pd(walking?(s===0?.08:-.08):0,angles[1]!,rates[1]!,240,30,150);
@@ -187,6 +231,7 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
             const joint=ix[i]![j]!;
             write(i,j,pd(targets[j-2]!,qpos[joint.q]!,qvel[joint.dof]!,j===2?260:180,j===2?24:18,LIMITS[j]!));
           }
+        }
         }
       }
       for(let j=0;j<6;j++) maxRootTorque=Math.max(maxRootTorque,Math.abs(applied[j]!));

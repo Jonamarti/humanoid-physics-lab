@@ -88,10 +88,11 @@ describe("C1 nominal standing endurance",()=>{
 
 describe("C2 unilateral support diagnostics",()=>{
   it("measures both weight transfers and attempts both lifts with bounded internal torques",async()=>{
-    for(const mode of ["shift-left","shift-right","lift-left","lift-right"] as const) {
+    for(const mode of ["shift-left","shift-right","lift-left","lift-right","shift2-left","shift2-right","lift2-left","lift2-right"] as const) {
       const result=await runClassical(mode,mode.startsWith("shift")?9:14);
       const m=result.metrics;
-      console.log("CLASSICAL_C2 "+JSON.stringify(m));
+      console.log("CLASSICAL_C2 "+JSON.stringify({...m,unilateral:m.unilateral?{...m.unilateral,trace:undefined}:undefined}));
+      console.log("CLASSICAL_C2_TRACE "+JSON.stringify({mode,trace:m.unilateral?.trace}));
       expect(m.maxRootTorque).toBe(0);
       expect(m.maxTorqueRatio).toBeLessThanOrEqual(1+1e-12);
       expect(m.unilateral).toBeDefined();

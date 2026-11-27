@@ -17,6 +17,8 @@ describe("Planar MuJoCo reference model and controller",()=>{
     expect(referenceInitialPosition("rFoot")).toEqual([.065,-.1,.025]);
     expect(planarModel()).toContain('timestep="0.00025"');
     expect(planarModel()).not.toContain("freejoint");
+    expect(planarModel(.00025,"free3d")).toContain('<freejoint name="root"/>');
+    expect(planarModel(.00025,"free3d")).not.toContain('name="root_x"');
   });
   it("uses the timed phase and contact transition without counting time as landing",()=>{
     const o=empty(),first=planarCommand(initialPlanarState(),o,.25);
@@ -48,6 +50,9 @@ describe("Planar reference MuJoCo adaptation (diagnostic, not 3D validation)",()
     expect(r.massKg).toBeCloseTo(63.5,8);
     expect(r.maxInitialPositionErrorM).toBeLessThan(1e-8);
     expect(r.maxRootForce).toBe(0);
+    expect(r.loadedLandings).toBeLessThanOrEqual(r.qualifiedLandings);
+    expect(r.longestLoadedConsecutive).toBeLessThanOrEqual(r.longestConsecutive);
+    expect(r.maxLateralM).toBeLessThan(1e-8);
     expect(r.frames.length).toBeGreaterThan(0);
     expect(Object.values(r.maxJointTorqueNm).every(x=>x<=370+1e-8)).toBe(true);
     expect(r.frames.every(f=>f.pose.length===17&&f.pose.every(p=>p.length===7&&p.every(Number.isFinite)))).toBe(true);
@@ -57,6 +62,21 @@ describe("Planar reference MuJoCo adaptation (diagnostic, not 3D validation)",()
     for(let i=0;i<count;i++)console.log("CLASSICAL_PLANAR_MJ_REPLAY "+JSON.stringify({dt,index:i,count,sha256:hash,data:packed.slice(i*chunk,(i+1)*chunk)}));
     // A physical failure remains visible in metrics, not falsely promoted
     // to locomotion success merely because the numerical test passed.
+  },180000);
+  it.skipIf(!enabled)("measures the unchanged sagittal controller with a genuinely free 3D root",async()=>{
+    const r=await runPlanarReference(.00025,12,false,"free3d");
+    console.log("CLASSICAL_FREE3D "+JSON.stringify({...r,frames:undefined}));
+    expect(r.space).toBe("free3d");
+    expect(r.massKg).toBeCloseTo(63.5,8);
+    expect(r.maxInitialPositionErrorM).toBeLessThan(1e-8);
+    expect(r.maxRootForce).toBe(0);
+    expect(r.frames.length).toBeGreaterThan(0);
+    expect(r.frames.every(f=>f.pose.length===17&&f.pose.every(p=>p.length===7&&p.every(Number.isFinite)))).toBe(true);
+    const bytes=Buffer.from(JSON.stringify({partNames:r.partNames,frames:r.frames}),"utf8");
+    const packed=gzipSync(bytes).toString("base64"),hash=createHash("sha256").update(bytes).digest("hex");
+    const chunk=3000,count=Math.ceil(packed.length/chunk);
+    for(let i=0;i<count;i++)console.log("CLASSICAL_FREE3D_REPLAY "+JSON.stringify({dt:r.dt,index:i,count,sha256:hash,data:packed.slice(i*chunk,(i+1)*chunk)}));
+    // No claim of 3D locomotion: no lateral hip/ankle DOFs yet.
   },180000);
   it.skipIf(!enabled)("records an unactuated negative control with the same model",async()=>{
     const r=await runPlanarReference(.00025,2,true);

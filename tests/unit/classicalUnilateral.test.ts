@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { initialUnilateral,advanceUnilateral,unilateralTargets,type UnilateralObservation } from "../../src/control/classical/unilateral";
+import { initialUnilateral,advanceUnilateral,unilateralTargets,lateralLoadTarget,kneeLoadCorrection,type UnilateralObservation } from "../../src/control/classical/unilateral";
 
 const base:UnilateralObservation={comY:0,velocityY:0,loadN:[375,375],clearanceM:[0,0],supportY:.105,bodyWeightN:750,fallen:false};
 describe("C2 planner",()=>{
@@ -37,5 +37,22 @@ describe("C2 planner",()=>{
     expect(unilateralTargets(s,0,.105).refY).toBeCloseTo(.0525);
     expect(unilateralTargets(s,0,-.105).refY).toBeCloseTo(-.0525);
     expect(unilateralTargets(s,0,.105).flexion).toBe(0);
+  });
+});
+
+describe("C2b lateral load allocation",()=>{
+  it("allocates nonnegative fractions with the requested centroid and mirrors correctly",()=>{
+    const a=lateralLoadTarget(.0525,[.105,-.105],[true,true]);
+    expect(a[0]).toBeCloseTo(.75);
+    expect(a[1]).toBeCloseTo(.25);
+    expect(lateralLoadTarget(-.0525,[.105,-.105],[true,true])[1]).toBeCloseTo(.75);
+    expect(lateralLoadTarget(.3,[.105,-.105],[true,true])).toEqual([1,0]);
+    expect(lateralLoadTarget(0,[.105,-.105],[false,true])).toEqual([0,1]);
+    expect(lateralLoadTarget(0,[.105,-.105],[false,false])).toEqual([0,0]);
+  });
+  it("limits the joint load correction and applies opposite reaction",()=>{
+    expect(kneeLoadCorrection(500,300,.04)).toBeCloseTo(-8);
+    expect(kneeLoadCorrection(300,500,.04)).toBeCloseTo(8);
+    expect(kneeLoadCorrection(1000,0,.1)).toBe(-30);
   });
 });

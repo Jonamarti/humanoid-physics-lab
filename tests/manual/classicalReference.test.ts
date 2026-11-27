@@ -45,10 +45,17 @@ const browserProbe=String.raw`
       world.simulator.setCallback(options.simulationCallback);
       var names=Object.keys(human.parts).sort();
       function read(name){
-        var e=world.entities["human."+name];
-        var p=e.getPosition(),q=e.orientation;
-        if(!p||!q||p.length!==3||q.length!==4||!p.concat(q).every(Number.isFinite))throw new Error("Nonfinite pose: "+name);
-        return p.concat(q);
+        // Read the rigid-body transform, not Coach's cached entity pose.
+        // Before the first step its orientation cache can still be zero.
+        var id="human."+name;
+        var entity=world.simulator.entities[id];
+        if(!entity||!entity.body)throw new Error("Missing Bullet body: "+id);
+        var transform=entity.body.getWorldTransform();
+        var p=transform.getOrigin(),q=transform.getRotation();
+        var pose=[p.x(),p.y(),p.z(),q.w(),q.x(),q.y(),q.z()];
+        if(!pose.every(Number.isFinite)||Math.hypot.apply(null,pose.slice(3))<1e-8)
+          throw new Error("Invalid Bullet pose: "+id+" "+JSON.stringify(pose));
+        return pose;
       }
       function clearance(name){
         var a=read(name),q=a.slice(3),dims=human.parts[name].sides;
@@ -60,6 +67,8 @@ const browserProbe=String.raw`
         return a[1]-.5*(Math.abs(2*(x*y+w*z))*dims[0]+Math.abs(1-2*(x*x+z*z))*dims[1]+Math.abs(2*(y*z-w*x))*dims[2]);
       }
       var initial=read("pelvis"),frames=[],transitions=[],phase=window.hplReadPhase();
+      var cached=world.entities["human.lFoot"];
+      var initialization={cachedFootOrientation:cached.orientation,bulletFootPose:read("lFoot"),bulletPelvisPose:initial};
       var qualified=0,flight=false,fallS=null,maxTilt=0,steps=48000,nonfinite=null;
       function sample(i){
         var pose=names.map(read);
@@ -68,12 +77,13 @@ const browserProbe=String.raw`
       sample(0);
       var i;
       for(i=1;i<=steps;i++){
-        world.step();
         try{
+          world.step();
           var pelvis=read("pelvis"),torso=read("uTorso");
           var q=torso.slice(3),qn=Math.hypot.apply(null,q);if(!(qn>0))throw new Error("Invalid torso quaternion");
           var tilt=Math.acos(Math.max(-1,Math.min(1,1-2*(q[1]*q[1]+q[3]*q[3])/(qn*qn))))*180/Math.PI;
           maxTilt=Math.max(maxTilt,tilt);
+          if(fallS===null&&(pelvis[1]<.45||tilt>60))fallS=i*world.dt;
           var foot=phase<2?"rFoot":"lFoot";
           var clear=clearance(foot);
           if(clear>.01)flight=true;
@@ -89,13 +99,12 @@ const browserProbe=String.raw`
             if(landing)flight=false;
             phase=next;
           }
-          if(fallS===null&&(pelvis[1]<.45||tilt>60))fallS=i*world.dt;
           if(i%160===0||i===steps)sample(i);
           if(fallS!==null&&i*world.dt>=fallS+.8)break;
         }catch(e){nonfinite=String(e);break;}
       }
       var last=frames[frames.length-1],lastPelvis=last.pose[names.indexOf("pelvis")];
-      report({status:"ok",dt:world.dt,planar:world.is2D,partNames:names,frames:frames,transitions:transitions,
+      report({status:"ok",dt:world.dt,planar:world.is2D,partNames:names,frames:frames,transitions:transitions,initialization:initialization,
         metrics:{executedSteps:Math.min(i,steps),simulatedS:Math.min(i,steps)*world.dt,qualifiedLandings:qualified,
           fallS:fallS,nonfinite:nonfinite,maxTiltDeg:maxTilt,forwardM:lastPelvis[0]-initial[0],
           massKg:names.reduce(function(s,n){return s+human.parts[n].mass;},0),
@@ -151,7 +160,9 @@ describe("Pinned upstream SIMBICON planar reference (not HPL 3D validation)",()=
       expect(result.status,result.message+" "+result.stack).toBe("ok");
       expect(result.dt).toBe(.00025);expect(result.planar).toBe(true);
       const frames=result.frames!;
-      expect(frames.length).toBeGreaterThan(1);
+      expect(frames.length).toBeGreaterThan(0);
+      if(result.metrics?.nonfinite===null) expect(frames.length).toBeGreaterThan(1);
+      expect(frames.every(f=>f.pose.every(p=>Math.abs(Math.hypot(...p.slice(3))-1)<.01))).toBe(true);
       expect(frames.every(f=>f.pose.every(p=>p.length===7&&p.every(Number.isFinite)))).toBe(true);
       const bytes=Buffer.from(JSON.stringify({partNames:result.partNames,frames}),"utf8");
       const packed=gzipSync(bytes).toString("base64");

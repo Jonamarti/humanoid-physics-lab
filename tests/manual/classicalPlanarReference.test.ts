@@ -60,8 +60,16 @@ describe("Planar reference MuJoCo adaptation (diagnostic, not 3D validation)",()
     const packed=gzipSync(bytes).toString("base64"),hash=createHash("sha256").update(bytes).digest("hex");
     const chunk=3000,count=Math.ceil(packed.length/chunk);
     for(let i=0;i<count;i++)console.log("CLASSICAL_PLANAR_MJ_REPLAY "+JSON.stringify({dt,index:i,count,sha256:hash,data:packed.slice(i*chunk,(i+1)*chunk)}));
-    // A physical failure remains visible in metrics, not falsely promoted
-    // to locomotion success merely because the numerical test passed.
+    // The verified 4000 Hz planar reference is now a regression gate.
+    // This is the original geometric-contact criterion, NOT a loaded
+    // landing, slip, 3D, stop, or human-naturalness acceptance gate.
+    if(dt===.00025){
+      expect(r.firstFallS).toBeNull();
+      expect(r.nonfinite).toBeNull();
+      expect(r.durationS).toBe(12);
+      expect(r.longestConsecutive).toBeGreaterThanOrEqual(20);
+    }
+    // The 500 Hz variant remains a diagnostic.
   },180000);
   it.skipIf(!enabled)("measures the unchanged sagittal controller with a genuinely free 3D root",async()=>{
     const r=await runPlanarReference(.00025,12,false,"free3d");

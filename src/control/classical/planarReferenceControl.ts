@@ -55,11 +55,10 @@ export function planarCommand(prev:PlanarState,o:PlanarObservation,dt:number):{s
     const trunk=n==="waist"||n==="lTorso2uTorso";
     const wrist=n.endsWith("Wrist");
     const arm=n.endsWith("Shoulder")||n.endsWith("Elbow");
-    // Upstream sets the left elbow's gains only once it becomes the swing
-    // arm's counterpart in phase 2; retain the initial default for phases 0/1
-    // before that event. (Its target remains zero.)
-    const kp=trunk?600:wrist?5:arm?100:300;
-    const kd=trunk?60:wrist?3:arm?30:30;
+    // The pinned source sets right elbow gains twice, leaving the left
+    // elbow at its defaults. Preserve this asymmetry for the reference.
+    const kp=trunk?600:wrist?5:arm&&n!=="lElbow"?100:300;
+    const kd=trunk?60:wrist?3:30;
     torque[n]=pd(target[n]??0,o.angle[n]!,o.rate[n]!,kp,kd);
   }
   torque[swing+"Hip"]=swingTorque;

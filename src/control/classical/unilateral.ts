@@ -77,3 +77,26 @@ export function unilateralTargets(state: UnilateralState, centerY: number, suppo
     phase==="lower"?1-smooth(state.elapsedS/.6):0;
   return {refY:centerY+w*(supportY-centerY),flexion};
 }
+
+/** Allocate vertical reactions so their weighted sole centers reproduce the
+ * requested lateral CoP whenever possible. A residual outside the center
+ * interval is handled by local foot pressure shifts; no fictitious force.
+ * This is a desired load, not a claim that the contact solver achieved it.
+ */
+export function lateralLoadTarget(desiredCopY:number,centers:Pair,loaded:readonly [boolean,boolean]):Pair {
+  if(![desiredCopY,...centers].every(Number.isFinite)) throw new RangeError("Invalid CoP allocation");
+  if(!loaded[0]) return [0,loaded[1]?1:0];
+  if(!loaded[1]) return [1,0];
+  const span=centers[0]-centers[1];
+  if(Math.abs(span)<1e-6) return [.5,.5];
+  const left=clamp((desiredCopY-centers[1])/span,0,1);
+  return [left,1-left];
+}
+/** Vertical contact force has joint moment axis dot (lever cross F).
+ * Correct measured-vs-requested normal load with the opposite internal knee
+ * moment. This is a limited virtual-force correction, not an external push.
+ */
+export function kneeLoadCorrection(desiredN:number,observedN:number,momentArmM:number):number {
+  if(![desiredN,observedN,momentArmM].every(Number.isFinite)||desiredN<0||observedN<0) throw new RangeError("Invalid load correction");
+  return clamp(-(desiredN-observedN)*momentArmM,-30,30);
+}

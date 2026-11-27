@@ -88,7 +88,7 @@ describe("C1 nominal standing endurance",()=>{
 
 describe("C2 unilateral support diagnostics",()=>{
   it("measures both weight transfers and attempts both lifts with bounded internal torques",async()=>{
-    for(const mode of ["shift-left","shift-right","lift-left","lift-right","shift2-left","shift2-right","lift2-left","lift2-right"] as const) {
+    for(const mode of ["shift-left","shift-right","lift-left","lift-right","shift2-left","shift2-right","lift2-left","lift2-right","shift3-left","shift3-right","lift3-left","lift3-right"] as const) {
       const result=await runClassical(mode,mode.startsWith("shift")?9:14);
       const m=result.metrics;
       console.log("CLASSICAL_C2 "+JSON.stringify({...m,unilateral:m.unilateral?{...m.unilateral,trace:undefined}:undefined}));
@@ -114,4 +114,15 @@ describe("C2 unilateral support diagnostics",()=>{
         sha256:createHash("sha256").update(bytes).digest("hex"),data:gzipSync(bytes).toString("base64")}));
     }
   },120000);
+});
+
+describe("C2c virtual-force standing smoke",()=>{
+  it("reports stability and bounded internal torque on the same reduced body",async()=>{
+    const r=await runClassical("balance3",3);
+    console.log("CLASSICAL_C2C_STAND "+JSON.stringify(r.metrics));
+    expect(r.metrics.maxRootTorque).toBe(0);
+    expect(r.metrics.maxTorqueRatio).toBeLessThanOrEqual(1+1e-12);
+    expect(r.recording.samples.every(s=>s.qpos.every(Number.isFinite))).toBe(true);
+    // Standing stability is reported, not assumed for this new controller.
+  },30000);
 });

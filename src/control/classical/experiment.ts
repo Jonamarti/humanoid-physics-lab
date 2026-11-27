@@ -5,6 +5,7 @@
  */
 import { advanceGait, initialGait, hipPair, pd, clamp, swingPitchTarget, type Side } from "./simbiconCore";
 import { advanceUnilateral, initialUnilateral, unilateralTargets, lateralLoadTarget, kneeLoadCorrection, type UnilateralPhase } from "./unilateral";
+import { virtualForce, proximalMoment, measuredShares, loadedHipReaction, weightedCenter } from "./genbiconCore";
 import { getMujoco } from "../../scenario/mujocoModule";
 import { decodeSolvedContactForce, hasCompleteSolvedContactRows } from "../../physics/contactForces";
 import { capturePoint, supportPolygon, signedMargin } from "../../metrics/balance";
@@ -12,7 +13,7 @@ import { sha256Hex } from "../../scenario/sha256";
 import { RECORDING_SCHEMA_ID, type ContactSample, type Recording, type RecordingSample } from "../../recording/schema";
 import type { Vec3 } from "../../scenario/schema";
 
-export type ClassicalMode = "passive" | "stand" | "walk" | "balance" | "shift-left" | "shift-right" | "lift-left" | "lift-right" | "shift2-left" | "shift2-right" | "lift2-left" | "lift2-right";
+export type ClassicalMode = "passive" | "stand" | "walk" | "balance" | "shift-left" | "shift-right" | "lift-left" | "lift-right" | "shift2-left" | "shift2-right" | "lift2-left" | "lift2-right" | "balance3" | "shift3-left" | "shift3-right" | "lift3-left" | "lift3-right";
 const DT = 0.002;
 const HZ = 500;
 const RECORD_HZ = 100;
@@ -50,7 +51,7 @@ export const CLASSICAL_MJCF = `<mujoco model="classical_c0">
   </worldbody>
 </mujoco>`;
 
-export interface LateralFrame {t:number;comY:number;velocityY:number;refY:number;desiredCopY:number;measuredCopY:number|null;loadsN:number[];desiredLoadsN:number[];kneeCorrectionNm:number[]}
+export interface LateralFrame {t:number;comY:number;velocityY:number;refY:number;desiredCopY:number;measuredCopY:number|null;loadsN:number[];desiredLoadsN:number[];kneeCorrectionNm:number[];virtualForceN?:readonly [number,number,number];hipMomentsNm?:number[][]}
 export interface ClassicalMetrics {
   mode: ClassicalMode; steps: number; phase: string; firstFallS: number | null;
   finalForwardM: number; minPelvisM: number; maxTiltDeg: number;
@@ -66,7 +67,7 @@ const vec = (a: ArrayLike<number>, off: number): Vec3 => [a[off]!, a[off+1]!, a[
 const angularDiff = (a: number, b: number): number => Math.atan2(Math.sin(a-b), Math.cos(a-b));
 
 export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<ClassicalResult> {
-  if (!["passive", "stand", "walk", "balance", "shift-left", "shift-right", "lift-left", "lift-right", "shift2-left", "shift2-right", "lift2-left", "lift2-right"].includes(mode) || !Number.isFinite(durationS) || durationS <= 0 ||
+  if (!["passive", "stand", "walk", "balance", "shift-left", "shift-right", "lift-left", "lift-right", "shift2-left", "shift2-right", "lift2-left", "lift2-right", "balance3", "shift3-left", "shift3-right", "lift3-left", "lift3-right"].includes(mode) || !Number.isFinite(durationS) || durationS <= 0 ||
       durationS > 60 || Math.abs(durationS * RECORD_HZ - Math.round(durationS * RECORD_HZ)) > 1e-8) {
     throw new RangeError("Invalid classical experiment");
   }
@@ -83,7 +84,7 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
       const id = model.jnt(s+"_"+a).id;
       const dof = model.jnt_dofadr[id]!, q = model.jnt_qposadr[id]!;
       if (dof < 6 || model.jnt_type[id] !== 3) throw new Error("Non-internal hinge");
-      return { dof, q };
+      return { id, dof, q };
     }));
     const feet = SIDES.map(s => model.geom(s+"_sole").id);
     const sizes = model.geom_size as Float64Array;
@@ -98,6 +99,7 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
     const mass = Array.from(model.body_mass as Float64Array).reduce((a,b)=>a+b,0);
     const unilateralMode=mode.startsWith("shift")||mode.startsWith("lift");
     const allocatedMode=mode.startsWith("shift2-")||mode.startsWith("lift2-");
+    const genMode=mode==="balance3"||mode.startsWith("shift3-")||mode.startsWith("lift3-");
     const support:Side=mode.endsWith("left")?"left":"right";
     const supportIndex=support==="left"?0:1, swingIndex=1-supportIndex;
     const supportY=(data.geom_xpos as Float64Array)[3*feet[supportIndex]!+1]!;
@@ -160,9 +162,9 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
           } finally { ct.delete(); }
         }
       } finally { list.delete(); }
+      if(unilateralMode||genMode) for(let i=0;i<2;i++) filteredLoads[i]! += (loads[i]!-filteredLoads[i]!)*DT/(.04+DT);
       if(unilateralMode) {
         finalLoadsN=loads.slice();
-        for(let i=0;i<2;i++) filteredLoads[i]! += (loads[i]!-filteredLoads[i]!)*DT/(.04+DT);
         maxComShiftM=Math.max(maxComShiftM,(com[1]-referenceCom[1])*(support==="left"?1:-1));
         if(t>=.5) maxSupportWeightRatio=Math.max(maxSupportWeightRatio,loads[supportIndex]!/(mass*9.81));
         if(unilateral.reachedShift) maxSwingClearanceM=Math.max(maxSwingClearanceM,clear[swingIndex]!);
@@ -198,7 +200,91 @@ export async function runClassical(mode: ClassicalMode, durationS = 3): Promise<
           applied[ix[i]![j]!.dof]=value;
           maxTorqueRatio=Math.max(maxTorqueRatio,Math.abs(value)/LIMITS[j]!);
         };
-        if (mode==="balance" || unilateralMode) {
+        if (genMode && t>=.5) {
+          // C2c: source-grounded virtual force, projected onto the actual
+          // proximal support chains; no direct force on the COM.
+          // Preserve C1's preparation and the previous variants verbatim.
+          const target=unilateralMode?unilateralTargets(unilateral,referenceCom[1],supportY):{refY:referenceCom[1],flexion:0};
+          const fA=virtualForce(mass,com,vel,[referenceCom[0],target.refY]);
+          const shares=measuredShares([loads[0]!>20?filteredLoads[0]!:0,loads[1]!>20?filteredLoads[1]!:0]);
+          const supported=shares[0]+shares[1]>0;
+          const bodyMass=model.body_mass as Float64Array;
+          const ipos=data.xipos as Float64Array;
+          const axes=data.xaxis as Float64Array, anchors=data.xanchor as Float64Array;
+          const bias=data.qfrc_bias as Float64Array;
+          const vMoments:number[][]=[[0,0,0,0,0],[0,0,0,0,0]];
+          const base:number[][]=[[0,0,0,0,0],[0,0,0,0,0]];
+          const centerY=supported?shares[0]*gx[3*feet[0]!+1]!+shares[1]*gx[3*feet[1]!+1]!:com[1];
+          for(let i=0;i<2;i++) {
+            const thigh=i===0?2:5, shin=thigh+1, foot=shin+1;
+            const swingActive=unilateralMode&&i===swingIndex&&target.flexion>0;
+            const supportWeight=shares[i]!;
+            const loaded=supportWeight>0;
+            const hipCenter=vec(ipos,3);
+            const kneeCenter=weightedCenter([1,thigh].map(b=>({mass:bodyMass[b]!,position:vec(ipos,3*b)})));
+            const ankleCenter=weightedCenter([1,thigh,shin].map(b=>({mass:bodyMass[b]!,position:vec(ipos,3*b)})));
+            const centers=[hipCenter,hipCenter,kneeCenter,ankleCenter,ankleCenter];
+            const force:Vec3=[supportWeight*fA[0],supportWeight*fA[1],0];
+            const ankle=vec(data.xpos as Float64Array,3*foot);
+            const fx=gx[3*feet[i]!]!,fy=gx[3*feet[i]!+1]!;
+            const normal=supportWeight*mass*9.81;
+            const kneeTarget=.10+(swingActive?.65*target.flexion:0);
+            for(let j=0;j<5;j++) {
+              const joint=ix[i]![j]!;
+              const angle=qpos[joint.q]!,rate=qvel[joint.dof]!;
+              const targetAngle=j===0?-.05-.30*(swingActive?target.flexion:0):
+                j===1?((i===0?.08:-.08)*(swingActive?target.flexion:0)):
+                j===2?kneeTarget:
+                j===3?(swingActive?clamp(-angles[2+2*i]!-qpos[ix[i]![2]!.q]!,-.65,.65):-.05):
+                (swingActive?clamp(-angles[3+2*i]!,-.35,.35):0);
+              // Relative posture control and the bias of unsupported links.
+              // qfrc_bias includes Coriolis as well as gravity; no contact
+              // compensation is added on an unloaded distal chain.
+              const post=pd(targetAngle,angle,rate,j===2?260:180,j===2?24:18,LIMITS[j]!);
+              if(!loaded) base[i]![j]=post+bias[joint.dof]!;
+              else {
+                vMoments[i]![j]=proximalMoment(vec(axes,3*joint.id),vec(anchors,3*joint.id),centers[j]!,force);
+                if(j>=3) {
+                  // Bound the ankle's virtual correction by the approximate
+                  // local support region. No world anchor / magnetic feet.
+                  const tx=clamp(com[0],fx-.11,fx+.11);
+                  const ty=fy+clamp(com[1]-centerY,-.045,.045);
+                  const gravity=j===3?normal*(tx-ankle[0]):-normal*(ty-ankle[1]);
+                  const lo=j===3?normal*(fx-.11-ankle[0]):-normal*(fy+.045-ankle[1]);
+                  const hi=j===3?normal*(fx+.11-ankle[0]):-normal*(fy-.045-ankle[1]);
+                  base[i]![j]=clamp(gravity+clamp(vMoments[i]![j]!,-20,20),lo,hi)-5*rate;
+                } else base[i]![j]=post+vMoments[i]![j]!;
+              }
+            }
+          }
+          for(let axis=0;axis<2;axis++) {
+            const torso=pd(0,angles[axis]!,rates[axis]!,axis===0?260:240,35,axis===0?180:150);
+            if(supported) {
+              // Preserve the hip component of the VMC task as feedforward
+              // on the desired pelvis reaction. Distribute only the residual.
+              const desiredRoot=torso-vMoments[0]![axis]!-vMoments[1]![axis]!;
+              const pair=loadedHipReaction([base[0]![axis]!,base[1]![axis]!],desiredRoot,shares,LIMITS[axis]!);
+              write(0,axis,pair.left);write(1,axis,pair.right);
+              maxHipResidualNm=Math.max(maxHipResidualNm,Math.abs(pair.residualNm));
+            } else for(let i=0;i<2;i++) write(i,axis,clamp(base[i]![axis]!,-LIMITS[axis]!,LIMITS[axis]!));
+          }
+          for(let i=0;i<2;i++) for(let j=2;j<5;j++) write(i,j,clamp(base[i]![j]!,-LIMITS[j]!,LIMITS[j]!));
+          if(unilateralMode&&k%100===0) {
+            let fz=0,weightedY=0;
+            for(const ct of contacts) {
+              const footGround=(ct.body_a==="world"&&(ct.body_b==="left_foot"||ct.body_b==="right_foot"))||
+                (ct.body_b==="world"&&(ct.body_a==="left_foot"||ct.body_a==="right_foot"));
+              if(!footGround) continue;
+              const n=Math.max(0,ct.body_a==="world"?ct.force_n[2]:-ct.force_n[2]);
+              fz+=n;weightedY+=n*ct.point_m[1];
+            }
+            const desiredCopY=com[1]-Math.max(.3,com[2])*fA[1]/(mass*9.81);
+            lateralTrace.push({t,comY:com[1],velocityY:vel[1],refY:target.refY,desiredCopY,
+              measuredCopY:fz>1?weightedY/fz:null,loadsN:loads.slice(),
+              desiredLoadsN:lateralLoadTarget(desiredCopY,[gx[3*feet[0]!+1]!,gx[3*feet[1]!+1]!],[shares[0]>0,shares[1]>0]).map(w=>w*mass*9.81),
+              kneeCorrectionNm:vMoments.map(v=>v[2]!),virtualForceN:fA,hipMomentsNm:vMoments.map(v=>v.slice(0,2))});
+          }
+        } else if (mode==="balance" || unilateralMode || genMode) {
           // C0b hypothesis: independent hip posture is not enough. Regulate
           // centroidal acceleration through the feet, not the floating base.
           // LIPM: xddot = g/h (x - p). Desired acceleration = -4 e - 4 v.

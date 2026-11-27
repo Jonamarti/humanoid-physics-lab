@@ -1,3 +1,5 @@
+import { gzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { advanceGait, initialGait, hipPair, pd, swingPitchTarget } from "../../src/control/classical/simbiconCore";
 import { runClassical } from "../../src/control/classical/experiment";
@@ -38,6 +40,18 @@ describe("Classical C0 MuJoCo experiment (diagnostic, not gait validation)",()=>
     const balance=await runClassical("balance",3);
     for(const result of [first,passive,walk,balance]){
       console.log("CLASSICAL_C0 "+JSON.stringify(result.metrics));
+      // Compact 25 Hz pose trace for offline comparative visualization.
+      // Derived only from the actual MuJoCo recording, never resimulated.
+      // Little-endian int16, qpos in millimetres/milliradians (quaternion
+      // components scaled by 1000). Quantization error <= 0.0005 units.
+      const frames=result.recording.samples.filter((_,i)=>i%4===0);
+      const n=frames[0]!.qpos.length;
+      const bytes=Buffer.alloc(frames.length*n*2);
+      frames.forEach((frame,i)=>frame.qpos.forEach((value,j)=>{
+        bytes.writeInt16LE(Math.round(value*1000),2*(i*n+j));
+      }));
+      console.log("CLASSICAL_VIDEO "+JSON.stringify({mode:result.metrics.mode,hz:25,frames:frames.length,n,
+        sha256:createHash("sha256").update(bytes).digest("hex"),data:gzipSync(bytes).toString("base64")}));
       expect(result.metrics.maxRootTorque).toBe(0);
       expect(result.metrics.maxTorqueRatio).toBeLessThanOrEqual(1+1e-12);
       expect(result.recording.samples).toHaveLength(301);

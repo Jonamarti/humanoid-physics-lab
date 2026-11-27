@@ -85,3 +85,32 @@ describe("C1 nominal standing endurance",()=>{
     // Perturbation robustness and visual naturalness remain unvalidated.
   },120000);
 });
+
+describe("C2 unilateral support diagnostics",()=>{
+  it("measures both weight transfers and attempts both lifts with bounded internal torques",async()=>{
+    for(const mode of ["shift-left","shift-right","lift-left","lift-right"] as const) {
+      const result=await runClassical(mode,mode.startsWith("shift")?9:14);
+      const m=result.metrics;
+      console.log("CLASSICAL_C2 "+JSON.stringify(m));
+      expect(m.maxRootTorque).toBe(0);
+      expect(m.maxTorqueRatio).toBeLessThanOrEqual(1+1e-12);
+      expect(m.unilateral).toBeDefined();
+      expect(result.recording.samples.every(s=>s.qpos.every(Number.isFinite))).toBe(true);
+      if(m.unilateral?.reachedHold) expect(m.unilateral.longestSupportS).toBeGreaterThanOrEqual(2);
+      if(mode.startsWith("lift")&&m.unilateral?.completed) {
+        expect(m.unilateral.reachedShift).toBe(true);
+        expect(m.unilateral.reachedHold).toBe(true);
+      }
+      // Diagnostic evidence only. A timeout/fall is a failed physical objective,
+      // not a failed numerical regression. Never present it as a valid lift.
+      const frames=result.recording.samples.filter((_,i)=>i%4===0);
+      const n=frames[0]!.qpos.length;
+      const bytes=Buffer.alloc(frames.length*n*2);
+      frames.forEach((frame,i)=>frame.qpos.forEach((value,j)=>{
+        bytes.writeInt16LE(Math.round(value*1000),2*(i*n+j));
+      }));
+      console.log("CLASSICAL_C2_VIDEO "+JSON.stringify({mode,hz:25,frames:frames.length,n,
+        sha256:createHash("sha256").update(bytes).digest("hex"),data:gzipSync(bytes).toString("base64")}));
+    }
+  },120000);
+});

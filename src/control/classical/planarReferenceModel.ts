@@ -78,7 +78,7 @@ const str=(v:readonly number[]):string=>v.join(" ");
  * MuJoCo inertia from geometry, contact friction .25, solver and zero joint
  * damping/armature are explicit approximations, not measured Bullet values.
  */
-export type ReferenceSpace="planar"|"free3d";
+export type ReferenceSpace="planar"|"free3d"|"free3d-roll";
 export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string {
   if(!(dt>0)||!Number.isFinite(dt))throw new RangeError("Invalid timestep");
   function body(name:string,parent:Part|null,edge:Joint|null):string {
@@ -86,13 +86,21 @@ export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string
     if(!p)throw new Error("Missing segment "+name);
     const pos=convert(parent?sub(p.position,parent.position):p.position);
     let joint:string;
-    if(!edge)joint=space==="free3d"?'<freejoint name="root"/>':'<joint name="root_x" type="slide" axis="1 0 0"/><joint name="root_z" type="slide" axis="0 0 1"/><joint name="root_pitch" axis="0 1 0"/>';
+    if(!edge)joint=space!=="planar"?'<freejoint name="root"/>':'<joint name="root_x" type="slide" axis="1 0 0"/><joint name="root_z" type="slide" axis="0 0 1"/><joint name="root_pitch" axis="0 1 0"/>';
     else {
       const [lo,hi]=edge.range;
       // Original locked neck hinge has zero width; use a declared micro-range
       // since MuJoCo requires lo < hi for limited hinges.
       const range=lo===hi?[-1e-6,1e-6]:[lo*Math.PI/180,hi*Math.PI/180];
-      joint='<joint name="'+edge.name+'" axis="0 1 0" pos="'+str(convert(sub(edge.anchor,p.position)))+'" limited="true" range="'+str(range)+'"/>';
+      const anchor=str(convert(sub(edge.anchor,p.position)));
+      joint='<joint name="'+edge.name+'" axis="0 1 0" pos="'+anchor+'" limited="true" range="'+str(range)+'"/>';
+      if(space==="free3d-roll"&&/^[lr](Hip|Ankle)$/.test(edge.name)){
+        // Preserve the sagittal anchor. Hip roll is proximal to hip pitch;
+        // ankle roll is distal to ankle pitch. Only new hinges have damping
+        // and armature; the original planar/sagittal cases are unchanged.
+        const lateral='<joint name="'+edge.name+'Roll" axis="1 0 0" pos="'+anchor+'" limited="true" range="-.5 .5" damping="1" armature=".02"/>';
+        joint=edge.name.endsWith("Hip")?lateral+joint:joint+lateral;
+      }
     }
     const size=p.shape==="BOX"?[p.size[0]!/2,p.size[2]!/2,p.size[1]!/2]:
       p.shape==="CAPSULE"?[p.size[0]!,p.size[1]!/2]:[p.size[0]!];
@@ -100,7 +108,7 @@ export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string
     return '<body name="'+name+'" pos="'+str(pos)+'">'+joint+geom+
       referenceJoints.filter(j=>j.parent===name).map(j=>body(j.child,p,j)).join("")+'</body>';
   }
-  return '<mujoco model="'+(space==="planar"?"planar_reference":"free3d_sagittal_baseline")+'"><compiler angle="radian" inertiafromgeom="true"/>'+
+  return '<mujoco model="'+(space==="planar"?"planar_reference":space==="free3d"?"free3d_sagittal_baseline":"free3d_coronal_reference")+'"><compiler angle="radian" inertiafromgeom="true"/>'+
     '<option timestep="'+dt+'" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" iterations="50"/>'+
     '<default><joint damping="0" armature="0"/><geom contype="2" conaffinity="1" friction=".25 .005 .0001" solref=".015 1" solimp=".9 .95 .001"/></default>'+
     '<worldbody><geom name="floor" type="box" pos="0 0 -.5" size="50 .5 .5" contype="1" conaffinity="2"/>'+

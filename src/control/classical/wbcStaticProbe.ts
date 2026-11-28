@@ -13,13 +13,32 @@ import { articulatedMass,pointJacobian,type ArticulatedGeometry,type V3 } from "
 import { solveContactDynamics,type ContactDynamicsProblem,type ContactDynamicsSolution,type LinearRow } from "./contactDynamics";
 import { decodeSolvedContactForce,hasCompleteSolvedContactRows } from "../../physics/contactForces";
 import { clamp } from "./simbiconCore";
+import { materialPointTravel } from "./contactQuality";
 const vec=(a:ArrayLike<number>,i:number):V3=>[a[i]!,a[i+1]!,a[i+2]!];
 const slice9=(a:ArrayLike<number>,i:number):number[]=>Array.from({length:9},(_,j)=>a[i+j]!);
 const maxAbs=(a:readonly number[]):number=>a.reduce((s,v)=>Math.max(s,Math.abs(v)),0);
 const dot=(a:readonly number[],b:readonly number[]):number=>a.reduce((s,v,i)=>s+v*b[i]!,0);
-export interface WbcFeedbackFrame {t:number;com:V3;pelvis:V3;tiltDeg:number;loadsN:number[];predictedNormalN:number;rootResidual:number;contactResidual:number;solverMethod:string;iterations:number;accepted:boolean}
+export type WbcMode="standing"|"shift-left"|"shift-right";
+/** Quintic references keep position, velocity and acceleration continuous
+ * at each transition. This changes only the desired lateral COM task, not
+ * the state, contacts, torque bounds or the standing controller. */
+export function lateralReference(mode:WbcMode,t:number):{offsetM:number;velocityMps:number;accelerationMps2:number;phase:"prepare"|"shift"|"hold"|"return"|"center"} {
+  if(!Number.isFinite(t)||t<0)throw new RangeError("Invalid reference time");
+  if(mode==="standing"||t<.5)return {offsetM:0,velocityMps:0,accelerationMps2:0,phase:"prepare"};
+  const a=mode==="shift-left"?.085:-.085;
+  if(t>=5.5)return {offsetM:0,velocityMps:0,accelerationMps2:0,phase:"center"};
+  if(t>=2.5&&t<4)return {offsetM:a,velocityMps:0,accelerationMps2:0,phase:"hold"};
+  const returning=t>=4,start=returning?4:.5,duration=returning?1.5:2;
+  const u=clamp((t-start)/duration,0,1),p=u**3*(10+u*(-15+6*u)),dp=30*u*u*(1-u)**2/duration;
+  const ddp=60*u*(1-u)*(1-2*u)/(duration*duration);
+  return {offsetM:a*(returning?1-p:p),velocityMps:a*(returning?-dp:dp),accelerationMps2:a*(returning?-ddp:ddp),phase:returning?"return":"shift"};
+}
+export interface WbcFeedbackFrame {t:number;com:V3;pelvis:V3;tiltDeg:number;loadsN:number[];predictedNormalN:number;rootResidual:number;contactResidual:number;solverMethod:string;iterations:number;accepted:boolean;referenceY:number;velocityY:number;phase:ReturnType<typeof lateralReference>["phase"]}
 export interface WbcFeedback {
   requestedS:number;executedS:number;updates:number;acceptedUpdates:number;stopReason:string;
+  mode:WbcMode;maxExternalForce:number;finalComSpeedMps:number;maxGroundPenetrationM:number;maxSampledMaterialTravelM:number;
+  minFootLoadN:number[];maxSolverIterations:number;admmUpdates:number;recordHz:number;
+  maxSupportWeightRatio:number;maxSignedComShiftM:number;longestQualifiedShiftS:number;longestRecenterS:number;
   maxComDisplacementM:number;maxTiltDeg:number;minPelvisM:number;maxTorqueRatio:number;
   maxRootForce:number;maxContactResidual:number;maxRootResidual:number;
   maxNormalPredictionErrorN:number;maxBilateralLoadLossS:number;
@@ -34,8 +53,9 @@ export interface WbcProbe {
   finalPelvisDisplacementM:number|null;finalComDisplacementM:number|null;maxRootForce:number;
   feedback?:WbcFeedback;
 }
-export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
-  if(!Number.isFinite(feedbackS)||feedbackS<0||feedbackS>2||Math.abs(feedbackS*100-Math.round(feedbackS*100))>1e-8)throw new RangeError("Invalid feedback duration");
+export async function runWbcStaticProbe(feedbackS=0,mode:WbcMode="standing"):Promise<WbcProbe> {
+  if(!Number.isFinite(feedbackS)||feedbackS<0||feedbackS>60||Math.abs(feedbackS*100-Math.round(feedbackS*100))>1e-8||
+    !["standing","shift-left","shift-right"].includes(mode)||mode!=="standing"&&feedbackS!==6)throw new RangeError("Invalid feedback duration or mode");
   const mj=await getMujoco(),model=mj.MjModel.from_xml_string(planarModel(referenceDt,"free3d-wbc")),data=new mj.MjData(model);
   try{
     const n=model.nv,root=model.body("pelvis").id;
@@ -49,7 +69,6 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
     // All generalized velocities initially zero. No initial teleport,
     // free-root force, equality constraint or added ground adhesion.
     mj.mj_forward(model,data);
-    const pos=data.xpos as Float64Array;
     function geometryOf(d:typeof data):ArticulatedGeometry{
       const positions=d.xpos as Float64Array,rotations=d.xmat as Float64Array;
       const ipos=d.xipos as Float64Array,irot=d.ximat as Float64Array;
@@ -126,7 +145,9 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
     const solution=solveContactDynamics({mass:dyn.mass,bias:bias.map((v,i)=>v-passive[i]!),rootDofs:6,torqueLimits:limits,contacts,tasks});
     const applied=data.qfrc_applied as Float64Array;
     let maxRootForce=0,finalPelvisDisplacementM:number|null=null,finalComDisplacementM:number|null=null;
-    const pelvis0=vec(pos,3*root);
+    // WASM heap growth during scratch allocation can invalidate old views.
+    // Use the immutable audited position and fresh native arrays.
+    const pelvis0=geometry.rootPosition;
     const initialSoles=["l","r"].map(side=>{
       const g=model.geom(side+"Foot_geom").id;
       return {p:vec(gx,3*g),r:slice9(gm,9*g)};
@@ -144,15 +165,17 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
         if(!(data.qpos as Float64Array).every(Number.isFinite))throw new Error("Nonfinite native WBC probe");
       }
       mj.mj_forward(model,data);
-      finalPelvisDisplacementM=Math.hypot(...vec(pos,3*root).map((v,i)=>v-pelvis0[i]!));
+      finalPelvisDisplacementM=Math.hypot(...vec(data.xpos as Float64Array,3*root).map((v,i)=>v-pelvis0[i]!));
       finalComDisplacementM=Math.hypot(...vec(data.subtree_com as Float64Array,3*root).map((v,i)=>v-com0[i]!));
+      if(![finalPelvisDisplacementM,finalComDisplacementM].every(Number.isFinite))throw new Error("Nonfinite static displacement");
       if(feedbackS>0)feedback=runFeedback(initialQ);
     }
     function runFeedback(initialQ:number[]):WbcFeedback {
       // Begins after the same 40ms static open-loop probe. Feedback at
       // 100 Hz, physical dt remains .00025 s. No state rewrites, no support
       // welds, no externally applied force. Stop before using a bad solve.
-      const period=.01,substeps=Math.round(period/referenceDt);
+      const period=.01,substeps=Math.round(period/referenceDt),recordHz=feedbackS>10?5:25;
+      const frameEvery=Math.round(1/(period*recordHz));
       const partNames=Array<string>(17).fill("");
       for(const name of ["pelvis",...referenceJoints.map(j=>j.child)])partNames[model.body(name).id-1]=name;
       const floor=model.geom("floor").id,feet=["l","r"].map(side=>({geom:model.geom(side+"Foot_geom").id,body:model.body(side+"Foot").id}));
@@ -162,9 +185,14 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
       const trace:WbcFeedbackFrame[]=[],frames:WbcFeedback["frames"]=[];
       let previous=geometry,previousComJ=dyn.comJacobian,previousInterval=.04;
       let previousSoles=initialSoles;
+      let previousLoads=[0,0];
+      const materialTravel=[0,0],minFootLoadN=[Infinity,Infinity];
+      const support=mode==="shift-left"?0:1,signSide=support===0?1:-1;
       const snapshot=()=>feet.map(f=>({p:vec(data.geom_xpos as Float64Array,3*f.geom),r:slice9(data.geom_xmat as Float64Array,9*f.geom)}));
       let updates=0,acceptedUpdates=0,executedS=0,stopReason="duration",maxComDisplacementM=0,maxTiltDeg=0,minPelvisM=Infinity;
       let maxTorqueRatio=0,maxContactResidual=0,maxResidual=0,maxNormalPredictionErrorN=0,loadLossS=0,maxBilateralLoadLossS=0,rootForce=0;
+      let maxExternalForce=0,maxGroundPenetrationM=0,maxSampledMaterialTravelM=0,maxSolverIterations=0,admmUpdates=0;
+      let maxSupportWeightRatio=0,maxSignedComShiftM=0,qualifiedS=0,longestQualifiedShiftS=0,recenterS=0,longestRecenterS=0;
       function frame(t:number){
         const x=data.xpos as Float64Array,q=data.xquat as Float64Array;
         frames.push({t,pose:Array.from({length:17},(_,i)=>[...vec(x,3*(i+1)),...Array.from(q.slice(4*(i+1),4*(i+2)))])});
@@ -173,17 +201,18 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
       for(let step=0;step<Math.round(feedbackS/period);step++){
         const t=step*period;
         mj.mj_forward(model,data);
-        const current=geometryOf(data),d=articulatedMass(current),v=Array.from(data.qvel as Float64Array),q=data.qpos as Float64Array;
+        const current=geometryOf(data),d=articulatedMass(current),v=Array.from(data.qvel as Float64Array),q=Array.from(data.qpos as Float64Array);
         if(![...q,...v].every(Number.isFinite)){stopReason="nonfinite";break;}
         const currentSoles=snapshot();
         const b=Array.from(data.qfrc_bias as Float64Array).map((x,i)=>x-(data.qfrc_passive as Float64Array)[i]!);
-        const contacts:ContactDynamicsProblem["contacts"][number][]=[],loads=[0,0];
-        const list=data.contact,efc=data.efc_force as Float64Array;
+        const contacts:ContactDynamicsProblem["contacts"][number][]=[],loads=[0,0],travelWeighted=[0,0];
+        const list=data.contact;
         try{
           for(let k=0;k<list.size();k++){
             const ct=list.get(k);if(!ct)throw new Error("Missing WBC contact");
             try{
               const other=ct.geom1===floor?ct.geom2:ct.geom2===floor?ct.geom1:-1;
+              if(other>=0)maxGroundPenetrationM=Math.max(maxGroundPenetrationM,-ct.dist);
               const fi=feet.findIndex(f=>f.geom===other);
               if(fi<0||ct.dist>.002)continue;
               const point=vec(ct.pos as Float64Array,0);
@@ -195,15 +224,39 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
               const jdot=J.map((row,i)=>dot(row.map((a,j)=>(a-oldJ[i]![j]!)/previousInterval),v));
               const target=J.map((row,i)=>clamp(-12*dot(row,v)+(i===2?-100*(point[2]+.001):0),-10,10));
               contacts.push({jacobian:J,mu:.25,maxNormalN:d.totalMass*9.81,accelerationBias:jdot,targetAcceleration:target});
+              const efc=data.efc_force as Float64Array;
               if(hasCompleteSolvedContactRows(ct.efc_address,ct.dim,pyramid,data.nefc,efc.length)){
                 const force=decodeSolvedContactForce({solverRows:efc,efcAddress:ct.efc_address,dim:ct.dim,pyramidal:pyramid,friction:ct.friction as Float64Array,adhesionN:ct.adhesion});
                 const a=ct.frame as Float64Array;
                 const fz=force.normalN*a[2]!+force.tangentN[0]*a[5]!+force.tangentN[1]*a[8]!;
-                loads[fi]!+=Math.max(0,ct.geom1===floor?fz:-fz);
+                const load=Math.max(0,ct.geom1===floor?fz:-fz);
+                loads[fi]!+=load;
+                if(previousLoads[fi]!>=40&&load>0)travelWeighted[fi]!+=load*materialPointTravel(
+                  {position:old.p,rotation:old.r},{position:now.p,rotation:now.r},point);
               }
             }finally{ct.delete();}
           }
         }finally{list.delete();}
+        for(let i=0;i<2;i++){
+          minFootLoadN[i]=Math.min(minFootLoadN[i]!,loads[i]!);
+          if(loads[i]!>=40&&previousLoads[i]!>=40){
+            materialTravel[i]!+=travelWeighted[i]!/loads[i]!;
+            maxSampledMaterialTravelM=Math.max(maxSampledMaterialTravelM,materialTravel[i]!);
+          }else materialTravel[i]=0;
+        }
+        previousLoads=loads.slice();
+        const reference=lateralReference(mode,t),referenceY=com0[1]+reference.offsetM;
+        const velocityY=dot(d.comJacobian[1]!,v),bw=d.totalMass*9.81;
+        maxSupportWeightRatio=Math.max(maxSupportWeightRatio,loads[support]!/bw);
+        maxSignedComShiftM=Math.max(maxSignedComShiftM,signSide*(d.com[1]-com0[1]));
+        const qualifies=mode!=="standing"&&reference.phase==="hold"&&loads[support]!>=.75*bw&&
+          Math.abs(d.com[1]-referenceY)<=.03&&Math.abs(velocityY)<=.06;
+        qualifiedS=qualifies?qualifiedS+period:0;
+        longestQualifiedShiftS=Math.max(longestQualifiedShiftS,qualifiedS);
+        const recentered=mode!=="standing"&&reference.phase==="center"&&loads.every(x=>x>=.2*bw)&&
+          Math.abs(d.com[1]-com0[1])<=.015&&Math.abs(velocityY)<=.06;
+        recenterS=recentered?recenterS+period:0;
+        longestRecenterS=Math.max(longestRecenterS,recenterS);
         if(!contacts.length){stopReason="no foot-ground contact";break;}
         const task:LinearRow[]=[];
         const unit=(i:number)=>Array.from({length:n},(_,j)=>i===j?1:0);
@@ -219,10 +272,15 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
         for(let i=0;i<3;i++){
           const row=d.comJacobian[i]!;
           const convective=dot(row.map((a,j)=>(a-previousComJ[i]![j]!)/previousInterval),v);
-          task.push({a:row,b:clamp(30*(com0[i]!-d.com[i]!)-10*dot(row,v),-5,5)-convective,weight:25});
+          const targetPosition=i===1?referenceY:com0[i]!;
+          const targetVelocity=i===1?reference.velocityMps:0;
+          const feedforward=i===1?reference.accelerationMps2:0;
+          task.push({a:row,b:clamp(feedforward+30*(targetPosition-d.com[i]!)+10*(targetVelocity-dot(row,v)),-5,5)-convective,weight:25});
         }
         const s=solveContactDynamics({mass:d.mass,bias:b,rootDofs:6,torqueLimits:limits,contacts,tasks:task});
         updates++;
+        maxSolverIterations=Math.max(maxSolverIterations,s.solver.iterations);
+        if(s.solver.method==="admm")admmUpdates++;
         const predicted=s.forces.reduce((a,f)=>a+f[2]!,0);
         const accepted=s.feasible&&s.maxTorqueViolation<1e-8&&s.contactAccelerationResidual<=2&&maxAbs(s.acceleration)<=100;
         maxContactResidual=Math.max(maxContactResidual,s.contactAccelerationResidual);
@@ -233,14 +291,17 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
         loadLossS=loads.some(l=>l<40)?loadLossS+period:0;
         maxBilateralLoadLossS=Math.max(maxBilateralLoadLossS,loadLossS);
         trace.push({t,com:d.com,pelvis:current.rootPosition,tiltDeg:tilt(),loadsN:loads,predictedNormalN:predicted,
-          rootResidual:s.maxRootResidual,contactResidual:s.contactAccelerationResidual,solverMethod:s.solver.method,iterations:s.solver.iterations,accepted});
+          rootResidual:s.maxRootResidual,contactResidual:s.contactAccelerationResidual,solverMethod:s.solver.method,iterations:s.solver.iterations,accepted,
+          referenceY,velocityY,phase:reference.phase});
         if(!accepted){stopReason=!s.feasible?"solver infeasible/unconverged":s.maxTorqueViolation>=1e-8?"torque bound":s.contactAccelerationResidual>2?"contact acceleration task":"acceleration bound";break;}
-        applied.fill(0);
+        const effort=data.qfrc_applied as Float64Array;
+        effort.fill(0);
         for(let j=6;j<n;j++){
-          applied[j]=s.torques[j-6]!;
-          maxTorqueRatio=Math.max(maxTorqueRatio,Math.abs(applied[j]!)/limits[j-6]!);
+          effort[j]=s.torques[j-6]!;
+          maxTorqueRatio=Math.max(maxTorqueRatio,Math.abs(effort[j]!)/limits[j-6]!);
         }
-        for(let j=0;j<6;j++)rootForce=Math.max(rootForce,Math.abs(applied[j]!));
+        for(let j=0;j<6;j++)rootForce=Math.max(rootForce,Math.abs(effort[j]!));
+        maxExternalForce=Math.max(maxExternalForce,maxAbs(Array.from(data.xfrc_applied as Float64Array)));
         acceptedUpdates++;
         previous=current;previousComJ=d.comJacobian;previousSoles=currentSoles;previousInterval=period;
         for(let sub=0;sub<substeps;sub++){
@@ -253,12 +314,17 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
         maxComDisplacementM=Math.max(maxComDisplacementM,Math.hypot(...com.map((x,i)=>x-com0[i]!)));
         maxTiltDeg=Math.max(maxTiltDeg,tilt());
         minPelvisM=Math.min(minPelvisM,(data.xpos as Float64Array)[3*root+2]!);
-        if((step+1)%4===0)frame((step+1)*period);
+        if((step+1)%frameEvery===0)frame((step+1)*period);
         if(stopReason!=="duration")break;
         if(minPelvisM<.45||maxTiltDeg>60){stopReason="fall";break;}
       }
       if(frames.at(-1)!.t<executedS-1e-8)frame(executedS);
-      return {requestedS:feedbackS,executedS,updates,acceptedUpdates,stopReason,maxComDisplacementM,maxTiltDeg,
+      const last=articulatedMass(geometryOf(data)),lastV=Array.from(data.qvel as Float64Array);
+      const finalComSpeedMps=Math.hypot(...last.comJacobian.map(row=>dot(row,lastV)));
+      return {requestedS:feedbackS,executedS,updates,acceptedUpdates,stopReason,mode,maxExternalForce,finalComSpeedMps,
+        maxGroundPenetrationM,maxSampledMaterialTravelM,minFootLoadN:minFootLoadN.map(v=>Number.isFinite(v)?v:0),
+        maxSolverIterations,admmUpdates,recordHz,maxSupportWeightRatio,maxSignedComShiftM,longestQualifiedShiftS,longestRecenterS,
+        maxComDisplacementM,maxTiltDeg,
         minPelvisM:Number.isFinite(minPelvisM)?minPelvisM:pelvis0[2],maxTorqueRatio,maxRootForce:rootForce,
         maxContactResidual,maxRootResidual:maxResidual,maxNormalPredictionErrorN,maxBilateralLoadLossS,trace,frames,partNames};
     }

@@ -43,7 +43,8 @@ export function constrainedLeastSquares(p:BoxLeastSquaresProblem):BoxSolution {
   }
   const L=cholesky(H),m=p.constraints.length;
   const clip=(v:number,c:BoundRow)=>Math.max(c.lo,Math.min(c.hi,v));
-  let x=Array<number>(n).fill(0),z=p.constraints.map(c=>clip(0,c)),u=Array<number>(m).fill(0);
+  let x=Array<number>(n).fill(0);
+  const z=p.constraints.map(c=>clip(0,c)),u=Array<number>(m).fill(0);
   let primal=Infinity,dual=Infinity,iteration=0;
   for(iteration=1;iteration<=maxIter;iteration++){
     const rhs=g.slice();

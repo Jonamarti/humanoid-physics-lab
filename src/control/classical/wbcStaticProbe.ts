@@ -16,6 +16,7 @@ const slice9=(a:ArrayLike<number>,i:number):number[]=>Array.from({length:9},(_,j
 const maxAbs=(a:readonly number[]):number=>a.reduce((s,v)=>Math.max(s,Math.abs(v)),0);
 export interface WbcProbe {
   nv:number;massKg:number;gravityError:number;massEquationError:number;comError:number;
+  excitedMassEquationError:number;rotatedMassEquationError:number;rotatedGravityError:number;
   supportPoints:number;solution:ContactDynamicsSolution;applied:boolean;
   finalPelvisDisplacementM:number|null;finalComDisplacementM:number|null;maxRootForce:number;
 }
@@ -33,14 +34,18 @@ export async function runWbcStaticProbe():Promise<WbcProbe> {
     // All generalized velocities initially zero. No initial teleport,
     // free-root force, equality constraint or added ground adhesion.
     mj.mj_forward(model,data);
-    const pos=data.xpos as Float64Array,rot=data.xmat as Float64Array;
-    const ipos=data.xipos as Float64Array,irot=data.ximat as Float64Array;
-    const anchors=data.xanchor as Float64Array,axes=data.xaxis as Float64Array;
-    const geometry:ArticulatedGeometry={nv:n,rootBody:root,rootPosition:vec(pos,3*root),rootRotation:slice9(rot,9*root),
-      bodies:Array.from({length:model.nbody},(_,b)=>({parent:model.body_parentid[b]!,mass:model.body_mass[b]!,
-        inertia:vec(model.body_inertia as Float64Array,3*b),center:vec(ipos,3*b),inertialRotation:slice9(irot,9*b)})),
-      hinges:hinges.map(h=>({body:h.body,dof:h.dof,axis:vec(axes,3*h.id),anchor:vec(anchors,3*h.id)})),
-      armature:Array.from(model.dof_armature as Float64Array)};
+    const pos=data.xpos as Float64Array;
+    function geometryOf(d:typeof data):ArticulatedGeometry{
+      const positions=d.xpos as Float64Array,rotations=d.xmat as Float64Array;
+      const ipos=d.xipos as Float64Array,irot=d.ximat as Float64Array;
+      const anchors=d.xanchor as Float64Array,axes=d.xaxis as Float64Array;
+      return {nv:n,rootBody:root,rootPosition:vec(positions,3*root),rootRotation:slice9(rotations,9*root),
+        bodies:Array.from({length:model.nbody},(_,b)=>({parent:model.body_parentid[b]!,mass:model.body_mass[b]!,
+          inertia:vec(model.body_inertia as Float64Array,3*b),center:vec(ipos,3*b),inertialRotation:slice9(irot,9*b)})),
+        hinges:hinges.map(h=>({body:h.body,dof:h.dof,axis:vec(axes,3*h.id),anchor:vec(anchors,3*h.id)})),
+        armature:Array.from(model.dof_armature as Float64Array)};
+    }
+    const geometry=geometryOf(data);
     const dyn=articulatedMass(geometry);
     const bias=Array.from(data.qfrc_bias as Float64Array);
     const passive=Array.from(data.qfrc_passive as Float64Array);
@@ -51,6 +56,41 @@ export async function runWbcStaticProbe():Promise<WbcProbe> {
     const comError=Math.hypot(...dyn.com.map((v,i)=>v-com0[i]!));
     if(![gravityError,massEquationError,comError].every(Number.isFinite)||gravityError>1e-5||massEquationError>1e-5||comError>1e-8)
       throw new Error("WBC native dynamics audit failed: "+JSON.stringify({gravityError,massEquationError,comError}));
+    // The gravity-only equation is insufficient to validate off-diagonal
+    // inertia. Use a separate data instance to excite every internal DoF;
+    // no mj_step, no root effort, no edits to the real standing state.
+    const scratch=new mj.MjData(model);
+    let excitedMassEquationError=0,rotatedMassEquationError=0,rotatedGravityError=0;
+    try{
+      const q=scratch.qpos as Float64Array,tau=scratch.qfrc_applied as Float64Array;
+      q.set(data.qpos as Float64Array);
+      for(const rotated of [false,true]){
+        if(rotated){
+          q[3]=Math.cos(.13);q[4]=Math.sin(.13);q[5]=0;q[6]=0;
+          for(const h of hinges){
+            const adr=model.jnt_qposadr[h.id]!;
+            if(h.name.endsWith("Knee"))q[adr]=.2;
+            if(h.name.endsWith("HipRoll"))q[adr]=h.name.startsWith("l")?.09:-.07;
+            if(h.name.endsWith("HipYaw"))q[adr]=.08;
+            if(h.name.endsWith("Hip"))q[adr]=-.12;
+          }
+        }
+        tau.fill(0);mj.mj_forward(model,scratch);
+        const d=articulatedMass(geometryOf(scratch));
+        if(rotated)rotatedGravityError=maxAbs(d.gravity.map((v,i)=>v-(scratch.qfrc_bias as Float64Array)[i]!));
+        for(let j=6;j<n;j++){
+          tau.fill(0);tau[j]=3;
+          mj.mj_forward(model,scratch);
+          const a=scratch.qacc_smooth as Float64Array,s=scratch.qfrc_smooth as Float64Array;
+          const error=maxAbs(d.mass.map((row,i)=>row.reduce((v,m,k)=>v+m*a[k]!,0)-s[i]!));
+          if(rotated)rotatedMassEquationError=Math.max(rotatedMassEquationError,error);
+          else excitedMassEquationError=Math.max(excitedMassEquationError,error);
+        }
+      }
+    }finally{scratch.delete();}
+    if(![excitedMassEquationError,rotatedMassEquationError,rotatedGravityError].every(Number.isFinite)||
+      Math.max(excitedMassEquationError,rotatedMassEquationError,rotatedGravityError)>1e-5)
+      throw new Error("WBC excited native dynamics audit failed: "+JSON.stringify({excitedMassEquationError,rotatedMassEquationError,rotatedGravityError}));
     const contacts:ContactDynamicsProblem["contacts"][number][]=[];
     const gx=data.geom_xpos as Float64Array,gm=data.geom_xmat as Float64Array,sizes=model.geom_size as Float64Array;
     for(const side of ["l","r"]){
@@ -86,7 +126,8 @@ export async function runWbcStaticProbe():Promise<WbcProbe> {
       finalPelvisDisplacementM=Math.hypot(...vec(pos,3*root).map((v,i)=>v-pelvis0[i]!));
       finalComDisplacementM=Math.hypot(...vec(data.subtree_com as Float64Array,3*root).map((v,i)=>v-com0[i]!));
     }
-    return {nv:n,massKg:dyn.totalMass,gravityError,massEquationError,comError,supportPoints:contacts.length,solution,applied:use,
+    return {nv:n,massKg:dyn.totalMass,gravityError,massEquationError,comError,excitedMassEquationError,rotatedMassEquationError,rotatedGravityError,
+      supportPoints:contacts.length,solution,applied:use,
       finalPelvisDisplacementM,finalComDisplacementM,maxRootForce};
   }finally{data.delete();model.delete();}
 }

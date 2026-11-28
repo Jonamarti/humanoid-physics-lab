@@ -46,5 +46,5 @@ export function headingCommand(policy:HeadingPolicy,o:HeadingObservation):Headin
     }
   }
   const actual=reaction();
-  return {hipNm:tau,desiredRootNm:desired,projectedReactionNm:actual,residualNm:desired-actual};
+  return {hipNm:[tau[0]===0?0:tau[0],tau[1]===0?0:tau[1]],desiredRootNm:desired,projectedReactionNm:actual,residualNm:desired-actual};
 }

@@ -1,4 +1,6 @@
 import { describe,it,expect } from "vitest";
+import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { constrainedLeastSquares,solveContactDynamics } from "../../src/control/classical/contactDynamics";
 import { articulatedMass,pointJacobian,type ArticulatedGeometry } from "../../src/control/classical/articulatedDynamics";
 import { runWbcStaticProbe } from "../../src/control/classical/wbcStaticProbe";
@@ -9,9 +11,17 @@ describe("Deterministic constrained dynamics",()=>{
     const a=constrainedLeastSquares(p),b=constrainedLeastSquares(p);
     expect(a).toEqual(b);
     expect(a.converged).toBe(true);
+    expect(a.method).toBe("active-set");
+    expect(a.dualResidual).toBeLessThan(1e-6);
     expect(a.x[0]).toBeCloseTo(1.5,5);
     expect(a.x[1]).toBeCloseTo(.5,5);
     expect(a.maxViolation).toBeLessThan(1e-6);
+  });
+  it("handles redundant equalities through the independently checked fallback",()=>{
+    const r=constrainedLeastSquares({n:1,tasks:[{a:[1],b:2}],constraints:[{a:[1],lo:1,hi:1},{a:[1],lo:1,hi:1}]});
+    expect(r.method).toBe("admm");
+    expect(r.converged).toBe(true);
+    expect(r.x[0]).toBeCloseTo(1,5);
   });
   it("reports an inconsistent constraint rather than declaring success",()=>{
     const r=constrainedLeastSquares({n:1,tasks:[],constraints:[{a:[1],lo:2,hi:Infinity},{a:[1],lo:-Infinity,hi:1}],iterations:100});
@@ -71,12 +81,30 @@ describe("Native full-body inverse dynamics integration",()=>{
     expect(r.comError).toBeLessThan(1e-8);
     expect(r.supportPoints).toBe(8);
     expect(r.maxRootForce).toBe(0);
-    if(r.applied){
-      expect(r.solution.feasible).toBe(true);
-      expect(r.finalPelvisDisplacementM).not.toBeNull();
-      expect(r.finalComDisplacementM).not.toBeNull();
-    }
-    // A nonconvergent solver or poor static task is a diagnostic failure:
-    // report it rather than apply its forces or claim standing success.
+    // Require numerical feasibility for the static integration milestone.
+    // Motion quality during the 40ms native probe is reported separately.
+    expect(r.solution.feasible).toBe(true);
+    expect(r.applied).toBe(true);
+    expect(r.finalPelvisDisplacementM).not.toBeNull();
+    expect(r.finalComDisplacementM).not.toBeNull();
   },120000);
+  it.skipIf(!enabled)("attempts one second of contact-aware closed-loop standing at 100 Hz",async()=>{
+    const r=await runWbcStaticProbe(1);
+    const f=r.feedback;
+    console.log("CLASSICAL_WBC_FEEDBACK "+JSON.stringify(f?{...f,trace:undefined,frames:undefined}:{applied:r.applied,solver:r.solution.solver}));
+    expect(r.applied).toBe(true);
+    expect(f).toBeDefined();
+    if(!f)throw new Error("Initial static solve not accepted");
+    console.log("CLASSICAL_WBC_TRACE "+JSON.stringify(f.trace));
+    expect(f.maxRootForce).toBe(0);
+    expect(f.maxTorqueRatio).toBeLessThanOrEqual(1+1e-8);
+    expect(f.acceptedUpdates).toBeLessThanOrEqual(f.updates);
+    expect(f.frames.every(p=>p.pose.length===17&&p.pose.every(q=>q.length===7&&q.every(Number.isFinite)))).toBe(true);
+    const bytes=Buffer.from(JSON.stringify({partNames:f.partNames,frames:f.frames}),"utf8");
+    const packed=gzipSync(bytes).toString("base64"),sha256=createHash("sha256").update(bytes).digest("hex");
+    const chunk=3000,count=Math.ceil(packed.length/chunk);
+    for(let i=0;i<count;i++)console.log("CLASSICAL_WBC_REPLAY "+JSON.stringify({index:i,count,sha256,data:packed.slice(i*chunk,(i+1)*chunk)}));
+    // Stop reasons, support loss, displacement and actual loads are
+    // diagnostic until one full second is verified; no claim of C1.
+  },180000);
 });

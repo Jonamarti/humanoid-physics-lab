@@ -11,16 +11,31 @@ import { coronalJointNames } from "./coronalControl";
 import { headingJointNames } from "./headingControl";
 import { articulatedMass,pointJacobian,type ArticulatedGeometry,type V3 } from "./articulatedDynamics";
 import { solveContactDynamics,type ContactDynamicsProblem,type ContactDynamicsSolution,type LinearRow } from "./contactDynamics";
+import { decodeSolvedContactForce,hasCompleteSolvedContactRows } from "../../physics/contactForces";
+import { clamp } from "./simbiconCore";
 const vec=(a:ArrayLike<number>,i:number):V3=>[a[i]!,a[i+1]!,a[i+2]!];
 const slice9=(a:ArrayLike<number>,i:number):number[]=>Array.from({length:9},(_,j)=>a[i+j]!);
 const maxAbs=(a:readonly number[]):number=>a.reduce((s,v)=>Math.max(s,Math.abs(v)),0);
+const dot=(a:readonly number[],b:readonly number[]):number=>a.reduce((s,v,i)=>s+v*b[i]!,0);
+export interface WbcFeedbackFrame {t:number;com:V3;pelvis:V3;tiltDeg:number;loadsN:number[];predictedNormalN:number;rootResidual:number;contactResidual:number;solverMethod:string;iterations:number;accepted:boolean}
+export interface WbcFeedback {
+  requestedS:number;executedS:number;updates:number;acceptedUpdates:number;stopReason:string;
+  maxComDisplacementM:number;maxTiltDeg:number;minPelvisM:number;maxTorqueRatio:number;
+  maxRootForce:number;maxContactResidual:number;maxRootResidual:number;
+  maxNormalPredictionErrorN:number;maxBilateralLoadLossS:number;
+  trace:WbcFeedbackFrame[];
+  frames:Array<{t:number;pose:number[][]}>;
+  partNames:string[];
+}
 export interface WbcProbe {
   nv:number;massKg:number;gravityError:number;massEquationError:number;comError:number;
   excitedMassEquationError:number;rotatedMassEquationError:number;rotatedGravityError:number;
   supportPoints:number;solution:ContactDynamicsSolution;applied:boolean;
   finalPelvisDisplacementM:number|null;finalComDisplacementM:number|null;maxRootForce:number;
+  feedback?:WbcFeedback;
 }
-export async function runWbcStaticProbe():Promise<WbcProbe> {
+export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
+  if(!Number.isFinite(feedbackS)||feedbackS<0||feedbackS>2||Math.abs(feedbackS*100-Math.round(feedbackS*100))>1e-8)throw new RangeError("Invalid feedback duration");
   const mj=await getMujoco(),model=mj.MjModel.from_xml_string(planarModel(referenceDt,"free3d-wbc")),data=new mj.MjData(model);
   try{
     const n=model.nv,root=model.body("pelvis").id;
@@ -115,7 +130,9 @@ export async function runWbcStaticProbe():Promise<WbcProbe> {
     // Numerical feasibility is necessary but not sufficient. Refuse even
     // a feasible solve if the static acceleration/contact tasks are poor.
     const use=solution.feasible&&maxAbs(solution.acceleration)<.25&&solution.contactAccelerationResidual<.05;
+    let feedback:WbcFeedback|undefined;
     if(use){
+      const initialQ=Array.from(data.qpos as Float64Array);
       for(let d=6;d<n;d++)applied[d]=solution.torques[d-6]!;
       for(let k=0;k<160;k++){
         for(let d=0;d<6;d++)maxRootForce=Math.max(maxRootForce,Math.abs(applied[d]!));
@@ -125,9 +142,135 @@ export async function runWbcStaticProbe():Promise<WbcProbe> {
       mj.mj_forward(model,data);
       finalPelvisDisplacementM=Math.hypot(...vec(pos,3*root).map((v,i)=>v-pelvis0[i]!));
       finalComDisplacementM=Math.hypot(...vec(data.subtree_com as Float64Array,3*root).map((v,i)=>v-com0[i]!));
+      if(feedbackS>0)feedback=runFeedback(initialQ);
+    }
+    function runFeedback(initialQ:number[]):WbcFeedback {
+      // Begins after the same 40ms static open-loop probe. Feedback at
+      // 100 Hz, physical dt remains .00025 s. No state rewrites, no support
+      // welds, no externally applied force. Stop before using a bad solve.
+      const period=.01,substeps=Math.round(period/referenceDt);
+      const partNames=Array.from({length:17},(_,i)=>i+1).map(b=>model.body(b).name);
+      const floor=model.geom("floor").id,feet=["l","r"].map(side=>({geom:model.geom(side+"Foot_geom").id,body:model.body(side+"Foot").id}));
+      const rootQuat=()=>Array.from((data.qpos as Float64Array).slice(3,7));
+      const tilt=()=>Math.acos(clamp((data.xmat as Float64Array)[9*root+8]!,-1,1))*180/Math.PI;
+      const pyramid=Boolean(mj.mj_isPyramidal(model));
+      const trace:WbcFeedbackFrame[]=[],frames:WbcFeedback["frames"]=[];
+      let previous=geometry,previousComJ=dyn.comJacobian,previousInterval=.04;
+      let previousSoles=feet.map(f=>({p:referenceSole(f.geom,geometry),r:referenceSoleRotation(f.geom,geometry)}));
+      // Body and geom frame are identical in this rig: no geom transform
+      // offset. The initial snapshots are read from the audited geometry.
+      function referenceSole(g:number,geom:ArticulatedGeometry):V3 {
+        return geom.bodies[feet.find(f=>f.geom===g)!.body]!.center;
+      }
+      function referenceSoleRotation(g:number,geom:ArticulatedGeometry):number[] {
+        // Foot boxes are centered at the body origin and aligned with body
+        // axes. At the initial neutral pose their geom rotation is identity.
+        // Subsequent snapshots use actual geom_xmat rather than inertial axes.
+        if(geom===geometry)return [1,0,0,0,1,0,0,0,1];
+        throw new Error("Initial sole rotation only");
+      }
+      const snapshot=()=>feet.map(f=>({p:vec(data.geom_xpos as Float64Array,3*f.geom),r:slice9(data.geom_xmat as Float64Array,9*f.geom)}));
+      let updates=0,acceptedUpdates=0,executedS=0,stopReason="duration",maxComDisplacementM=0,maxTiltDeg=0,minPelvisM=Infinity;
+      let maxTorqueRatio=0,maxContactResidual=0,maxResidual=0,maxNormalPredictionErrorN=0,loadLossS=0,maxBilateralLoadLossS=0,rootForce=0;
+      function frame(t:number){
+        const x=data.xpos as Float64Array,q=data.xquat as Float64Array;
+        frames.push({t,pose:Array.from({length:17},(_,i)=>[...vec(x,3*(i+1)),...Array.from(q.slice(4*(i+1),4*(i+2)))])});
+      }
+      frame(0);
+      for(let step=0;step<Math.round(feedbackS/period);step++){
+        const t=step*period;
+        mj.mj_forward(model,data);
+        const current=geometryOf(data),d=articulatedMass(current),v=Array.from(data.qvel as Float64Array),q=data.qpos as Float64Array;
+        if(![...q,...v].every(Number.isFinite)){stopReason="nonfinite";break;}
+        const currentSoles=snapshot();
+        const b=Array.from(data.qfrc_bias as Float64Array).map((x,i)=>x-(data.qfrc_passive as Float64Array)[i]!);
+        const contacts:ContactDynamicsProblem["contacts"][number][]=[],loads=[0,0];
+        const list=data.contact,efc=data.efc_force as Float64Array;
+        try{
+          for(let k=0;k<list.size();k++){
+            const ct=list.get(k);if(!ct)throw new Error("Missing WBC contact");
+            try{
+              const other=ct.geom1===floor?ct.geom2:ct.geom2===floor?ct.geom1:-1;
+              const fi=feet.findIndex(f=>f.geom===other);
+              if(fi<0||ct.dist>.002)continue;
+              const point=vec(ct.pos as Float64Array,0);
+              const now=currentSoles[fi]!,old=previousSoles[fi]!;
+              const local=[0,1,2].map(j=>[0,1,2].reduce((s,i)=>s+(point[i]!-now.p[i]!)*now.r[3*i+j]!,0));
+              const oldPoint:V3=[0,1,2].map(i=>old.p[i]!+local.reduce((s,x,j)=>s+x*old.r[3*i+j]!,0)) as unknown as V3;
+              const J=pointJacobian(current,feet[fi]!.body,point).linear;
+              const oldJ=pointJacobian(previous,feet[fi]!.body,oldPoint).linear;
+              const jdot=J.map((row,i)=>dot(row.map((a,j)=>(a-oldJ[i]![j]!)/previousInterval),v));
+              const target=J.map((row,i)=>clamp(-12*dot(row,v)+(i===2?-100*(point[2]+.001):0),-10,10));
+              contacts.push({jacobian:J,mu:.25,maxNormalN:d.totalMass*9.81,accelerationBias:jdot,targetAcceleration:target});
+              if(hasCompleteSolvedContactRows(ct.efc_address,ct.dim,pyramid,data.nefc,efc.length)){
+                const force=decodeSolvedContactForce({solverRows:efc,efcAddress:ct.efc_address,dim:ct.dim,pyramidal:pyramid,friction:ct.friction as Float64Array,adhesionN:ct.adhesion});
+                const a=ct.frame as Float64Array;
+                const fz=force.normalN*a[2]!+force.tangentN[0]*a[5]!+force.tangentN[1]*a[8]!;
+                loads[fi]!+=Math.max(0,ct.geom1===floor?fz:-fz);
+              }
+            }finally{ct.delete();}
+          }
+        }finally{list.delete();}
+        if(!contacts.length){stopReason="no foot-ground contact";break;}
+        const task:LinearRow[]=[];
+        const unit=(i:number)=>Array.from({length:n},(_,j)=>i===j?1:0);
+        for(const h of hinges){
+          const adr=model.jnt_qposadr[h.id]!,rate=v[h.dof]!;
+          task.push({a:unit(h.dof),b:clamp(50*(initialQ[adr]!-q[adr]!)-10*rate,-80,80),weight:1});
+        }
+        // Root orientation target is identity, expressed in root-local
+        // angular coordinates. The quaternion's imaginary part provides
+        // a shortest-arc small-angle error, with no root actuator.
+        const quat=rootQuat(),sign=quat[0]!>=0?1:-1;
+        for(let i=0;i<3;i++)task.push({a:unit(3+i),b:clamp(-60*sign*quat[i+1]!-10*v[3+i]!,-40,40),weight:8});
+        for(let i=0;i<3;i++){
+          const row=d.comJacobian[i]!;
+          const convective=dot(row.map((a,j)=>(a-previousComJ[i]![j]!)/previousInterval),v);
+          task.push({a:row,b:clamp(30*(com0[i]!-d.com[i]!)-10*dot(row,v),-5,5)-convective,weight:25});
+        }
+        const s=solveContactDynamics({mass:d.mass,bias:b,rootDofs:6,torqueLimits:limits,contacts,tasks:task});
+        updates++;
+        const predicted=s.forces.reduce((a,f)=>a+f[2]!,0);
+        const accepted=s.feasible&&s.maxTorqueViolation<1e-8&&s.contactAccelerationResidual<=2&&maxAbs(s.acceleration)<=100;
+        maxContactResidual=Math.max(maxContactResidual,s.contactAccelerationResidual);
+        maxResidual=Math.max(maxResidual,s.maxRootResidual);
+        // Current measured load vs next predicted load is a diagnostic,
+        // not an exact same-time force error or a hard acceptance gate.
+        maxNormalPredictionErrorN=Math.max(maxNormalPredictionErrorN,Math.abs(predicted-loads[0]!-loads[1]!));
+        loadLossS=loads.some(l=>l<40)?loadLossS+period:0;
+        maxBilateralLoadLossS=Math.max(maxBilateralLoadLossS,loadLossS);
+        trace.push({t,com:d.com,pelvis:current.rootPosition,tiltDeg:tilt(),loadsN:loads,predictedNormalN:predicted,
+          rootResidual:s.maxRootResidual,contactResidual:s.contactAccelerationResidual,solverMethod:s.solver.method,iterations:s.solver.iterations,accepted});
+        if(!accepted){stopReason=!s.feasible?"solver infeasible/unconverged":s.maxTorqueViolation>=1e-8?"torque bound":s.contactAccelerationResidual>2?"contact acceleration task":"acceleration bound";break;}
+        applied.fill(0);
+        for(let j=6;j<n;j++){
+          applied[j]=s.torques[j-6]!;
+          maxTorqueRatio=Math.max(maxTorqueRatio,Math.abs(applied[j]!)/limits[j-6]!);
+        }
+        for(let j=0;j<6;j++)rootForce=Math.max(rootForce,Math.abs(applied[j]!));
+        acceptedUpdates++;
+        previous=current;previousComJ=d.comJacobian;previousSoles=currentSoles;previousInterval=period;
+        for(let sub=0;sub<substeps;sub++){
+          mj.mj_step(model,data);
+          executedS+=referenceDt;
+          if(!(data.qpos as Float64Array).every(Number.isFinite)){stopReason="nonfinite";break;}
+        }
+        mj.mj_forward(model,data);
+        const com=vec(data.subtree_com as Float64Array,3*root);
+        maxComDisplacementM=Math.max(maxComDisplacementM,Math.hypot(...com.map((x,i)=>x-com0[i]!)));
+        maxTiltDeg=Math.max(maxTiltDeg,tilt());
+        minPelvisM=Math.min(minPelvisM,(data.xpos as Float64Array)[3*root+2]!);
+        if((step+1)%4===0)frame((step+1)*period);
+        if(stopReason!=="duration")break;
+        if(minPelvisM<.45||maxTiltDeg>60){stopReason="fall";break;}
+      }
+      if(frames.at(-1)!.t<executedS-1e-8)frame(executedS);
+      return {requestedS:feedbackS,executedS,updates,acceptedUpdates,stopReason,maxComDisplacementM,maxTiltDeg,
+        minPelvisM:Number.isFinite(minPelvisM)?minPelvisM:pelvis0[2],maxTorqueRatio,maxRootForce:rootForce,
+        maxContactResidual,maxRootResidual:maxResidual,maxNormalPredictionErrorN,maxBilateralLoadLossS,trace,frames,partNames};
     }
     return {nv:n,massKg:dyn.totalMass,gravityError,massEquationError,comError,excitedMassEquationError,rotatedMassEquationError,rotatedGravityError,
       supportPoints:contacts.length,solution,applied:use,
-      finalPelvisDisplacementM,finalComDisplacementM,maxRootForce};
+      finalPelvisDisplacementM,finalComDisplacementM,maxRootForce,...(feedback?{feedback}:{})};
   }finally{data.delete();model.delete();}
 }

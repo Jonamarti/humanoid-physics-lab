@@ -19,6 +19,10 @@ describe("Planar MuJoCo reference model and controller",()=>{
     expect(planarModel()).not.toContain("freejoint");
     expect(planarModel(.00025,"free3d")).toContain('<freejoint name="root"/>');
     expect(planarModel(.00025,"free3d")).not.toContain('name="root_x"');
+    for(const n of ["lHipRoll","rHipRoll","lAnkleRoll","rAnkleRoll"]){
+      expect(planarModel(.00025,"free3d-roll")).toContain('name="'+n+'"');
+      expect(planarModel(.00025,"free3d")).not.toContain('name="'+n+'"');
+    }
   });
   it("uses the timed phase and contact transition without counting time as landing",()=>{
     const o=empty(),first=planarCommand(initialPlanarState(),o,.25);
@@ -85,6 +89,30 @@ describe("Planar reference MuJoCo adaptation (diagnostic, not 3D validation)",()
     const chunk=3000,count=Math.ceil(packed.length/chunk);
     for(let i=0;i<count;i++)console.log("CLASSICAL_FREE3D_REPLAY "+JSON.stringify({dt:r.dt,index:i,count,sha256:hash,data:packed.slice(i*chunk,(i+1)*chunk)}));
     // No claim of 3D locomotion: no lateral hip/ankle DOFs yet.
+  },180000);
+  it.skipIf(!enabled).each(["posture","capture"] as const)("measures free-root coronal policy %s",async policy=>{
+    const r=await runPlanarReference(.00025,12,false,"free3d-roll",policy);
+    console.log("CLASSICAL_CORONAL "+JSON.stringify({...r,frames:undefined,coronalTrace:undefined}));
+    console.log("CLASSICAL_CORONAL_TRACE "+JSON.stringify({policy,trace:r.coronalTrace.filter((_,i)=>i%5===0)}));
+    expect(r.space).toBe("free3d-roll");
+    expect(r.coronalPolicy).toBe(policy);
+    expect(r.massKg).toBeCloseTo(63.5,8);
+    expect(r.maxInitialPositionErrorM).toBeLessThan(1e-8);
+    expect(r.maxRootForce).toBe(0);
+    expect(r.frames.length).toBeGreaterThan(0);
+    expect(r.coronalTrace.length).toBeGreaterThan(0);
+    expect(r.loadedLandings).toBeLessThanOrEqual(r.qualifiedLandings);
+    expect(r.longestLoadedConsecutive).toBeLessThanOrEqual(r.longestConsecutive);
+    expect(r.frames.every(f=>f.pose.length===17&&f.pose.every(p=>p.length===7&&p.every(Number.isFinite)))).toBe(true);
+    for(const side of ["l","r"]){
+      expect(r.maxJointTorqueNm[side+"HipRoll"]).toBeLessThanOrEqual(100+1e-8);
+      expect(r.maxJointTorqueNm[side+"AnkleRoll"]).toBeLessThanOrEqual(45+1e-8);
+    }
+    const bytes=Buffer.from(JSON.stringify({partNames:r.partNames,frames:r.frames}),"utf8");
+    const packed=gzipSync(bytes).toString("base64"),hash=createHash("sha256").update(bytes).digest("hex");
+    const chunk=3000,count=Math.ceil(packed.length/chunk);
+    for(let i=0;i<count;i++)console.log("CLASSICAL_CORONAL_REPLAY "+JSON.stringify({policy,dt:r.dt,index:i,count,sha256:hash,data:packed.slice(i*chunk,(i+1)*chunk)}));
+    // A diagnostic ablation, not a 3D locomotion acceptance gate.
   },180000);
   it.skipIf(!enabled)("records an unactuated negative control with the same model",async()=>{
     const r=await runPlanarReference(.00025,2,true);

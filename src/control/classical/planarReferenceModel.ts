@@ -78,7 +78,7 @@ const str=(v:readonly number[]):string=>v.join(" ");
  * MuJoCo inertia from geometry, contact friction .25, solver and zero joint
  * damping/armature are explicit approximations, not measured Bullet values.
  */
-export type ReferenceSpace="planar"|"free3d"|"free3d-roll";
+export type ReferenceSpace="planar"|"free3d"|"free3d-roll"|"free3d-yaw";
 export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string {
   if(!(dt>0)||!Number.isFinite(dt))throw new RangeError("Invalid timestep");
   function body(name:string,parent:Part|null,edge:Joint|null):string {
@@ -101,6 +101,11 @@ export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string
         const lateral='<joint name="'+edge.name+'Roll" axis="1 0 0" pos="'+anchor+'" limited="true" range="-.5 .5" damping="1" armature=".02"/>';
         joint=edge.name.endsWith("Hip")?lateral+joint:joint+lateral;
       }
+      if(space==="free3d-yaw"&&/^[lr]Hip$/.test(edge.name)){
+        // Keep the original anchor and pitch axis, but allow actual
+        // proximal axial rotation. No yaw lock at the root or feet.
+        joint='<joint name="'+edge.name+'Yaw" axis="0 0 1" pos="'+anchor+'" limited="true" range="-.5 .5" damping="1" armature=".02"/>'+joint;
+      }
     }
     const size=p.shape==="BOX"?[p.size[0]!/2,p.size[2]!/2,p.size[1]!/2]:
       p.shape==="CAPSULE"?[p.size[0]!,p.size[1]!/2]:[p.size[0]!];
@@ -108,7 +113,7 @@ export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string
     return '<body name="'+name+'" pos="'+str(pos)+'">'+joint+geom+
       referenceJoints.filter(j=>j.parent===name).map(j=>body(j.child,p,j)).join("")+'</body>';
   }
-  return '<mujoco model="'+(space==="planar"?"planar_reference":space==="free3d"?"free3d_sagittal_baseline":"free3d_coronal_reference")+'"><compiler angle="radian" inertiafromgeom="true"/>'+
+  return '<mujoco model="'+(space==="planar"?"planar_reference":space==="free3d"?"free3d_sagittal_baseline":space==="free3d-yaw"?"free3d_heading_reference":"free3d_coronal_reference")+'"><compiler angle="radian" inertiafromgeom="true"/>'+
     '<option timestep="'+dt+'" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" iterations="50"/>'+
     '<default><joint damping="0" armature="0"/><geom contype="2" conaffinity="1" friction=".25 .005 .0001" solref=".015 1" solimp=".9 .95 .001"/></default>'+
     '<worldbody><geom name="floor" type="box" pos="0 0 -.5" size="50 .5 .5" contype="1" conaffinity="2"/>'+

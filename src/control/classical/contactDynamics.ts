@@ -1,13 +1,13 @@
 /** Deterministic dense constrained least-squares kernel for offline WBC.
  * min 1/2 ||A*x-b||^2 + 1/2*reg*||x||^2, l <= C*x <= u.
- * ADMM in scaled coordinates, Cholesky once per problem; no training,
+ * Deterministic active-set KKT solve first, scaled ADMM fallback; no training,
  * random sampling, external dependencies or root actuation. The caller
  * must reject infeasible or unconverged results, never silently clip them.
  */
 export interface LinearRow {a:readonly number[];b:number;weight?:number}
 export interface BoundRow {a:readonly number[];lo:number;hi:number}
 export interface BoxLeastSquaresProblem {n:number;tasks:readonly LinearRow[];constraints:readonly BoundRow[];regularization?:number;rho?:number;iterations?:number;tolerance?:number}
-export interface BoxSolution {x:number[];iterations:number;converged:boolean;maxViolation:number;primalResidual:number;dualResidual:number}
+export interface BoxSolution {x:number[];iterations:number;converged:boolean;maxViolation:number;primalResidual:number;dualResidual:number;method:"active-set"|"admm"}
 const dot=(a:readonly number[],b:readonly number[]):number=>a.reduce((s,v,i)=>s+v*b[i]!,0);
 function cholesky(a:number[][]):number[][] {
   const n=a.length,L=Array.from({length:n},()=>Array<number>(n).fill(0));
@@ -25,6 +25,59 @@ function solve(L:number[][],rhs:number[]):number[]{
   for(let i=n-1;i>=0;i--){x[i]=y[i]!;for(let j=i+1;j<n;j++)x[i]!-=L[j]![i]!*x[j]!;x[i]!/=L[i]![i]!;}
   return x;
 }
+/** Fast path for strictly convex problems with few active constraints.
+ * Solve the Schur complement of the equality-constrained optimum, add
+ * the most violated bound, or drop an inequality with the wrong multiplier.
+ * Dependent rows/cycling/poor conditioning fall back to ADMM. Acceptance
+ * checks the actual primal and dual KKT residuals at the original tolerance.
+ */
+function activeSet(H:number[][],g:number[],constraints:readonly BoundRow[],tol:number):BoxSolution|null {
+  const n=g.length;
+  const active:Array<{index:number;side:"eq"|"lo"|"hi";b:number}>=[];
+  const maxSteps=Math.min(48,2*constraints.length+4);
+  for(let i=0;i<constraints.length;i++){
+    const c=constraints[i]!;
+    if(c.lo===c.hi)active.push({index:i,side:"eq",b:c.lo});
+  }
+  try{
+    const L=cholesky(H),free=solve(L,g);
+    for(let iteration=1;iteration<=maxSteps;iteration++){
+      const rows=active.map(c=>constraints[c.index]!.a);
+      const columns=rows.map(a=>solve(L,Array.from(a)));
+      const schur=rows.map((row,i)=>rows.map((_,j)=>.5*(dot(row,columns[j]!)+dot(rows[j]!,columns[i]!))));
+      const lambda=rows.length?solve(cholesky(schur),rows.map((a,i)=>dot(a,free)-active[i]!.b)):[];
+      const x=free.map((v,j)=>v-columns.reduce((s,c,k)=>s+c[j]!*lambda[k]!,0));
+      if(![...x,...lambda].every(Number.isFinite))return null;
+      let worst=-1,wrong=tol;
+      for(let k=0;k<active.length;k++){
+        const side=active[k]!.side;
+        const v=side==="lo"?lambda[k]!:side==="hi"?-lambda[k]!:0;
+        if(v>wrong){wrong=v;worst=k;}
+      }
+      if(worst>=0){active.splice(worst,1);continue;}
+      let violation=0,index=-1,side:"lo"|"hi"="lo";
+      for(let k=0;k<constraints.length;k++){
+        const r=constraints[k]!,v=dot(r.a,x);
+        const lo=r.lo-v,hi=v-r.hi;
+        if(lo>violation){violation=lo;index=k;side="lo";}
+        if(hi>violation){violation=hi;index=k;side="hi";}
+      }
+      if(violation>tol){
+        if(index<0||active.some(a=>a.index===index))return null;
+        const c=constraints[index]!;
+        active.push({index,side,b:side==="lo"?c.lo:c.hi});continue;
+      }
+      const stationarity=H.map((row,i)=>dot(row,x)-g[i]!+rows.reduce((s,a,k)=>s+a[i]!*lambda[k]!,0));
+      const dual=Math.max(0,...stationarity.map(Math.abs));
+      if(dual>tol)return null;
+      return {x,iterations:iteration,converged:true,maxViolation:violation,primalResidual:violation,dualResidual:dual,method:"active-set"};
+    }
+  }catch{
+    // Singular Schur complement is expected for redundant active rows.
+    // The independently checked ADMM fallback handles such cases.
+  }
+  return null;
+}
 export function constrainedLeastSquares(p:BoxLeastSquaresProblem):BoxSolution {
   const n=p.n,rho=p.rho??4,reg=p.regularization??1e-6,maxIter=p.iterations??1000,tol=p.tolerance??1e-6;
   if(!Number.isInteger(n)||n<1||n>256||!Number.isInteger(maxIter)||maxIter<1||maxIter>20000||
@@ -39,8 +92,10 @@ export function constrainedLeastSquares(p:BoxLeastSquaresProblem):BoxSolution {
   }
   for(const c of p.constraints){
     if(!valid(c.a)||Number.isNaN(c.lo)||Number.isNaN(c.hi)||c.lo>c.hi||c.lo===Infinity||c.hi===-Infinity)throw new RangeError("Invalid constraint");
-    outer(c.a,rho);
   }
+  const fast=activeSet(H,g,p.constraints,tol);
+  if(fast)return fast;
+  for(const c of p.constraints)outer(c.a,rho);
   const L=cholesky(H),m=p.constraints.length;
   const clip=(v:number,c:BoundRow)=>Math.max(c.lo,Math.min(c.hi,v));
   let x=Array<number>(n).fill(0);
@@ -64,7 +119,7 @@ export function constrainedLeastSquares(p:BoxLeastSquaresProblem):BoxSolution {
     if(primal<=tol&&dual<=tol)break;
   }
   const violation=p.constraints.reduce((v,c)=>{const a=dot(c.a,x);return Math.max(v,c.lo-a,a-c.hi);},0);
-  return {x,iterations:Math.min(iteration,maxIter),converged:primal<=tol&&dual<=tol&&violation<=tol,maxViolation:violation,primalResidual:primal,dualResidual:dual};
+  return {x,iterations:Math.min(iteration,maxIter),converged:primal<=tol&&dual<=tol&&violation<=tol,maxViolation:violation,primalResidual:primal,dualResidual:dual,method:"admm"};
 }
 export interface ContactDynamicsProblem {
   mass:readonly (readonly number[])[];bias:readonly number[];

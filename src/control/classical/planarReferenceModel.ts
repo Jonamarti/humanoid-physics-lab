@@ -78,7 +78,7 @@ const str=(v:readonly number[]):string=>v.join(" ");
  * MuJoCo inertia from geometry, contact friction .25, solver and zero joint
  * damping/armature are explicit approximations, not measured Bullet values.
  */
-export type ReferenceSpace="planar"|"free3d"|"free3d-roll"|"free3d-yaw";
+export type ReferenceSpace="planar"|"free3d"|"free3d-roll"|"free3d-yaw"|"free3d-wbc";
 export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string {
   if(!(dt>0)||!Number.isFinite(dt))throw new RangeError("Invalid timestep");
   function body(name:string,parent:Part|null,edge:Joint|null):string {
@@ -92,16 +92,21 @@ export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string
       // Original locked neck hinge has zero width; use a declared micro-range
       // since MuJoCo requires lo < hi for limited hinges.
       const range=lo===hi?[-1e-6,1e-6]:[lo*Math.PI/180,hi*Math.PI/180];
-      const anchor=str(convert(sub(edge.anchor,p.position)));
+      // The planar reference has coincident left/right hip and shoulder
+      // anchors. A 3D anatomical model must separate the sockets laterally.
+      // Keep that change isolated from all previously verified baselines.
+      const sourceAnchor:V3=space==="free3d-wbc"&&/^[lr](Hip|Shoulder)$/.test(edge.name)?
+        [edge.anchor[0],edge.anchor[1],edge.name.startsWith("l")?-.1:.1]:edge.anchor;
+      const anchor=str(convert(sub(sourceAnchor,p.position)));
       joint='<joint name="'+edge.name+'" axis="0 1 0" pos="'+anchor+'" limited="true" range="'+str(range)+'"/>';
-      if(space==="free3d-roll"&&/^[lr](Hip|Ankle)$/.test(edge.name)){
+      if((space==="free3d-roll"||space==="free3d-wbc")&&/^[lr](Hip|Ankle)$/.test(edge.name)){
         // Preserve the sagittal anchor. Hip roll is proximal to hip pitch;
         // ankle roll is distal to ankle pitch. Only new hinges have damping
         // and armature; the original planar/sagittal cases are unchanged.
         const lateral='<joint name="'+edge.name+'Roll" axis="1 0 0" pos="'+anchor+'" limited="true" range="-.5 .5" damping="1" armature=".02"/>';
         joint=edge.name.endsWith("Hip")?lateral+joint:joint+lateral;
       }
-      if(space==="free3d-yaw"&&/^[lr]Hip$/.test(edge.name)){
+      if((space==="free3d-yaw"||space==="free3d-wbc")&&/^[lr]Hip$/.test(edge.name)){
         // Keep the original anchor and pitch axis, but allow actual
         // proximal axial rotation. No yaw lock at the root or feet.
         joint='<joint name="'+edge.name+'Yaw" axis="0 0 1" pos="'+anchor+'" limited="true" range="-.5 .5" damping="1" armature=".02"/>'+joint;
@@ -113,7 +118,7 @@ export function planarModel(dt=referenceDt,space:ReferenceSpace="planar"):string
     return '<body name="'+name+'" pos="'+str(pos)+'">'+joint+geom+
       referenceJoints.filter(j=>j.parent===name).map(j=>body(j.child,p,j)).join("")+'</body>';
   }
-  return '<mujoco model="'+(space==="planar"?"planar_reference":space==="free3d"?"free3d_sagittal_baseline":space==="free3d-yaw"?"free3d_heading_reference":"free3d_coronal_reference")+'"><compiler angle="radian" inertiafromgeom="true"/>'+
+  return '<mujoco model="'+(space==="planar"?"planar_reference":space==="free3d"?"free3d_sagittal_baseline":space==="free3d-yaw"?"free3d_heading_reference":space==="free3d-wbc"?"free3d_whole_body_reference":"free3d_coronal_reference")+'"><compiler angle="radian" inertiafromgeom="true"/>'+
     '<option timestep="'+dt+'" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" iterations="50"/>'+
     '<default><joint damping="0" armature="0"/><geom contype="2" conaffinity="1" friction=".25 .005 .0001" solref=".015 1" solimp=".9 .95 .001"/></default>'+
     '<worldbody><geom name="floor" type="box" pos="0 0 -.5" size="50 .5 .5" contype="1" conaffinity="2"/>'+

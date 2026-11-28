@@ -127,6 +127,10 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
     const applied=data.qfrc_applied as Float64Array;
     let maxRootForce=0,finalPelvisDisplacementM:number|null=null,finalComDisplacementM:number|null=null;
     const pelvis0=vec(pos,3*root);
+    const initialSoles=["l","r"].map(side=>{
+      const g=model.geom(side+"Foot_geom").id;
+      return {p:vec(gx,3*g),r:slice9(gm,9*g)};
+    });
     // Numerical feasibility is necessary but not sufficient. Refuse even
     // a feasible solve if the static acceleration/contact tasks are poor.
     const use=solution.feasible&&maxAbs(solution.acceleration)<.25&&solution.contactAccelerationResidual<.05;
@@ -149,26 +153,15 @@ export async function runWbcStaticProbe(feedbackS=0):Promise<WbcProbe> {
       // 100 Hz, physical dt remains .00025 s. No state rewrites, no support
       // welds, no externally applied force. Stop before using a bad solve.
       const period=.01,substeps=Math.round(period/referenceDt);
-      const partNames=Array.from({length:17},(_,i)=>i+1).map(b=>model.body(b).name);
+      const partNames=Array<string>(17).fill("");
+      for(const name of ["pelvis",...referenceJoints.map(j=>j.child)])partNames[model.body(name).id-1]=name;
       const floor=model.geom("floor").id,feet=["l","r"].map(side=>({geom:model.geom(side+"Foot_geom").id,body:model.body(side+"Foot").id}));
       const rootQuat=()=>Array.from((data.qpos as Float64Array).slice(3,7));
       const tilt=()=>Math.acos(clamp((data.xmat as Float64Array)[9*root+8]!,-1,1))*180/Math.PI;
       const pyramid=Boolean(mj.mj_isPyramidal(model));
       const trace:WbcFeedbackFrame[]=[],frames:WbcFeedback["frames"]=[];
       let previous=geometry,previousComJ=dyn.comJacobian,previousInterval=.04;
-      let previousSoles=feet.map(f=>({p:referenceSole(f.geom,geometry),r:referenceSoleRotation(f.geom,geometry)}));
-      // Body and geom frame are identical in this rig: no geom transform
-      // offset. The initial snapshots are read from the audited geometry.
-      function referenceSole(g:number,geom:ArticulatedGeometry):V3 {
-        return geom.bodies[feet.find(f=>f.geom===g)!.body]!.center;
-      }
-      function referenceSoleRotation(g:number,geom:ArticulatedGeometry):number[] {
-        // Foot boxes are centered at the body origin and aligned with body
-        // axes. At the initial neutral pose their geom rotation is identity.
-        // Subsequent snapshots use actual geom_xmat rather than inertial axes.
-        if(geom===geometry)return [1,0,0,0,1,0,0,0,1];
-        throw new Error("Initial sole rotation only");
-      }
+      let previousSoles=initialSoles;
       const snapshot=()=>feet.map(f=>({p:vec(data.geom_xpos as Float64Array,3*f.geom),r:slice9(data.geom_xmat as Float64Array,9*f.geom)}));
       let updates=0,acceptedUpdates=0,executedS=0,stopReason="duration",maxComDisplacementM=0,maxTiltDeg=0,minPelvisM=Infinity;
       let maxTorqueRatio=0,maxContactResidual=0,maxResidual=0,maxNormalPredictionErrorN=0,loadLossS=0,maxBilateralLoadLossS=0,rootForce=0;

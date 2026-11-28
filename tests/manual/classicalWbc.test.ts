@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { constrainedLeastSquares,solveContactDynamics } from "../../src/control/classical/contactDynamics";
 import { articulatedMass,pointJacobian,type ArticulatedGeometry } from "../../src/control/classical/articulatedDynamics";
-import { runWbcStaticProbe } from "../../src/control/classical/wbcStaticProbe";
+import { runWbcStaticProbe,lateralReference,type WbcFeedback,type WbcMode } from "../../src/control/classical/wbcStaticProbe";
 
 describe("Deterministic constrained dynamics",()=>{
   it("finds the constrained optimum and is repeatable",()=>{
@@ -68,6 +68,50 @@ describe("Articulated mass and Jacobian",()=>{
     expect(pointJacobian(g,2,[0,0,1]).linear[0]![6]).toBe(1);
   });
 });
+describe("Smooth mirrored weight-transfer references",()=>{
+  it("preserves nominal standing and has zero endpoint derivatives",()=>{
+    for(const t of [0,.5,2.5,4,5.5,6]){
+      const r=lateralReference("standing",t);
+      expect(r.offsetM).toBe(0);
+      expect(r.velocityMps).toBe(0);
+      expect(r.accelerationMps2).toBe(0);
+      const left=lateralReference("shift-left",t),right=lateralReference("shift-right",t);
+      expect(left.offsetM+right.offsetM).toBeCloseTo(0,12);
+      expect(left.velocityMps).toBeCloseTo(0,12);
+      expect(left.accelerationMps2).toBeCloseTo(0,12);
+    }
+    expect(lateralReference("shift-left",3).offsetM).toBeCloseTo(.085);
+    expect(lateralReference("shift-right",3).offsetM).toBeCloseTo(-.085);
+    expect(lateralReference("shift-left",1.5).offsetM).toBeCloseTo(.0425);
+    expect(lateralReference("shift-left",4.75).offsetM).toBeCloseTo(.0425);
+  });
+  it("matches the analytic trajectory derivatives at interior times",()=>{
+    const h=1e-5;
+    for(const t of [.8,1.5,2.2,4.2,4.75,5.2]){
+      const a=lateralReference("shift-left",t-h),b=lateralReference("shift-left",t),c=lateralReference("shift-left",t+h);
+      expect((c.offsetM-a.offsetM)/(2*h)).toBeCloseTo(b.velocityMps,6);
+      expect((c.velocityMps-a.velocityMps)/(2*h)).toBeCloseTo(b.accelerationMps2,6);
+      expect(lateralReference("shift-right",t).offsetM+b.offsetM).toBeCloseTo(0,12);
+    }
+  });
+});
+function recordFeedback(f:WbcFeedback,mode:WbcMode,duration:number){
+  console.log("CLASSICAL_WBC_FEEDBACK "+JSON.stringify({...f,trace:undefined,frames:undefined}));
+  const trace=f.trace.filter((x,i)=>i%20===0||i===f.trace.length-1||i>0&&x.phase!==f.trace[i-1]!.phase);
+  console.log("CLASSICAL_WBC_TRACE "+JSON.stringify({mode,duration,trace}));
+  expect(f.maxRootForce).toBe(0);
+  expect(f.maxExternalForce).toBe(0);
+  expect(f.maxTorqueRatio).toBeLessThanOrEqual(1+1e-8);
+  expect(f.acceptedUpdates).toBeLessThanOrEqual(f.updates);
+  expect(f.frames.length).toBeGreaterThan(0);
+  expect(f.frames.every(p=>p.pose.length===17&&p.pose.every(q=>q.length===7&&q.every(Number.isFinite)))).toBe(true);
+  expect([f.maxComDisplacementM,f.finalComSpeedMps,f.maxTiltDeg,f.minPelvisM,f.maxSampledMaterialTravelM,
+    f.maxGroundPenetrationM,f.maxContactResidual,f.maxRootResidual,...f.minFootLoadN].every(Number.isFinite)).toBe(true);
+  const bytes=Buffer.from(JSON.stringify({partNames:f.partNames,recordHz:f.recordHz,frames:f.frames}),"utf8");
+  const packed=gzipSync(bytes).toString("base64"),sha256=createHash("sha256").update(bytes).digest("hex");
+  const chunk=3000,count=Math.ceil(packed.length/chunk);
+  for(let i=0;i<count;i++)console.log("CLASSICAL_WBC_REPLAY "+JSON.stringify({mode,duration,index:i,count,sha256,data:packed.slice(i*chunk,(i+1)*chunk)}));
+}
 const enabled=process.env.HPL_REFERENCE==="1"||
   (process.env.GITHUB_ACTIONS==="true"&&process.env.GITHUB_HEAD_REF==="experiment/classical-c0-simbicon");
 describe("Native full-body inverse dynamics integration",()=>{
@@ -87,24 +131,43 @@ describe("Native full-body inverse dynamics integration",()=>{
     expect(r.applied).toBe(true);
     expect(r.finalPelvisDisplacementM).not.toBeNull();
     expect(r.finalComDisplacementM).not.toBeNull();
+    expect(Number.isFinite(r.finalPelvisDisplacementM)).toBe(true);
+    expect(Number.isFinite(r.finalComDisplacementM)).toBe(true);
   },120000);
-  it.skipIf(!enabled)("attempts one second of contact-aware closed-loop standing at 100 Hz",async()=>{
-    const r=await runWbcStaticProbe(1);
-    const f=r.feedback;
-    console.log("CLASSICAL_WBC_FEEDBACK "+JSON.stringify(f?{...f,trace:undefined,frames:undefined}:{applied:r.applied,solver:r.solution.solver}));
+  it.skipIf(!enabled).each([1,60])("maintains contact-aware closed-loop standing for %s seconds",async duration=>{
+    const r=await runWbcStaticProbe(duration),f=r.feedback;
     expect(r.applied).toBe(true);
     expect(f).toBeDefined();
     if(!f)throw new Error("Initial static solve not accepted");
-    console.log("CLASSICAL_WBC_TRACE "+JSON.stringify(f.trace));
-    expect(f.maxRootForce).toBe(0);
-    expect(f.maxTorqueRatio).toBeLessThanOrEqual(1+1e-8);
-    expect(f.acceptedUpdates).toBeLessThanOrEqual(f.updates);
-    expect(f.frames.every(p=>p.pose.length===17&&p.pose.every(q=>q.length===7&&q.every(Number.isFinite)))).toBe(true);
-    const bytes=Buffer.from(JSON.stringify({partNames:f.partNames,frames:f.frames}),"utf8");
-    const packed=gzipSync(bytes).toString("base64"),sha256=createHash("sha256").update(bytes).digest("hex");
-    const chunk=3000,count=Math.ceil(packed.length/chunk);
-    for(let i=0;i<count;i++)console.log("CLASSICAL_WBC_REPLAY "+JSON.stringify({index:i,count,sha256,data:packed.slice(i*chunk,(i+1)*chunk)}));
-    // Stop reasons, support loss, displacement and actual loads are
-    // diagnostic until one full second is verified; no claim of C1.
+    recordFeedback(f,"standing",duration);
+    // Standing endurance gate, on 100 Hz observations. The physical solver
+    // still advances at 4000 Hz. Slip is a sampled material-point estimate,
+    // not a guarantee of all substep contact behavior.
+    expect(f.stopReason).toBe("duration");
+    expect(f.executedS).toBeCloseTo(duration,6);
+    expect(f.updates).toBe(duration*100);
+    expect(f.acceptedUpdates).toBe(duration*100);
+    expect(f.maxBilateralLoadLossS).toBe(0);
+    expect(f.minFootLoadN.every(v=>v>=40)).toBe(true);
+    expect(f.maxTiltDeg).toBeLessThan(5);
+    expect(f.minPelvisM).toBeGreaterThan(.85);
+    expect(f.maxComDisplacementM).toBeLessThan(.02);
+    expect(f.finalComSpeedMps).toBeLessThan(.1);
+    expect(f.maxSampledMaterialTravelM).toBeLessThan(.02);
+    expect(f.maxGroundPenetrationM).toBeLessThan(.005);
+  },300000);
+  it.skipIf(!enabled).each(["shift-left","shift-right"] as const)("attempts six-second bilateral weight transfer %s",async mode=>{
+    const r=await runWbcStaticProbe(6,mode),f=r.feedback;
+    expect(r.applied).toBe(true);
+    expect(f).toBeDefined();
+    if(!f)throw new Error("Initial static solve not accepted");
+    recordFeedback(f,mode,6);
+    // Diagnostic: qualify only actual measured support >=75% body weight,
+    // near the reference and with small lateral speed for >=.25 s; qualify
+    // recenter independently for >=.25 s. A failure is not software success.
+    console.log("CLASSICAL_WBC_SHIFT_RESULT "+JSON.stringify({mode,
+      qualified:f.stopReason==="duration"&&f.longestQualifiedShiftS>=.25&&f.longestRecenterS>=.25,
+      maxSupportWeightRatio:f.maxSupportWeightRatio,maxSignedComShiftM:f.maxSignedComShiftM,
+      longestQualifiedShiftS:f.longestQualifiedShiftS,longestRecenterS:f.longestRecenterS}));
   },180000);
 });

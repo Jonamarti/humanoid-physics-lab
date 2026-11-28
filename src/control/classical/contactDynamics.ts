@@ -32,7 +32,6 @@ function solve(L:number[][],rhs:number[]):number[]{
  * checks the actual primal and dual KKT residuals at the original tolerance.
  */
 function activeSet(H:number[][],g:number[],constraints:readonly BoundRow[],tol:number):BoxSolution|null {
-  const n=g.length;
   const active:Array<{index:number;side:"eq"|"lo"|"hi";b:number}>=[];
   const maxSteps=Math.min(48,2*constraints.length+4);
   for(let i=0;i<constraints.length;i++){

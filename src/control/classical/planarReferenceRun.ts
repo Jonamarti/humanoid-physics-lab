@@ -9,6 +9,7 @@ import { planarModel,referenceDt,referenceInitialPosition,referenceJoints,refere
 import { initialPlanarState,planarCommand,swingSide,type Leg,type PlanarPhase } from "./planarReferenceControl";
 import { LandingQualityAudit,materialPointTravel,type LandingEvent,type SoleTransform,type FootIndex } from "./contactQuality";
 import { coronalCommand,coronalJointNames,hipLimitNm,ankleLimitNm,type CoronalPolicy,type CoronalCommand } from "./coronalControl";
+import { headingCommand,headingJointNames,headingLimitNm,type HeadingPolicy,type HeadingCommand } from "./headingControl";
 import { decodeSolvedContactForce,hasCompleteSolvedContactRows } from "../../physics/contactForces";
 type V3=[number,number,number];
 const vec=(a:ArrayLike<number>,i:number):V3=>[a[i]!,a[i+1]!,a[i+2]!];
@@ -17,6 +18,8 @@ const delta=(a:number,b:number):number=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 export interface PlanarRun {
   dt:number;durationS:number;massKg:number;firstFallS:number|null;nonfinite:string|null;
   space:ReferenceSpace;maxLateralM:number;maxRollDeg:number;coronalPolicy?:CoronalPolicy;
+  headingPolicy?:HeadingPolicy;maxHeadingBeforeFallDeg:number;maxRollBeforeFallDeg:number;
+  headingTrace:Array<{t:number;yawDeg:number;footYawDeg:number[];loadsN:number[];command:HeadingCommand}>;
   coronalTrace:Array<{t:number;comY:number;velocityY:number;roll:number;loadsN:number[];actualCopY:number|null;command:CoronalCommand}>;
   loadedLandings:number;longestLoadedConsecutive:number;landingAudit:LandingEvent[];
   maxLoadedMaterialTravelM:number;
@@ -26,20 +29,21 @@ export interface PlanarRun {
   transitions:Array<{t:number;from:PlanarPhase;to:PlanarPhase;side:Leg;clearanceM:number;loadN:number;qualified:boolean}>;
   partNames:string[];frames:Array<{t:number;phase:PlanarPhase;pose:number[][];clearance:number[];loadsN:number[]}>;
 }
-export async function runPlanarReference(dt=referenceDt,durationS=12,passive=false,space:ReferenceSpace="planar",policy:CoronalPolicy="capture"):Promise<PlanarRun> {
+export async function runPlanarReference(dt=referenceDt,durationS=12,passive=false,space:ReferenceSpace="planar",policy:CoronalPolicy="capture",yawPolicy:HeadingPolicy="heading"):Promise<PlanarRun> {
   const hz=25,every=Math.round(1/(dt*hz)),total=Math.round(durationS/dt);
   if(!(dt>0)||!(durationS>0)||durationS>12||!Number.isFinite(dt+durationS)||
     Math.abs(every*dt*hz-1)>1e-8||Math.abs(total*dt-durationS)>1e-8)throw new RangeError("Invalid run settings");
   const mj=await getMujoco(),model=mj.MjModel.from_xml_string(planarModel(dt,space)),data=new mj.MjData(model);
   try{
     const rootDofs=space==="planar"?3:6;
-    const coronal=space==="free3d-roll",extra=coronal?4:0;
+    const coronal=space==="free3d-roll",heading=space==="free3d-yaw",extra=coronal?4:heading?2:0;
     if(model.nv!==rootDofs+16+extra||model.nq!==(space==="planar"?19:23)+extra||model.nbody!==18||model.njnt!==(space==="planar"?19:17)+extra)throw new Error("Unexpected reference model topology");
     const qpos=data.qpos as Float64Array,qvel=data.qvel as Float64Array,applied=data.qfrc_applied as Float64Array;
     const ids=referenceJoints.map(j=>{const id=model.jnt(j.name).id;return {name:j.name,id,
       q:model.jnt_qposadr[id]!,dof:model.jnt_dofadr[id]!};});
     const lateralIds=coronal?coronalJointNames.map(name=>{const id=model.jnt(name).id;return {name,id,q:model.jnt_qposadr[id]!,dof:model.jnt_dofadr[id]!};}):[];
-    const internal=[...ids,...lateralIds];
+    const headingIds=heading?headingJointNames.map(name=>{const id=model.jnt(name).id;return {name,id,q:model.jnt_qposadr[id]!,dof:model.jnt_dofadr[id]!};}):[];
+    const internal=[...ids,...lateralIds,...headingIds];
     if(internal.some(j=>j.dof<rootDofs)||new Set(internal.map(j=>j.dof)).size!==16+extra)throw new Error("Invalid internal hinge mapping");
     const parts=referenceParts.map(p=>({name:p.name,id:model.body(p.name).id}));
     const bodyId=(name:string):number=>parts.find(p=>p.name===name)!.id;
@@ -62,7 +66,8 @@ export async function runPlanarReference(dt=referenceDt,durationS=12,passive=fal
     let previousComX=(data.subtree_com as Float64Array)[3*rootId]!;
     let previousComY=(data.subtree_com as Float64Array)[3*rootId+1]!,previousRoll=0;
     const filteredLoads=[massKg*9.81/2,massKg*9.81/2];
-    const coronalTrace:PlanarRun["coronalTrace"]=[];
+    const coronalTrace:PlanarRun["coronalTrace"]=[],headingTrace:PlanarRun["headingTrace"]=[];
+    let previousYaw=0,previousFootYaw:[number,number]=[0,0],maxHeadingBeforeFallDeg=0,maxRollBeforeFallDeg=0;
     let firstFallS:number|null=null,nonfinite:string|null=null,qualifiedLandings=0,longestConsecutive=0,streak=0,flight=false;
     let maxTiltDeg=0,maxRootForce=0,maxLoadedMarkerDriftM=0,maxGroundPenetrationM=0,maxLateralM=0,maxRollDeg=0,maxLoadedMaterialTravelM=0;
     const quality=new LandingQualityAudit(dt);
@@ -121,6 +126,13 @@ export async function runPlanarReference(dt=referenceDt,durationS=12,passive=fal
       maxRollDeg=Math.max(maxRollDeg,Math.abs(roll)*180/Math.PI);
       maxLateralM=Math.max(maxLateralM,Math.abs(pos[3*rootId+1]!-pelvisY0));
       if(firstFallS===null&&(pos[3*rootId+2]!<.45||tilt>Math.PI/3))firstFallS=t;
+      const yaw=space==="planar"?0:Math.atan2(mat[9*torsoId+3]!,mat[9*torsoId]!);
+      if(firstFallS===null){
+        maxHeadingBeforeFallDeg=Math.max(maxHeadingBeforeFallDeg,Math.abs(yaw)*180/Math.PI);
+        // ZYX Euler roll, not the world-Y component of the up vector.
+        const eulerRoll=Math.atan2(mat[9*torsoId+7]!,mat[9*torsoId+8]!);
+        maxRollBeforeFallDeg=Math.max(maxRollBeforeFallDeg,Math.abs(eulerRoll)*180/Math.PI);
+      }
       if(k>0&&!passive){
         const angle=Object.fromEntries(ids.map(j=>[j.name,qpos[j.q]!]));
         const rate=Object.fromEntries(ids.map(j=>[j.name,delta(angle[j.name]!,previousAngles[j.name]!)/dt]));
@@ -178,6 +190,26 @@ export async function runPlanarReference(dt=referenceDt,durationS=12,passive=fal
             actualCopY:loads[0]!+loads[1]!>1?pressureY/(loads[0]!+loads[1]!):null,command:lateral});
           previousComY=comY;previousRoll=roll;
         }
+        if(heading){
+          for(let l=0;l<2;l++)filteredLoads[l]!+=(loads[l]!-filteredLoads[l]!)*dt/(.025+dt);
+          const ax=data.xaxis as Float64Array;
+          const footYaw:[number,number]=[Math.atan2(gm[9*footIds[0]!+3]!,gm[9*footIds[0]!]!),
+            Math.atan2(gm[9*footIds[1]!+3]!,gm[9*footIds[1]!]!)];
+          const h=headingCommand(yawPolicy,{yaw,yawRate:delta(yaw,previousYaw)/dt,
+            footYaw,footYawRate:[delta(footYaw[0],previousFootYaw[0])/dt,delta(footYaw[1],previousFootYaw[1])/dt],
+            jointQ:[qpos[headingIds[0]!.q]!,qpos[headingIds[1]!.q]!],
+            jointRate:[qvel[headingIds[0]!.dof]!,qvel[headingIds[1]!.dof]!],
+            axisZ:[ax[3*headingIds[0]!.id+2]!,ax[3*headingIds[1]!.id+2]!],
+            loadN:[loads[0]!,loads[1]!],filteredLoadN:[filteredLoads[0]!,filteredLoads[1]!]});
+          for(let j=0;j<2;j++){
+            const joint=headingIds[j]!,tau=h.hipNm[j]!;
+            if(!Number.isFinite(tau)||Math.abs(tau)>headingLimitNm+1e-8)throw new Error("Heading torque invariant");
+            applied[joint.dof]=tau;peak[joint.name]=Math.max(peak[joint.name]??0,Math.abs(tau));
+          }
+          if(k%every===0)headingTrace.push({t:round(t),yawDeg:yaw*180/Math.PI,footYawDeg:footYaw.map(x=>x*180/Math.PI),
+            loadsN:[...loads],command:h});
+          previousYaw=yaw;previousFootYaw=footYaw;
+        }
         previousAngles=angle;previousComX=comX;
       }
       if(k%every===0||k===total){
@@ -192,7 +224,7 @@ export async function runPlanarReference(dt=referenceDt,durationS=12,passive=fal
     quality.finish();
     const last=frames.at(-1);
     return {dt,durationS:last?.t??0,massKg,firstFallS,nonfinite,space,maxLateralM,maxRollDeg,
-      ...(coronal?{coronalPolicy:policy}:{}),coronalTrace,
+      ...(coronal?{coronalPolicy:policy}:{}),...(heading?{headingPolicy:yawPolicy}:{}),coronalTrace,headingTrace,maxHeadingBeforeFallDeg,maxRollBeforeFallDeg,
       loadedLandings:quality.accepted,longestLoadedConsecutive:quality.longestConsecutive,landingAudit:quality.events,maxLoadedMaterialTravelM,forwardM:last?last.pose[parts.findIndex(p=>p.name==="pelvis")]![0]!-pelvisX0:0,
       qualifiedLandings,longestConsecutive,maxTiltDeg,maxRootForce,maxJointTorqueNm:peak,maxInitialPositionErrorM,
       maxLoadedMarkerDriftM,maxGroundPenetrationM,twentyLandings:longestConsecutive>=20&&firstFallS===null&&nonfinite===null,

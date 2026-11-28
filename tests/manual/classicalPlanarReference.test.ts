@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { planarModel,referenceParts,referenceJoints,referenceInitialPosition } from "../../src/control/classical/planarReferenceModel";
 import { initialPlanarState,planarCommand,type PlanarObservation } from "../../src/control/classical/planarReferenceControl";
+import { headingCommand,headingLimitNm,type HeadingObservation } from "../../src/control/classical/headingControl";
 import { runPlanarReference } from "../../src/control/classical/planarReferenceRun";
 
 const empty=():PlanarObservation=>({angle:Object.fromEntries(referenceJoints.map(j=>[j.name,0])),
@@ -43,6 +44,31 @@ describe("Planar MuJoCo reference model and controller",()=>{
     expect(c.torques.rKnee).toBe(370);
     expect(c.torques.lKnee).toBe(-370);
     expect(Object.keys(c.torques)).toHaveLength(16);
+  });
+});
+describe("Independent axial heading controller",()=>{
+  const base:HeadingObservation={yaw:.2,yawRate:0,footYaw:[0,0],footYawRate:[0,0],jointQ:[0,0],jointRate:[0,0],
+    axisZ:[1,1],loadN:[600,0],filteredLoadN:[600,0]};
+  it("applies the opposite pelvis reaction through the loaded hip only",()=>{
+    const r=headingCommand("heading",base);
+    expect(r.hipNm[0]).toBeCloseTo(14);
+    expect(r.hipNm[1]).toBeCloseTo(0);
+    expect(r.projectedReactionNm).toBeCloseTo(-14);
+    expect(r.residualNm).toBeCloseTo(0);
+  });
+  it("uses the world-axis projection and preserves torque limits",()=>{
+    const r=headingCommand("heading",{...base,axisZ:[.5,1]});
+    expect(r.hipNm[0]).toBeCloseTo(28);
+    expect(r.residualNm).toBeCloseTo(0);
+    const limited=headingCommand("heading",{...base,yaw:3,axisZ:[.5,1]});
+    expect(limited.hipNm.every(v=>Math.abs(v)<=headingLimitNm)).toBe(true);
+    expect(limited.residualNm).toBeLessThan(0);
+  });
+  it("does not command a net heading correction without loaded contacts",()=>{
+    const r=headingCommand("heading",{...base,loadN:[0,0]});
+    expect(r.desiredRootNm).toBe(0);
+    expect(r.hipNm).toEqual([0,0]);
+    expect(headingCommand("neutral",base).hipNm).toEqual([0,0]);
   });
 });
 const enabled=process.env.HPL_REFERENCE==="1"||
@@ -113,6 +139,26 @@ describe("Planar reference MuJoCo adaptation (diagnostic, not 3D validation)",()
     const chunk=3000,count=Math.ceil(packed.length/chunk);
     for(let i=0;i<count;i++)console.log("CLASSICAL_CORONAL_REPLAY "+JSON.stringify({policy,dt:r.dt,index:i,count,sha256:hash,data:packed.slice(i*chunk,(i+1)*chunk)}));
     // A diagnostic ablation, not a 3D locomotion acceptance gate.
+  },180000);
+  it.skipIf(!enabled).each(["neutral","heading"] as const)("measures free-root axial policy %s",async yawPolicy=>{
+    const r=await runPlanarReference(.00025,12,false,"free3d-yaw","capture",yawPolicy);
+    console.log("CLASSICAL_HEADING "+JSON.stringify({...r,frames:undefined,headingTrace:undefined}));
+    console.log("CLASSICAL_HEADING_TRACE "+JSON.stringify({yawPolicy,trace:r.headingTrace.filter((_,i)=>i%5===0)}));
+    expect(r.space).toBe("free3d-yaw");
+    expect(r.headingPolicy).toBe(yawPolicy);
+    expect(r.massKg).toBeCloseTo(63.5,8);
+    expect(r.maxInitialPositionErrorM).toBeLessThan(1e-8);
+    expect(r.maxRootForce).toBe(0);
+    expect(r.frames.length).toBeGreaterThan(0);
+    expect(r.headingTrace.length).toBeGreaterThan(0);
+    expect(r.loadedLandings).toBeLessThanOrEqual(r.qualifiedLandings);
+    expect(r.frames.every(f=>f.pose.length===17&&f.pose.every(p=>p.length===7&&p.every(Number.isFinite)))).toBe(true);
+    for(const side of ["l","r"])expect(r.maxJointTorqueNm[side+"HipYaw"]).toBeLessThanOrEqual(headingLimitNm+1e-8);
+    const bytes=Buffer.from(JSON.stringify({partNames:r.partNames,frames:r.frames}),"utf8");
+    const packed=gzipSync(bytes).toString("base64"),hash=createHash("sha256").update(bytes).digest("hex");
+    const chunk=3000,count=Math.ceil(packed.length/chunk);
+    for(let i=0;i<count;i++)console.log("CLASSICAL_HEADING_REPLAY "+JSON.stringify({yawPolicy,dt:r.dt,index:i,count,sha256:hash,data:packed.slice(i*chunk,(i+1)*chunk)}));
+    // Isolate yaw effects. No claim that a sagittal+axial rig solves roll.
   },180000);
   it.skipIf(!enabled)("records an unactuated negative control with the same model",async()=>{
     const r=await runPlanarReference(.00025,2,true);
